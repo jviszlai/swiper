@@ -1,6 +1,7 @@
 from typing import Callable
 import networkx as nx
-from swiper2.lattice_surgery import LatticeSurgerySchedule
+from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
+from swiper2.device_manager import DeviceManager
 
 class DecodingSimulator:
     def __init__(
@@ -42,42 +43,15 @@ class DecodingSimulator:
             max_parallel_processes: Maximum number of parallel decoding
                 processes to run. If None, run as many as possible.
         """
-        decoding_graph = nx.DiGraph()
-        # Node type: 3D spacetime coords. Third coordinate specifies round at
-        # which commit region begins.
-        # Node attributes:
-        #   num_commit_rounds: int
-        #   pre_buffer_size: int
-        #   post_buffer_size: int
-        #   ready_to_decode: bool
-        # Edge direction represents flow of virtual defect data.
+        device_manager = DeviceManager(self.distance, schedule)
+        window_manager = WindowManager(...)
+        decoding_manager = DecodingManager(...)
 
-        finished_nodes = set()
-        active_nodes = set() # nodes being actively decoded. Each is a tuple of (node, round_started_decoding)
-        patch_latest_node = dict() # map from each patch to its most recent node in decoding graph. If patch is not in this dict, it has not yet been initialized.
-
-        num_instructions = len(schedule.layers)
-        pending_instructions = []
-        instruction_window_dependencies: dict[int, list[tuple[int, int, int]]] = dict()
-        current_instruction_layer_idx = 0
-        current_round = 0
-        while current_instruction_idx < num_instructions:
-            if current_round % self.distance == 0:
-                # old windows are finished
-
-                # apply a new layer of instructions
-                instructions = schedule.layers[current_instruction_layer_idx]
-                for instruction in instructions:
-                    # create new nodes in decoding graph according to scheduling
-                    # method.
-
-                    # conditional: cannot be performed until entire history
-                    # before the completion of the conditioned-on instruction
-                    # has been decoded.
-
-                    raise NotImplementedError
-
-                current_instruction_idx += 1
-
-
-            current_round += 1
+        unassigned_syndrome_data = []
+        unfinished_decoding_instructions: set[int] = set()
+        all_windows = []
+        while not done:
+            new_syndrome_data = device_manager.get_next_round(unfinished_decoding_instructions)
+            unassigned_syndrome_data += new_syndrome_data
+            all_windows, unassigned_syndrome_data = window_manager.update_windows(unassigned_syndrome_data)
+            all_windows = decoding_manager.update_decoding(all_windows)
