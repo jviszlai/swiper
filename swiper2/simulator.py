@@ -53,5 +53,5 @@ class DecodingSimulator:
         while not done:
             new_syndrome_data = device_manager.get_next_round(unfinished_decoding_instructions)
             unassigned_syndrome_data += new_syndrome_data
-            all_windows, unassigned_syndrome_data = window_manager.update_windows(unassigned_syndrome_data)
+            all_windows, unassigned_syndrome_data = window_manager.update_windows(all_windows, unassigned_syndrome_data)
             all_windows = decoding_manager.update_decoding(all_windows)
