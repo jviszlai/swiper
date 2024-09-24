@@ -61,10 +61,11 @@ class MSD15To1Schedule:
         schedule.conditional_S((2,7), 34)
         schedule.idle([(0,0)], Duration.D_ROUNDS)
         schedule.idle([(0,0)], Duration.D_ROUNDS)
-        # for row in range(5):
-        #     for col in range(8):
-        #         schedule.discard([(row, col)])
-        schedule.discard([(r,c) for r in range(5) for c in range(8)])
+        schedule.idle([(0,0)], Duration.D_ROUNDS)
+        schedule.idle([(0,0)], Duration.D_ROUNDS)
+        for row in range(5):
+            for col in range(8):
+                schedule.discard([(row, col)])
 
         self.schedule = schedule
 
@@ -104,8 +105,8 @@ class RegularTSchedule:
             schedule.inject_T(injection_patch)
             prev_injection_flag = not prev_injection_flag
             schedule.merge([(0,0), injection_patch], [])
-            schedule.discard([injection_patch])
             schedule.conditional_S((0,0), len(schedule.all_instructions) - 1)
+            schedule.discard([injection_patch])
 
         schedule.discard([(0,0)])
 
@@ -132,8 +133,8 @@ class RandomTSchedule:
             schedule.inject_T(injection_patch)
             prev_injection_flag = not prev_injection_flag
             schedule.merge([(0,0), injection_patch], [])
-            schedule.discard([injection_patch])
             schedule.conditional_S((0,0), len(schedule.all_instructions) - 1)
+            schedule.discard([injection_patch])
 
         schedule.discard([(0,0)])
 

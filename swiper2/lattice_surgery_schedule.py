@@ -17,7 +17,7 @@ class Instruction:
 class LatticeSurgerySchedule:
     """Represents a planned series of lattice surgery operations."""
     def __init__(self):
-        self.all_instructions = []
+        self.all_instructions: list[Instruction] = []
 
     def inject_T(self, patch_coords: tuple[int, int]):
         instruction = Instruction('INJECT_T', [patch_coords], Duration.D_ROUNDS)
@@ -52,7 +52,7 @@ class LatticeSurgerySchedule:
             dag.add_node(i)
             hidden_patches = set() # patches we will no longer draw connections to
             for j,instr in reversed(list(enumerate(self.all_instructions[:i]))):
-                if instr.name != 'DISCARD' and (set(instruction.patches) & set(instr.patches)) - hidden_patches:
+                if (set(instruction.patches) & set(instr.patches)) - hidden_patches:
                     dag.add_edge(j, i)
 
                 hidden_patches |= set(instr.patches)
