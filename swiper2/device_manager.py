@@ -11,6 +11,13 @@ class DeviceData:
     syndrome_count_by_round: list[int]
     instruction_count_by_round: list[int]
 
+@dataclass
+class SyndromeRound:
+    """A syndrome round for a given patch"""
+    patch: tuple[int, int]
+    round: int
+    instruction_idx: int
+
 class DeviceManager:
     def __init__(self, d_t: int, schedule: LatticeSurgerySchedule):
         """TODO
@@ -36,7 +43,7 @@ class DeviceManager:
             self._active_instructions[instruction_idx] = (self.d_t if self.schedule.all_instructions[instruction_idx].full_duration else self.d_t // 2 + 2)
             self._instruction_frontier.update(nx.descendants(self.schedule_dag, instruction_idx))
 
-    def get_next_round(self, unfinished_decoding_instructions: set[int]) -> list[tuple[tuple[int, int], int, int]]:
+    def get_next_round(self, unfinished_decoding_instructions: set[int]) -> list[SyndromeRound]:
         """Return another round of syndrome measurements, starting new
         instructions if possible.
 
@@ -49,11 +56,11 @@ class DeviceManager:
             the current round index, and the index of the instruction that it is
             associated with.
         """
-        generated_syndrome_coords = []
+        generated_syndrome_rounds = []
 
         completed_instructions = set()
         for instruction_idx in self._active_instructions.keys():
-            generated_syndrome_coords.extend([(coords, self.current_round, instruction_idx) for coords in self.schedule.all_instructions[instruction_idx].patches])
+            generated_syndrome_rounds.extend([SyndromeRound(coords, self.current_round, instruction_idx) for coords in self.schedule.all_instructions[instruction_idx].patches])
             self._active_instructions[instruction_idx] -= 1
             if self._active_instructions[instruction_idx] == 0:
                 completed_instructions.add(instruction_idx)
@@ -76,9 +83,9 @@ class DeviceManager:
             self._instruction_frontier.update(nx.descendants(self.schedule_dag, instruction_idx))
     
         self.current_round += 1
-        self._syndrome_count_by_round.append(len(generated_syndrome_coords))
+        self._syndrome_count_by_round.append(len(generated_syndrome_rounds))
 
-        return generated_syndrome_coords
+        return generated_syndrome_rounds
     
     def is_done(self) -> bool:
         """Return whether all instructions have been completed."""
