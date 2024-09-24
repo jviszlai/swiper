@@ -1,7 +1,7 @@
 from typing import Callable
 import networkx as nx
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
-from swiper2.device_manager import DeviceManager
+from swiper2.device_manager import DeviceData, DeviceManager
 
 class DecodingSimulator:
     def __init__(
@@ -32,7 +32,7 @@ class DecodingSimulator:
             schedule: LatticeSurgerySchedule,
             scheduling_method: str,
             max_parallel_processes: int | None = None,
-        ):
+        ) -> tuple[DeviceData, WindowData, DecodingData]:
         """TODO
         
         Args:
@@ -45,13 +45,19 @@ class DecodingSimulator:
         """
         device_manager = DeviceManager(self.distance, schedule)
         window_manager = WindowManager(...)
-        decoding_manager = DecodingManager(...)
+        decoding_manager = DecodingManager(..., max_parallel_processes=max_parallel_processes)
 
-        unassigned_syndrome_data = []
-        unfinished_decoding_instructions: set[int] = set()
-        all_windows = []
-        while not done:
-            new_syndrome_data = device_manager.get_next_round(unfinished_decoding_instructions)
-            unassigned_syndrome_data += new_syndrome_data
-            all_windows, unassigned_syndrome_data = window_manager.update_windows(all_windows, unassigned_syndrome_data)
-            all_windows = decoding_manager.update_decoding(all_windows)
+        unfinished_instructions: set[int] = set()
+        while not (device_manager.is_done() and window_manager.is_done() and decoding_manager.is_done()):
+            new_syndrome_data = device_manager.get_next_round(unfinished_instructions)
+            new_windows = window_manager.get_new_windows(new_syndrome_data)
+            decoding_manager.update_decoding(new_windows)
+
+            unfinished_window_instructions = window_manager.get_unfinished_instructions()
+            unfinished_decoding_instructions = decoding_manager.get_unfinished_instructions()
+            unfinished_instructions = unfinished_window_instructions | unfinished_decoding_instructions
+
+        device_data = device_manager.get_data()
+        window_data = window_manager.get_data()
+        decoding_data = decoding_manager.get_data()
+        return device_data, window_data, decoding_data

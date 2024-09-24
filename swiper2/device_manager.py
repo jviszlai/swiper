@@ -1,5 +1,15 @@
+from dataclasses import dataclass
 import networkx as nx
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
+
+@dataclass
+class DeviceData:
+    """Data regarding the history of a device."""
+    d: int
+    num_rounds: int
+    num_instructions: int
+    syndrome_count_by_round: list[int]
+    instruction_count_by_round: list[int]
 
 class DeviceManager:
     def __init__(self, d_t: int, schedule: LatticeSurgerySchedule):
@@ -13,6 +23,10 @@ class DeviceManager:
         self.d_t = d_t
         self.schedule = schedule
         self.schedule_dag = schedule.to_dag()
+        self.current_round = 0
+
+        self._syndrome_count_by_round = []
+        self._instruction_count_by_round = []
 
         self._completed_instructions = set()
         self._active_instructions = dict()
@@ -22,7 +36,7 @@ class DeviceManager:
             self._active_instructions[instruction_idx] = (self.d_t if self.schedule.all_instructions[instruction_idx].full_duration else self.d_t // 2 + 2)
             self._instruction_frontier.update(nx.descendants(self.schedule_dag, instruction_idx))
 
-    def get_next_round(self, unfinished_decoding_instructions: set[int]) -> list[tuple[tuple[int, int], int]]:
+    def get_next_round(self, unfinished_decoding_instructions: set[int]) -> list[tuple[tuple[int, int], int, int]]:
         """Return another round of syndrome measurements, starting new
         instructions if possible.
 
@@ -31,17 +45,20 @@ class DeviceManager:
                 are not yet finished decoding (either pending or active).
         
         Returns:
-            List of tuples, each containing a syndrome measurement coordinate
-            and the index of the instruction that it is associated with.
+            List of tuples, each containing a syndrome measurement coordinate,
+            the current round index, and the index of the instruction that it is
+            associated with.
         """
         generated_syndrome_coords = []
 
         completed_instructions = set()
         for instruction_idx in self._active_instructions.keys():
-            generated_syndrome_coords.extend([(coords, instruction_idx) for coords in self.schedule.all_instructions[instruction_idx].patches])
+            generated_syndrome_coords.extend([(coords, self.current_round, instruction_idx) for coords in self.schedule.all_instructions[instruction_idx].patches])
             self._active_instructions[instruction_idx] -= 1
             if self._active_instructions[instruction_idx] == 0:
                 completed_instructions.add(instruction_idx)
+
+        self._instruction_count_by_round.append(len(self._active_instructions))
 
         for instruction_idx in completed_instructions:
             self._completed_instructions.add(instruction_idx)
@@ -58,4 +75,21 @@ class DeviceManager:
             self._instruction_frontier.remove(instruction_idx)
             self._instruction_frontier.update(nx.descendants(self.schedule_dag, instruction_idx))
     
+        self.current_round += 1
+        self._syndrome_count_by_round.append(len(generated_syndrome_coords))
+
         return generated_syndrome_coords
+    
+    def is_done(self) -> bool:
+        """Return whether all instructions have been completed."""
+        return len(self._active_instructions) == 0 and len(self._instruction_frontier) == 0
+    
+    def get_data(self):
+        """Return all relevant dataregarding device history."""
+        return DeviceData(
+            d=self.d_t,
+            num_rounds=self.current_round,
+            num_instructions=len(self.schedule.all_instructions),
+            syndrome_count_by_round=self._syndrome_count_by_round,
+            instruction_count_by_round=self._instruction_count_by_round,
+        )
