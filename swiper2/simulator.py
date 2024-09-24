@@ -44,7 +44,7 @@ class DecodingSimulator:
                 processes to run. If None, run as many as possible.
         """
         device_manager = DeviceManager(self.distance, schedule)
-        window_manager = WindowManager(...)
+        window_manager = WindowManager(..., scheduling_method=scheduling_method)
         decoding_manager = DecodingManager(..., max_parallel_processes=max_parallel_processes)
 
         unfinished_instructions: set[int] = set()
