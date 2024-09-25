@@ -30,9 +30,9 @@ def plot_device_schedule_trace(
     rows = max([r for r,c in data.all_patch_coords]) - min([r for r,c in data.all_patch_coords]) + 1
     cols = max([c for r,c in data.all_patch_coords]) - min([c for r,c in data.all_patch_coords]) + 1
 
-    x,y,z = np.meshgrid(np.cumsum([0]+[data.d, spacing]*cols), np.cumsum([0]+[data.d, spacing]*rows), np.arange(spacing*data.num_rounds+2))
+    x,y,z = np.meshgrid(np.cumsum([0]+[data.d, spacing]*cols), np.cumsum([0]+[data.d, spacing]*rows), np.arange((spacing+1)*data.num_rounds+2))
 
-    volume = np.zeros((2*rows, 2*cols, spacing*data.num_rounds+1))
+    volume = np.zeros((2*rows, 2*cols, (spacing+1)*data.num_rounds+1))
     colors = np.empty_like(volume, dtype=object)
     edgecolors = np.empty_like(volume, dtype=object)
 
@@ -42,7 +42,10 @@ def plot_device_schedule_trace(
 
         # if there is a discard operation in the previous round, bump up z coord
         # by 1 to avoid connecting the patches
-        if do_z_offset and round_idx > 0 and round_idx in data.patches_initialized_by_round and len(data.patches_initialized_by_round[round_idx]) > 0:
+        # if do_z_offset and round_idx > 0 and round_idx in
+        # data.patches_initialized_by_round and
+        # len(data.patches_initialized_by_round[round_idx]) > 0:
+        if do_z_offset and round_idx > 0 and np.any([syndrome.initialized_patch for syndrome in data.generated_syndrome_data[round_idx]]):
             print('WARNING: experimental feature do_z_offset is enabled, but is not yet fully implemented')
             z_offset += spacing
             increased_z = True
@@ -79,7 +82,7 @@ def plot_device_schedule_trace(
             # if we increased z_offset this round, connect any pre-existing
             # patches across the z_offset
             if increased_z:
-                if syndrome.patch not in data.patches_initialized_by_round[round_idx]:
+                if not syndrome.initialized_patch:
                     volume[coords[0]*2, coords[1]*2, coords[2]+z_offset-spacing:coords[2]+z_offset] = 1
                     colors[coords[0]*2, coords[1]*2, coords[2]+z_offset-spacing:coords[2]+z_offset] = color
                     edgecolors[coords[0]*2, coords[1]*2, coords[2]+z_offset-spacing:coords[2]+z_offset] = edgecolor_dict[name]

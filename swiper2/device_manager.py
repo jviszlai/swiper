@@ -12,6 +12,7 @@ class SyndromeRound:
     patch: tuple[int, int]
     round: int
     instruction_idx: int
+    initialized_patch: bool
     is_unwanted_idle: bool = False
 
 @dataclass
@@ -171,7 +172,7 @@ class DeviceManager:
         completed_instructions = set()
         for instruction_idx in self._active_instructions.keys():
             assert self._active_instructions[instruction_idx] > 0
-            generated_syndrome_rounds.extend([SyndromeRound(coords, self.current_round, instruction_idx) for coords in self.schedule.all_instructions[instruction_idx].patches])
+            generated_syndrome_rounds.extend([SyndromeRound(coords, self.current_round, instruction_idx, initialized_patch=(coords not in self._active_patches)) for coords in self.schedule.all_instructions[instruction_idx].patches])
             patches_used_this_round.update(self.schedule.all_instructions[instruction_idx].patches)
             self._active_patches.update(self.schedule.all_instructions[instruction_idx].patches)
             self._active_instructions[instruction_idx] -= 1
@@ -180,7 +181,7 @@ class DeviceManager:
                 completed_instructions.add(instruction_idx)
         self._all_patch_coords.update(patches_used_this_round)
 
-        generated_syndrome_rounds.extend([SyndromeRound(coords, self.current_round, -10**8, is_unwanted_idle=True) for coords in self._active_patches - patches_used_this_round])
+        generated_syndrome_rounds.extend([SyndromeRound(coords, self.current_round, -10**8, initialized_patch=False, is_unwanted_idle=True) for coords in self._active_patches - patches_used_this_round])
         self._instruction_count_by_round[-1] += len(self._active_patches - patches_used_this_round)
         self._syndrome_count_by_round.append(len(generated_syndrome_rounds))
         self._generated_syndrome_data.append(generated_syndrome_rounds)
