@@ -12,7 +12,7 @@ class WindowManager(ABC):
         self.waiting_windows = []
         self.window_builder = window_builder
         self.window_dag = nx.DiGraph()
-        self.window_round_lookup = {}
+        self.window_end_lookup = {}
 
     @abstractmethod
     def process_round(self, new_rounds: list[SyndromeRound]) -> None:
@@ -36,17 +36,17 @@ class SlidingWindowManager(WindowManager):
         self.all_windows.extend(new_commits)
         for i, window in enumerate(new_commits):
             window_idx = new_window_start + i
-            self.window_round_lookup.setdefault(window.commit_region.round_start, []).append(window_idx)
+            self.window_end_lookup.setdefault(window.commit_region.round_start + window.commit_region.duration, []).append(window_idx)
             self.window_dag.add_node(window_idx)
         
         # Process buffers in time
         for i, window in enumerate(new_commits):
             window_idx = new_window_start + i
             patch = window.commit_region.space_footprint[0]
-            prev_window_start = window.commit_region.round_start - self.window_builder.d
-            if prev_window_start not in self.window_round_lookup:
+            prev_window_end = window.commit_region.round_start
+            if prev_window_end not in self.window_end_lookup:
                 continue
-            for prev_window_idx in self.window_round_lookup[prev_window_start]:
+            for prev_window_idx in self.window_end_lookup[prev_window_end]:
                 prev_window = self.all_windows[prev_window_idx]
                 if patch in prev_window.commit_region.space_footprint:
                     prev_window.buffer_regions.append(window.commit_region)
