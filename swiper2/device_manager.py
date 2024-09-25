@@ -144,7 +144,7 @@ class DeviceManager:
 
         start_times, finish_times = self._predict_instruction_start_times()
         for instruction_idx, start_time in start_times.items():
-            if instruction_idx not in self._active_instructions and instruction_idx not in self._completed_instructions and start_time == self.current_round:
+            if instruction_idx not in self._active_instructions and instruction_idx not in self._completed_instructions and start_time <= self.current_round:
                 if set(self.schedule.all_instructions[instruction_idx].patches) & patches_in_use:
                     # at least one patch is already in use
                     print(f"Instruction {instruction_idx} cannot start because patch is already in use")

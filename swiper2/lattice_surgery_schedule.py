@@ -43,8 +43,9 @@ class LatticeSurgerySchedule:
         self.all_instructions.append(instruction)
 
     def idle(self, patches: list[tuple[int, int]], num_rounds: Duration | int = Duration.D_ROUNDS):
-        instruction = Instruction('IDLE', patches, num_rounds)
-        self.all_instructions.append(instruction)
+        if isinstance(num_rounds, Duration) or num_rounds > 0:
+            instruction = Instruction('IDLE', patches, num_rounds)
+            self.all_instructions.append(instruction)
 
     def to_dag(self):
         dag = nx.DiGraph()
