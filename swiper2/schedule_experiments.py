@@ -49,6 +49,21 @@ class MSD15To1Schedule:
         schedule.merge([(3,5), (2,5)], [])
         schedule.merge([(3,6), (2,6)], [])
         schedule.merge([(3,7), (2,7)], [])
+        schedule.discard([(1,0)])
+        schedule.discard([(1,1)])
+        schedule.discard([(1,2)])
+        schedule.discard([(1,3)])
+        schedule.discard([(1,4)])
+        schedule.discard([(1,5)])
+        schedule.discard([(1,6)])
+        schedule.discard([(3,0)])
+        schedule.discard([(3,1)])
+        schedule.discard([(3,2)])
+        schedule.discard([(3,3)])
+        schedule.discard([(3,4)])
+        schedule.discard([(3,5)])
+        schedule.discard([(3,6)])
+        schedule.discard([(3,7)])
         schedule.conditional_S((0,0), 20)
         schedule.conditional_S((0,1), 21)
         schedule.conditional_S((0,2), 22)
@@ -110,9 +125,9 @@ class RegularTSchedule:
             schedule.inject_T(injection_patch)
             prev_injection_flag = not prev_injection_flag
             schedule.merge([(0,0), injection_patch], [])
-            schedule.conditional_S((0,0), len(schedule.all_instructions) - 1)
             schedule.discard([injection_patch])
-
+            schedule.conditional_S((0,0), len(schedule.all_instructions) - 2)
+            
         schedule.discard([(0,0)])
 
         self.schedule = schedule
@@ -138,8 +153,8 @@ class RandomTSchedule:
             schedule.inject_T(injection_patch)
             prev_injection_flag = not prev_injection_flag
             schedule.merge([(0,0), injection_patch], [])
-            schedule.conditional_S((0,0), len(schedule.all_instructions) - 1)
             schedule.discard([injection_patch])
+            schedule.conditional_S((0,0), len(schedule.all_instructions) - 2)
 
         schedule.discard([(0,0)])
 
