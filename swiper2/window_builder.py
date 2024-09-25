@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import math
 
 from swiper2.lattice_surgery_schedule import Instruction
 from swiper2.device_manager import SyndromeRound
@@ -43,7 +44,7 @@ class DecodingWindow:
     commit_region: SpacetimeRegion
     buffer_regions: list[SpacetimeRegion]
     decoding_time: int
-    parent_instrs: list[Instruction]
+    parent_instr: Instruction
 
 
 class WindowBuilder():
@@ -63,23 +64,29 @@ class WindowBuilder():
         
         self._waiting_rounds.extend(new_rounds)
 
-        min_round = min(self._waiting_rounds, key=lambda x: x.round)
-        max_round = max(self._waiting_rounds, key=lambda x: x.round)
-        if max_round.round - min_round.round < self.d:
-            # Not enough rounds to create a window
-            return []
         new_windows = []
-        active_patches = set([round.patch for round in self._waiting_rounds])
-        patch_instrs = {patch: [] for patch in active_patches}
+        instr_patch_groups = {}
         for round in self._waiting_rounds:
-            if round.instruction not in patch_instrs[round.patch]:
-                patch_instrs[round.patch].append(round.instruction)
-        for patch, instrs in patch_instrs.items():
+            instr, patch = round.instruction, round.patch
+            instr_patch_groups.setdefault((instr, patch), []).append(round)
+            
+        for (instr, patch), rounds in instr_patch_groups.items():
+            min_round = min(rounds, key=lambda x: x.round)
+            max_round = max(rounds, key=lambda x: x.round)
+            # TODO: how to handle arbitrary duration idles
+            expected_duration = min(math.ceil(0.5 * self.d * (instr.duration if isinstance(instr.duration, int) else instr.duration.value)),
+                                    self.d)
+        
+            if (max_round.round - min_round.round) + 1 < expected_duration:
+                # Not enough rounds to create a window
+                continue
             commit_region = SpacetimeRegion(space_footprint=[patch],
                                             round_start=min_round.round,
-                                            duration=self.d)
-            blocking = any([instr.conditioned_on_idx is not None for instr in instrs])
-            new_windows.append(DecodingWindow(blocking=blocking, commit_region=commit_region, parent_instrs=instrs,
+                                            duration=expected_duration)
+            new_windows.append(DecodingWindow(blocking=instr.conditioned_on_idx is not None, 
+                                              commit_region=commit_region, parent_instr=instr,
                                               buffer_regions=[], decoding_time=0))
+            for round in rounds:
+                self._waiting_rounds.remove(round)
 
         return new_windows

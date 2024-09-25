@@ -190,7 +190,7 @@ class DeviceManager:
         generated_syndrome_rounds.extend([
             SyndromeRound(coords, 
                           self.current_round, 
-                          Instruction('UNWANTED_IDLE', [coords], 1), 
+                          Instruction('UNWANTED_IDLE', frozenset([coords]), Duration.D_ROUNDS), 
                           initialized_patch=False, 
                           is_unwanted_idle=True) 
             for coords in self._active_patches - patches_used_this_round
