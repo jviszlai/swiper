@@ -17,6 +17,11 @@ class SpacetimeRegion:
     round_start: int
     duration: int
 
+    def contains_syndrome_round(self, syndrome_round: SyndromeRound) -> bool:
+        '''
+        Check if a syndrome round is contained in this region
+        '''
+        return syndrome_round.patch in self.space_footprint and self.round_start <= syndrome_round.round < self.round_start + self.duration
 
 @dataclass
 class DecodingWindow:
