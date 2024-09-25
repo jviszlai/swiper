@@ -58,6 +58,9 @@ class WindowBuilder():
         '''
         TODO
         '''
+        if not new_rounds or len(new_rounds) == 0:
+            return []
+        
         self._waiting_rounds.extend(new_rounds)
 
         min_round = min(self._waiting_rounds, key=lambda x: x.round)
