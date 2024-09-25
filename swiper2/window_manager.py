@@ -3,6 +3,7 @@ import networkx as nx
 
 from swiper2.window_builder import WindowBuilder
 from swiper2.device_manager import SyndromeRound
+from swiper2.lattice_surgery_schedule import Instruction
 
 class WindowManager(ABC):
 
@@ -25,6 +26,7 @@ class SlidingWindowManager(WindowManager):
         if len(new_commits) == 0:
             # No new windows
             return
+        raise NotImplementedError
         
 class ParallelWindowManager(WindowManager):
 
@@ -33,6 +35,7 @@ class ParallelWindowManager(WindowManager):
         if len(new_commits) == 0:
             # No new windows
             return
+        raise NotImplementedError
 
     
     

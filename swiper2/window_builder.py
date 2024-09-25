@@ -57,19 +57,21 @@ class WindowBuilder():
 
         min_round = min(self._waiting_rounds, key=lambda x: x.round)
         max_round = max(self._waiting_rounds, key=lambda x: x.round)
-        if max_round - min_round < self.d:
+        if max_round.round - min_round.round < self.d:
             # Not enough rounds to create a window
             return []
         new_windows = []
         active_patches = set([round.patch for round in self._waiting_rounds])
-        patch_instrs = {patch: set() for patch in active_patches}
+        patch_instrs = {patch: [] for patch in active_patches}
         for round in self._waiting_rounds:
-            patch_instrs[round.patch].add(round.instruction)
+            if round.instruction not in patch_instrs[round.patch]:
+                patch_instrs[round.patch].append(round.instruction)
         for patch, instrs in patch_instrs.items():
-            commit_region = SpacetimeRegion(space_footprint=[patch.coords],
-                                            round_start=min_round,
+            commit_region = SpacetimeRegion(space_footprint=[patch],
+                                            round_start=min_round.round,
                                             duration=self.d)
             blocking = any([instr.conditioned_on_idx is not None for instr in instrs])
-            new_windows.append(DecodingWindow(blocking=blocking, commit_region=commit_region, parent_instrs=instrs))
+            new_windows.append(DecodingWindow(blocking=blocking, commit_region=commit_region, parent_instrs=instrs,
+                                              buffer_regions=[], decoding_time=0))
 
         return new_windows
