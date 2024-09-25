@@ -1,41 +1,75 @@
-from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
-from device_manager import SyndromeRound
-from window_manager import DecodingWindow
+from swiper2.lattice_surgery_schedule import Instruction
+from swiper2.device_manager import SyndromeRound
 
-class WindowBuilder(ABC):
+@dataclass
+class SpacetimeRegion:
+    '''
+    A region of spacetime in the decoding volume
 
-    @abstractmethod
+    Attributes:
+        space_footprint: spatial coordinates of patches in region
+        round_start: measurement round starting the region
+        duration: temporal length in units of measurement rounds
+    '''
+    space_footprint: list[tuple[int, int]]
+    round_start: int
+    duration: int
+
+
+@dataclass
+class DecodingWindow:
+    '''
+    Attributes:
+        blocking: Whether the commit region of this window contains 
+                  a blocking operation.
+        commit_region: Spacetime region that is commited after decoding.
+        buffer_regions: Spacetime regions that are not commited after decoding.
+                        The boundary between a buffer region and the commit region
+                        forms a decoding dependency from this window to
+                        adjacent windows.
+        decoding_time: Number of rounds required to decode this window.
+        parent_instrs: Instructions that are at least partially contained in the 
+                       commit region of this window.
+        
+    '''
+    blocking: bool
+    commit_region: SpacetimeRegion
+    buffer_regions: list[SpacetimeRegion]
+    decoding_time: int
+    parent_instrs: list[Instruction]
+
+
+class WindowBuilder():
+
+    def __init__(self, d: int) -> None:
+        self._waiting_rounds = []
+        self.d = d
+
     def build_windows(self, 
-                      waiting_rounds: list[SyndromeRound]
-                      ) -> tuple[list[SyndromeRound], list[DecodingWindow]]:
-        '''
-        Args:
-            waiting_rounds: List of unassigned syndrome rounds
-
-        Returns:
-            List of still unassigned syndrome rounds,
-            List of constructed decoding windows
-        '''
-        raise NotImplementedError
-    
-
-class SlidingWindowBuilder(WindowBuilder):
-
-    def build_windows(self, 
-                      waiting_rounds: list[SyndromeRound]
-                      ) -> tuple[list[SyndromeRound], list[DecodingWindow]]:
+                      new_rounds: list[SyndromeRound]
+                      ) -> list[DecodingWindow]:
         '''
         TODO
         '''
-        raise NotImplementedError
+        self._waiting_rounds.extend(new_rounds)
 
-class ParallelWindowBuilder(WindowBuilder):
+        min_round = min(self._waiting_rounds, key=lambda x: x.round)
+        max_round = max(self._waiting_rounds, key=lambda x: x.round)
+        if max_round - min_round < self.d:
+            # Not enough rounds to create a window
+            return []
+        new_windows = []
+        active_patches = set([round.patch for round in self._waiting_rounds])
+        patch_instrs = {patch: set() for patch in active_patches}
+        for round in self._waiting_rounds:
+            patch_instrs[round.patch].add(round.instruction)
+        for patch, instrs in patch_instrs.items():
+            commit_region = SpacetimeRegion(space_footprint=[patch.coords],
+                                            round_start=min_round,
+                                            duration=self.d)
+            blocking = any([instr.conditioned_on_idx is not None for instr in instrs])
+            new_windows.append(DecodingWindow(blocking=blocking, commit_region=commit_region, parent_instrs=instrs))
 
-    def build_windows(self, 
-                      waiting_rounds: list[SyndromeRound]
-                      ) -> tuple[list[SyndromeRound], list[DecodingWindow]]:
-        '''
-        TODO
-        '''
-        raise NotImplementedError
+        return new_windows

@@ -11,7 +11,7 @@ class SyndromeRound:
     """A syndrome round for a given patch"""
     patch: tuple[int, int]
     round: int
-    instruction_idx: int
+    instruction: Instruction
     is_unwanted_idle: bool = False
 
 @dataclass
@@ -171,7 +171,8 @@ class DeviceManager:
         completed_instructions = set()
         for instruction_idx in self._active_instructions.keys():
             assert self._active_instructions[instruction_idx] > 0
-            generated_syndrome_rounds.extend([SyndromeRound(coords, self.current_round, instruction_idx) for coords in self.schedule.all_instructions[instruction_idx].patches])
+            instruction = self.schedule.all_instructions[instruction_idx]
+            generated_syndrome_rounds.extend([SyndromeRound(coords, self.current_round, instruction) for coords in instruction.patches])
             patches_used_this_round.update(self.schedule.all_instructions[instruction_idx].patches)
             self._active_patches.update(self.schedule.all_instructions[instruction_idx].patches)
             self._active_instructions[instruction_idx] -= 1

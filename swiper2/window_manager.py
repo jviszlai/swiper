@@ -1,46 +1,40 @@
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
 import networkx as nx
 
-from swiper2.lattice_surgery_schedule import Instruction
+from swiper2.window_builder import WindowBuilder
+from swiper2.device_manager import SyndromeRound
 
-@dataclass
-class SpacetimeRegion:
-    '''
-    A region of spacetime in the decoding volume
+class WindowManager(ABC):
 
-    Attributes:
-        space_footprint: spatial coordinates of patches in region
-        duration: temporal length in units of measurement rounds
-    '''
-    space_footprint: list[tuple[int, int]]
-    duration: int
-
-
-@dataclass
-class DecodingWindow:
-    '''
-    Attributes:
-        blocking: Whether the commit region of this window contains 
-                  a blocking operation.
-        commit_region: Spacetime region that is commited after decoding.
-        buffer_regions: Spacetime regions that are not commited after decoding.
-                        The boundary between a buffer region and the commit region
-                        forms a decoding dependency from this window to
-                        adjacent windows.
-        decoding_time: Number of rounds required to decode this window.
-        parent_instrs: Instructions that are at least partially contained in the 
-                       commit region of this window.
-        
-    '''
-    blocking: bool
-    commit_region: SpacetimeRegion
-    buffer_regions: list[SpacetimeRegion]
-    decoding_time: int
-    parent_instrs: list[Instruction]
-
-class WindowManager:
-    def __init__(self):
+    def __init__(self, window_builder: WindowBuilder):
         self.waiting_windows = []
+        self.window_builder = window_builder
         self.window_dag = nx.DiGraph()
+
+    @abstractmethod
+    def process_round(self, new_rounds: list[SyndromeRound]) -> None:
+        '''
+        Process new syndrome rounds and update the decoding window dependency graph as needed
+        '''
+        raise NotImplementedError
+
+class SlidingWindowManager(WindowManager):
+    
+    def process_round(self, new_rounds: list[SyndromeRound]) -> None:
+        new_commits = self.window_builder.build_windows(new_rounds)
+        if len(new_commits) == 0:
+            # No new windows
+            return
+        
+class ParallelWindowManager(WindowManager):
+
+    def process_round(self, new_rounds: list[SyndromeRound]) -> None:
+        new_commits = self.window_builder.build_windows(new_rounds)
+        if len(new_commits) == 0:
+            # No new windows
+            return
+
+    
+    
     
 
