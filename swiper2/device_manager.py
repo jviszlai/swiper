@@ -147,7 +147,6 @@ class DeviceManager:
             if instruction_idx not in self._active_instructions and instruction_idx not in self._completed_instructions and start_time <= self.current_round:
                 if set(self.schedule.all_instructions[instruction_idx].patches) & patches_in_use:
                     # at least one patch is already in use
-                    print(f"Instruction {instruction_idx} cannot start because patch is already in use")
                     continue
                 elif self.schedule.all_instructions[instruction_idx].conditioned_on_idx is not None and self.schedule.all_instructions[instruction_idx].conditioned_on_idx in not_yet_decoded_instructions:
                     # dependency not yet satisfied
