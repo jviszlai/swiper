@@ -2,13 +2,14 @@ from typing import Callable
 import networkx as nx
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper2.device_manager import DeviceData, DeviceManager
+from swiper2.decoder_manager import DecoderData, DecoderManager
 
 class DecodingSimulator:
     def __init__(
             self,
             distance: int,
-            decoding_latency_fn: Callable[[int], float],
-            speculation_latency: float,
+            decoding_latency_fn: Callable[[int], int],
+            speculation_latency: int,
             
         ):
         """Initialize the decoding simulator.
@@ -18,8 +19,8 @@ class DecodingSimulator:
                 number of QEC rounds for each lattice surgery operation).
             decoding_latency_fn: A function that returns a (possibly
                 randomly-sampled) decoding latency given the spacetime volume of
-                the decoding problem (e.g. dxdx2d => volume 2). Returned latency
-                is in units of rounds of QEC.
+                the decoding problem, in units of rounds*d^2 (e.g. dxdx2d =>
+                volume 2d). Returned latency is in units of rounds of QEC.
             speculation_latency: The latency of a speculative prediction, in
                 units of rounds of QEC.
         """
@@ -45,13 +46,20 @@ class DecodingSimulator:
         """
         device_manager = DeviceManager(self.distance, schedule)
         window_manager = WindowManager(..., scheduling_method=scheduling_method)
-        decoding_manager = DecodingManager(..., max_parallel_processes=max_parallel_processes)
+        decoding_manager = DecoderManager(
+            decoding_time_function=self.decoding_latency_fn,
+            speculation_time=self.speculation_latency,
+            max_parallel_processes=max_parallel_processes,
+        )
 
         unfinished_instructions: set[int] = set()
         while not (device_manager.is_done() and window_manager.is_done() and decoding_manager.is_done()):
             new_syndrome_data = device_manager.get_next_round(unfinished_instructions)
-            new_windows = window_manager.get_new_windows(new_syndrome_data)
-            decoding_manager.update_decoding(new_windows)
+            all_windows, window_idx_dag = window_manager.get_new_windows(new_syndrome_data)
+            decoding_manager.update_decoding(
+                all_windows=all_windows,
+                window_idx_dag=window_idx_dag,
+            )
 
             unfinished_window_instructions = window_manager.get_unfinished_instructions()
             unfinished_decoding_instructions = decoding_manager.get_unfinished_instructions()

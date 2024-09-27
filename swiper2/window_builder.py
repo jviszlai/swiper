@@ -46,6 +46,13 @@ class DecodingWindow:
     decoding_time: int
     parent_instr: Instruction
 
+    def total_spacetime_volume(self) -> int:
+        '''
+        Calculate the total spacetime volume of this window, in units of
+        rounds*d^2.
+        '''
+        return self.commit_region.duration * len(self.commit_region.space_footprint) + sum([region.duration * len(region.space_footprint) for region in self.buffer_regions])
+
 
 class WindowBuilder():
 
