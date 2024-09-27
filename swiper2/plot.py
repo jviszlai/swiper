@@ -42,7 +42,7 @@ def plot_device_schedule_trace(
     volume = np.zeros((2*rows, 2*cols, (spacing+1)*data.num_rounds+1))
     colors = np.empty_like(volume, dtype=object)
     edgecolors = np.empty_like(volume, dtype=object)
-    linewidth = (0.5 if len(windows) == 0 else 2)
+    linewidth = (0.5 if len(windows) == 0 else 1)
 
     def get_color(window_idx):
         if window_idx in window_buffers_to_highlight:
@@ -96,7 +96,7 @@ def plot_device_schedule_trace(
                 if containing_buffer_idx >= 0:
                     edgecolor = get_color(containing_buffer_idx)
                 else:
-                    edgecolor = (0,0,0,0)
+                    edgecolor = (color, 0.3)
                     
             if name == 'MERGE':
                 # fill extra space between patches of same instruction
