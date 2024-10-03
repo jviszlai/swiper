@@ -30,8 +30,9 @@ def plot_device_schedule_trace(
         selected_window_colors: list[str] = [
             'firebrick', 'pink', 'orange',
         ],
+        default_fig: plt.Figure | None = None,
     ):
-    fig = plt.figure()
+    fig = plt.figure() if not default_fig else default_fig
     ax = fig.add_subplot(111, projection='3d')
 
     rows = max([r for r,c in data.all_patch_coords]) - min([r for r,c in data.all_patch_coords]) + 1
