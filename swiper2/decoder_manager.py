@@ -3,6 +3,7 @@ from typing import Callable
 import numpy as np
 import networkx as nx
 from swiper2.window_builder import DecodingWindow, SpacetimeRegion
+from swiper2.lattice_surgery_schedule import Instruction
 
 @dataclass
 class DecoderData:
@@ -115,6 +116,13 @@ class DecoderManager:
         self._current_round += 1
         if not self.max_parallel_processes:
             self._parallel_processes_by_round.append(len(self._active_window_progress))
+    
+    def decoded_instruction_idx(self) -> set[int]:
+        """Return the set of instruction idx that have been decoded."""
+        decoded_instructions = set()
+        for window in self._window_completion_times:
+            decoded_instructions |= window.parent_instr_idx
+        return decoded_instructions
 
     def get_data(self) -> DecoderData:
         return DecoderData(

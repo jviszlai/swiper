@@ -12,6 +12,7 @@ class SyndromeRound:
     patch: tuple[int, int]
     round: int
     instruction: Instruction
+    instruction_idx: int
     initialized_patch: bool
     is_unwanted_idle: bool = False
 
@@ -175,6 +176,7 @@ class DeviceManager:
                 SyndromeRound(coords, 
                               self.current_round, 
                               self.schedule.all_instructions[instruction_idx], 
+                              instruction_idx,
                               initialized_patch=(coords not in self._active_patches)) 
                 for coords in self.schedule.all_instructions[instruction_idx].patches
                 ])
@@ -190,6 +192,7 @@ class DeviceManager:
             SyndromeRound(coords, 
                           self.current_round, 
                           Instruction('UNWANTED_IDLE', frozenset([coords]), Duration.D_ROUNDS), 
+                          -1,
                           initialized_patch=False, 
                           is_unwanted_idle=True) 
             for coords in self._active_patches - patches_used_this_round
@@ -238,7 +241,8 @@ class DeviceManager:
         """Return all relevant dataregarding device history."""
         patches_initialized_by_round = {round_idx: set() for round_idx in range(self.current_round+2)}
         for instr, round_idx in self._predict_instruction_start_times()[0].items():
-            patches_initialized_by_round[round_idx] |= self._patches_initialized_by_instr[instr]
+            if round_idx <= self.current_round:
+                patches_initialized_by_round[round_idx] |= self._patches_initialized_by_instr[instr]
 
         return DeviceData(
             d=self.d_t,
