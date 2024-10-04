@@ -35,13 +35,14 @@ class DecodingWindow:
                         adjacent windows.
         merge_instr: MERGE instruction for spatial buffers if necessary.
         parent_instr_idx: List of indices of instructions that generated this window.
-
+        constructed: True if window is finished being constructed with buffers
         
     '''
     commit_region: SpacetimeRegion
     buffer_regions: frozenset[SpacetimeRegion]
     merge_instr: Instruction | None
     parent_instr_idx: frozenset[int]
+    constructed: bool
 
     def total_spacetime_volume(self) -> int:
         '''
@@ -71,9 +72,9 @@ class WindowBuilder():
             curr_round = new_rounds[0].round
             assert all([round.round == curr_round for round in new_rounds])
         
-        self._waiting_rounds.extend([round 
-                                     for round in new_rounds
-                                     if round.instruction.name != 'INJECT_T']) # T injection is not decoded 
+            self._waiting_rounds.extend([round 
+                                        for round in new_rounds
+                                        if round.instruction.name != 'INJECT_T']) # T injection is not decoded 
         new_windows = []
 
         if not self.enforce_alignment:
@@ -103,7 +104,8 @@ class WindowBuilder():
                 new_windows.append(DecodingWindow(commit_region=commit_region,
                                                   buffer_regions=frozenset(),
                                                   merge_instr=None if min_round.instruction.name != 'MERGE' else min_round.instruction,
-                                                  parent_instr_idx=parent_instr_idx))
+                                                  parent_instr_idx=parent_instr_idx,
+                                                  constructed=False))
                 for round in rounds:
                     self._waiting_rounds.remove(round)
                     

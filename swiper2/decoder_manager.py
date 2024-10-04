@@ -17,6 +17,7 @@ class DecoderManager:
             self,
             decoding_time_function: Callable[[int], int],
             speculation_time: int,
+            speculation_accuracy: float,
             max_parallel_processes: int | None = None,
             speculation_mode: str = 'integrated',
         ) -> None:
@@ -26,6 +27,7 @@ class DecoderManager:
             decoding_time_function: A function that returns the number of rounds
                 required to decode a given spacetime volume of syndrome
                 measurements. The volume is specified in units of rounds*d^2.
+            speculation_accuracy: Accuracy of the speculation step
             speculation_time: Number of rounds required to make a speculative
                 prediction for artifial defects at the boundary of a decoding
                 window.
@@ -43,6 +45,7 @@ class DecoderManager:
         """
         self.decoding_time_function = decoding_time_function
         self.speculation_time = speculation_time
+        self.speculation_accuracy = speculation_accuracy
         self.speculation_mode = speculation_mode
 
         self.max_parallel_processes = max_parallel_processes
@@ -54,6 +57,7 @@ class DecoderManager:
         self._active_window_progress: dict[DecodingWindow, int] = {} # maps each active window to rounds remaining until completion of decoding
         self._speculated_windows: set[DecodingWindow] = set() # windows whose boundaries have been speculated
         self._pending_windows: set[DecodingWindow] = set() # windows with all dependencies satisfied that are now ready to be decoded
+
 
     def update_decoding(self, all_windows: list[DecodingWindow], window_idx_dag: nx.DiGraph) -> None:
         """Update state of processing windows and start any new decoding
@@ -73,9 +77,15 @@ class DecoderManager:
         for window in self._active_window_progress:
             self._active_window_progress[window] -= 1
         completed_windows = []
+        poisoned_windows = []
+
         for window, time_remaining in self._active_window_progress.items():
             if time_remaining <= 0:
                 completed_windows.append(window)
+                if np.random.choice([True, False], p=[1 - self.speculation_accuracy, self.speculation_accuracy]):
+                    # Mis-speculation
+                    poisoned_windows.append(window)
+                
         for window in completed_windows:
             self._window_completion_times[window] = self._current_round
             self._active_window_progress.pop(window)
@@ -91,15 +101,34 @@ class DecoderManager:
             self._speculated_windows.add(window)
             self._speculation_progress.pop(window)
 
+        # Update poisoned windows
+        for window_idx, window in enumerate(all_windows):
+            parents = list(window_idx_dag.predecessors(window_idx))
+            if any(all_windows[parent_idx] in poisoned_windows for parent_idx in parents):
+                if window in self._window_completion_times:
+                    self._window_completion_times.pop(window)
+                elif window in self._active_window_progress:
+                    self._active_window_progress.pop(window)
+                if window in self._speculation_progress:
+                    self._speculation_progress.pop(window)
+                elif window in self._speculated_windows:
+                    self._speculated_windows.remove(window)
+
         # Check dependencies for all windows
         finished_dependencies = set(self._window_completion_times.keys()) | self._speculated_windows
         for window_idx, window in enumerate(all_windows):
+            if not window.constructed:
+                continue
+
             if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
                 break
 
             if self.speculation_mode == 'separate' and window not in (self._speculated_windows | set(self._speculation_progress.keys())):
                 # immediately speculate any window that is ready
-                self._speculation_progress[window] = self.speculation_time
+                if self.speculation_time > 0:
+                    self._speculation_progress[window] = self.speculation_time
+                else:
+                    self._speculated_windows.add(window)
             
             if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
                 break
@@ -111,7 +140,10 @@ class DecoderManager:
                     continue
                 self._active_window_progress[window] = self.decoding_time_function(window.total_spacetime_volume())
                 if self.speculation_mode == 'integrated':
-                    self._speculation_progress[window] = self.speculation_time
+                    if self.speculation_time > 0:
+                        self._speculation_progress[window] = self.speculation_time
+                    else:
+                        self._speculated_windows.add(window)
 
         self._current_round += 1
         if not self.max_parallel_processes:
@@ -122,6 +154,8 @@ class DecoderManager:
         decoded_instructions = set()
         for window in self._window_completion_times:
             decoded_instructions |= window.parent_instr_idx
+        for window in self._active_window_progress:
+            decoded_instructions -= window.parent_instr_idx
         return decoded_instructions
 
     def get_data(self) -> DecoderData:
