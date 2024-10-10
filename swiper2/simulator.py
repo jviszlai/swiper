@@ -3,6 +3,8 @@ import networkx as nx
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper2.device_manager import DeviceData, DeviceManager
 from swiper2.decoder_manager import DecoderData, DecoderManager
+from swiper2.window_manager import WindowData, SlidingWindowManager, ParallelWindowManager, DynamicWindowManager
+from swiper2.window_builder import WindowBuilder
 
 class DecodingSimulator:
     def __init__(
@@ -10,7 +12,8 @@ class DecodingSimulator:
             distance: int,
             decoding_latency_fn: Callable[[int], int],
             speculation_latency: int,
-            
+            speculation_accuracy: float,
+            speculation_mode: str,
         ):
         """Initialize the decoding simulator.
         
@@ -23,17 +26,31 @@ class DecodingSimulator:
                 volume 2d). Returned latency is in units of rounds of QEC.
             speculation_latency: The latency of a speculative prediction, in
                 units of rounds of QEC.
+            speculation_accuracy: The probability that a speculative prediction
+                is correct.
+            speculation_mode: 'integrated' or 'separate'. If 'integrated', the
+                speculation time is included in the decoding time of a window,
+                and speculation can only be performed once the decoder starts
+                processing the window. If 'separate', the speculation time is
+                not included in the decoding, time of a window, and speculation
+                can be run independently of decoding. In this case, speculation
+                uses a parallel process and counts towards
+                max_parallel_processes.
         """
         self.distance = distance
         self.decoding_latency_fn = decoding_latency_fn
         self.speculation_latency = speculation_latency
+        self.speculation_accuracy = speculation_accuracy
+        assert speculation_mode in ['integrated', 'separate']
+        self.speculation_mode = speculation_mode
 
     def run(
             self,
             schedule: LatticeSurgerySchedule,
             scheduling_method: str,
+            enforce_window_alignment: bool,
             max_parallel_processes: int | None = None,
-        ) -> tuple[DeviceData, WindowData, DecodingData]:
+        ) -> tuple[DeviceData, WindowData, DecoderData, list[int]]:
         """TODO
         
         Args:
@@ -45,27 +62,39 @@ class DecodingSimulator:
                 processes to run. If None, run as many as possible.
         """
         device_manager = DeviceManager(self.distance, schedule)
-        window_manager = WindowManager(..., scheduling_method=scheduling_method)
+        if scheduling_method == 'sliding':
+            window_manager = SlidingWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
+        elif scheduling_method == 'parallel':
+            raise NotImplementedError
+            # window_manager = ParallelWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
+        elif scheduling_method == 'dynamic':
+            raise NotImplementedError
+            # window_manager = DynamicWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
+        else:
+            raise ValueError(f"Unknown scheduling method: {scheduling_method}")
         decoding_manager = DecoderManager(
             decoding_time_function=self.decoding_latency_fn,
             speculation_time=self.speculation_latency,
+            speculation_accuracy=self.speculation_accuracy,
             max_parallel_processes=max_parallel_processes,
+            speculation_mode=self.speculation_mode,
         )
 
-        unfinished_instructions: set[int] = set()
-        while not (device_manager.is_done() and window_manager.is_done() and decoding_manager.is_done()):
-            new_syndrome_data = device_manager.get_next_round(unfinished_instructions)
-            all_windows, window_idx_dag = window_manager.get_new_windows(new_syndrome_data)
-            decoding_manager.update_decoding(
-                all_windows=all_windows,
-                window_idx_dag=window_idx_dag,
-            )
-
-            unfinished_window_instructions = window_manager.get_unfinished_instructions()
-            unfinished_decoding_instructions = decoding_manager.get_unfinished_instructions()
-            unfinished_instructions = unfinished_window_instructions | unfinished_decoding_instructions
+        window_queue_history = []
+        while not device_manager.is_done() or windows_to_decode > 0:
+            # step device forward
+            decoding_manager.step(window_manager.all_windows, window_manager.window_dag)
+            fully_decoded_instructions = decoding_manager.get_finished_instruction_indices(window_manager.all_windows) - window_manager.pending_instruction_indices()
+            new_round = device_manager.get_next_round(fully_decoded_instructions)
+            
+            # process new round
+            window_manager.process_round(new_round)
+            decoding_manager.update_decoding(window_manager.all_windows, window_manager.window_dag)
+            
+            windows_to_decode = len(window_manager.all_windows) - len(decoding_manager._window_completion_times)
+            window_queue_history.append(windows_to_decode)
 
         device_data = device_manager.get_data()
         window_data = window_manager.get_data()
         decoding_data = decoding_manager.get_data()
-        return device_data, window_data, decoding_data
+        return device_data, window_data, decoding_data, window_queue_history
