@@ -129,15 +129,15 @@ class DeviceManager:
 
         return first_round, after_last_round
 
-    def _update_active_instructions(self, not_yet_decoded_instructions: set[int] = set()):
+    def _update_active_instructions(self, fully_decoded_instructions: set[int] = set()):
         """Add new instructions to the active set if they are ready to start.
         Immediately complete any instructions with duration 0. Instructions with
         conditional dependencies cannot be started if any of the instructions
         they are conditioned on are still being decoded.
 
         Args:
-            not_yet_decoded_instructions: Set of instruction indices that
-                are not yet finished decoding (either pending or active).
+            fully_decoded_instructions: Set of instruction indices whose data
+                has been fully decoded.
         """ 
         patches_in_use = set()
         for instruction_idx in self._active_instructions.keys():
@@ -149,7 +149,7 @@ class DeviceManager:
                 if set(self.schedule.all_instructions[instruction_idx].patches) & patches_in_use:
                     # at least one patch is already in use
                     continue
-                elif self.schedule.all_instructions[instruction_idx].conditioned_on_idx is not None and self.schedule.all_instructions[instruction_idx].conditioned_on_idx in not_yet_decoded_instructions:
+                elif self.schedule.all_instructions[instruction_idx].conditioned_on_idx is not None and self.schedule.all_instructions[instruction_idx].conditioned_on_idx not in fully_decoded_instructions:
                     # dependency not yet satisfied
                     continue
                 elif set(self.schedule_dag.predecessors(instruction_idx)) - set(self._completed_instructions.keys()):
@@ -208,13 +208,13 @@ class DeviceManager:
             self._completed_instructions[instruction_idx] = self.current_round
             self._active_instructions.pop(instruction_idx)
 
-    def get_next_round(self, not_yet_decoded_instructions: set[int]) -> list[SyndromeRound] | None:
+    def get_next_round(self, fully_decoded_instructions: set[int]) -> list[SyndromeRound] | None:
         """Return another round of syndrome measurements, starting new
         instructions if possible.
 
         Args:
-            not_yet_decoded_instructions: Set of instruction indices that
-                are not yet finished decoding (either pending or active).
+            fully_decoded_instructions: Set of instruction indices whose data
+                has been fully decoded.
         
         Returns:
             List of tuples, each containing a syndrome measurement coordinate,
@@ -224,7 +224,7 @@ class DeviceManager:
         if self.is_done():
             return None
 
-        self._update_active_instructions(not_yet_decoded_instructions)
+        self._update_active_instructions(fully_decoded_instructions)
         generated_syndrome_rounds, completed_instructions = self._generate_syndrome_round()
         self._clean_completed_instructions(completed_instructions)
 
