@@ -1,14 +1,17 @@
 from dataclasses import dataclass
 from typing import Callable
 import numpy as np
+from numpy.typing import NDArray
 import networkx as nx
 from swiper2.window_builder import DecodingWindow, SpacetimeRegion
 from swiper2.lattice_surgery_schedule import Instruction
 
 @dataclass
 class DecoderData:
+    num_rounds: int
     max_parallel_processes: int | None
-    max_parallel_processes_by_round: list[int]
+    parallel_processes_by_round: NDArray[np.int_]
+    completed_windows_by_round: NDArray[np.int_]
     window_completion_times: dict[DecodingWindow, int]
     window_decoding_times: dict[DecodingWindow, int]
 
@@ -51,6 +54,7 @@ class DecoderManager:
 
         self.max_parallel_processes = max_parallel_processes
         self._parallel_processes_by_round = []
+        self._completed_windows_by_round = []
         self._current_round = 0
         self._window_completion_times: dict[DecodingWindow, int] = {}
         self._window_used_parent_speculations: dict[DecodingWindow, dict[DecodingWindow, bool]] = {}
@@ -118,8 +122,8 @@ class DecoderManager:
                             self._active_window_progress.pop(window)
 
         self._current_round += 1
-        if not self.max_parallel_processes:
-            self._parallel_processes_by_round.append(len(self._active_window_progress))
+        self._parallel_processes_by_round.append(len(self._active_window_progress))
+        self._completed_windows_by_round.append(len(self._window_completion_times))
 
     def update_decoding(self, all_windows: list[DecodingWindow], window_idx_dag: nx.DiGraph) -> None:
         """Update state of processing windows and start any new decoding
@@ -136,13 +140,13 @@ class DecoderManager:
                 between decoding windows.
         """
         # Check dependencies and start new speculation and decoding processes
-        finished_dependencies = set(self._window_completion_times.keys())
-        window_idx = 0
-        while window_idx < len(all_windows):
-            window = all_windows[window_idx]
+        completed_windows = set(self._window_completion_times.keys())
+        unprocessed_windows = set(all_windows) - completed_windows
+        while len(unprocessed_windows) > 0:
+            window = unprocessed_windows.pop()
+            window_idx = all_windows.index(window)
 
-            if not window.constructed:
-                window_idx += 1
+            if window in self._window_completion_times or not window.constructed:
                 continue
 
             if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
@@ -154,8 +158,10 @@ class DecoderManager:
                     self._speculation_progress[window] = self.speculation_time
                 else:
                     self._speculated_windows.add(window)
-                    window_idx = 0 # reset window_idx to 0 to recheck all windows for decoding
-                    continue
+                    # window_idx = 0 # reset window_idx to 0 to recheck all windows for decoding
+                    # continue
+                    dependents = {all_windows[w_idx] for w_idx in window_idx_dag.successors(window_idx)}
+                    unprocessed_windows |= dependents - completed_windows
             
             if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
                 break
@@ -163,15 +169,14 @@ class DecoderManager:
             if window not in self._window_completion_times and window not in self._active_window_progress:
                 # window has not been processed yet
                 parents = list(window_idx_dag.predecessors(window_idx))
-                if any(all_windows[parent_idx] not in (finished_dependencies | self._speculated_windows) for parent_idx in parents):
-                    window_idx += 1
+                if any(all_windows[parent_idx] not in (completed_windows | self._speculated_windows) for parent_idx in parents):
                     continue
                 # begin decoding
                 self._active_window_progress[window] = self.decoding_time_function(window.total_spacetime_volume())
                 self._window_used_parent_speculations[window] = {}
                 for parent_idx in parents:
                     parent = all_windows[parent_idx]
-                    if parent in finished_dependencies:
+                    if parent in completed_windows:
                         self._window_used_parent_speculations[window][parent] = False
                     else:
                         assert parent in self._speculated_windows
@@ -182,9 +187,10 @@ class DecoderManager:
                         self._speculation_progress[window] = self.speculation_time
                     else:
                         self._speculated_windows.add(window)
-                        window_idx = 0 # reset window_idx to 0 to recheck all windows for decoding
-                        continue
-            window_idx += 1
+                        # window_idx = 0 # reset window_idx to 0 to recheck all windows for decoding
+                        # continue
+                        dependents = {all_windows[w_idx] for w_idx in window_idx_dag.successors(window_idx)}
+                        unprocessed_windows |= dependents - completed_windows
 
     def decoded_windows(self) -> set[DecodingWindow]:
         """Return the set of windows that have been decoded."""
@@ -213,8 +219,10 @@ class DecoderManager:
 
     def get_data(self) -> DecoderData:
         return DecoderData(
-            self.max_parallel_processes,
-            self._parallel_processes_by_round,
-            self._window_completion_times,
-            self._window_decoding_times,
+            num_rounds=self._current_round,
+            max_parallel_processes=self.max_parallel_processes,
+            parallel_processes_by_round=np.array(self._parallel_processes_by_round, int),
+            completed_windows_by_round=np.array(self._completed_windows_by_round, int),
+            window_completion_times=self._window_completion_times,
+            window_decoding_times=self._window_decoding_times,
         )
