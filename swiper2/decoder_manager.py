@@ -47,17 +47,79 @@ class DecoderManager:
         self.speculation_time = speculation_time
         self.speculation_accuracy = speculation_accuracy
         self.speculation_mode = speculation_mode
+        assert self.speculation_mode in ['integrated', 'separate']
 
         self.max_parallel_processes = max_parallel_processes
         self._parallel_processes_by_round = []
         self._current_round = 0
         self._window_completion_times: dict[DecodingWindow, int] = {}
+        self._window_used_parent_speculations: dict[DecodingWindow, dict[DecodingWindow, bool]] = {}
         self._window_decoding_times: dict[DecodingWindow, int] = {}
-        self._speculation_progress: dict[DecodingWindow, int] = {} # maps each speculated window to the number of rounds elapsed since speculation started
-        self._active_window_progress: dict[DecodingWindow, int] = {} # maps each active window to rounds remaining until completion of decoding
+        self._speculation_progress: dict[DecodingWindow, int] = {} # maps each speculated window to rounds remaining to complete speculation
+        self._active_window_progress: dict[DecodingWindow, int] = {} # maps each active window to rounds remaining to complete decoding
         self._speculated_windows: set[DecodingWindow] = set() # windows whose boundaries have been speculated
-        self._pending_windows: set[DecodingWindow] = set() # windows with all dependencies satisfied that are now ready to be decoded
 
+    def step(self, all_windows: list[DecodingWindow], window_idx_dag: nx.DiGraph) -> None:
+        """Step decoding and speculation forward by one round (without creating
+        any new processes)."""
+        # Step decoders forward; check if any windows have completed
+        for window in self._active_window_progress:
+            self._active_window_progress[window] -= 1
+        completed_windows = []
+        poisoned_speculations = []
+
+        for window, time_remaining in self._active_window_progress.items():
+            if time_remaining <= 0:
+                completed_windows.append(window)
+                if np.random.random() > self.speculation_accuracy:
+                    # Mis-speculation
+                    # TODO: missed speculations should happen per-buffer-region, not per-window
+                    poisoned_speculations.append(window)
+
+        for window in completed_windows:
+            # print(f'FINISH DECODING w{all_windows.index(window)}')
+            self._window_completion_times[window] = self._current_round
+            self._active_window_progress.pop(window)
+
+            # from now on, we can rely on the decoded result, not the faulty speculation
+            if window in self._speculated_windows:
+                self._speculated_windows.remove(window)
+            if window in self._speculation_progress:
+                self._speculation_progress.pop(window)
+
+        # Step speculation forward
+        for window in self._speculation_progress:
+            self._speculation_progress[window] -= 1
+        speculated_windows = []
+        for window, time_remaining in self._speculation_progress.items():
+            if time_remaining <= 0:
+                speculated_windows.append(window)
+        for window in speculated_windows:
+            self._speculated_windows.add(window)
+            self._speculation_progress.pop(window)
+
+        # Update poisoned windows
+        # For each poisoned window, reset any descendants that used the poisoned
+        # speculation.
+        active_or_completed_windows = set(self._active_window_progress.keys()) | set(self._window_completion_times.keys())
+        for poisoned_window in poisoned_speculations:
+            dependents = window_idx_dag.successors(all_windows.index(poisoned_window))
+            for dependent_idx in dependents:
+                dependent = all_windows[dependent_idx]
+                if dependent in active_or_completed_windows:
+                    assert poisoned_window in self._window_used_parent_speculations[dependent] and self._window_used_parent_speculations[dependent][poisoned_window]
+                    indices_to_reset = [dependent_idx] + list(nx.descendants(window_idx_dag, dependent_idx))
+                    # print(f'POISON! RESETTING w{indices_to_reset}')
+                    for window_idx in indices_to_reset:
+                        window = all_windows[window_idx]
+                        if window in self._window_completion_times:
+                            self._window_completion_times.pop(window)
+                        elif window in self._active_window_progress:
+                            self._active_window_progress.pop(window)
+
+        self._current_round += 1
+        if not self.max_parallel_processes:
+            self._parallel_processes_by_round.append(len(self._active_window_progress))
 
     def update_decoding(self, all_windows: list[DecodingWindow], window_idx_dag: nx.DiGraph) -> None:
         """Update state of processing windows and start any new decoding
@@ -73,89 +135,80 @@ class DecoderManager:
             window_idx_dag: Directed acyclic graph representing the dependencies
                 between decoding windows.
         """
-        # Step decoders forward; check if any windows have completed
-        for window in self._active_window_progress:
-            self._active_window_progress[window] -= 1
-        completed_windows = []
-        poisoned_windows = []
+        # Check dependencies and start new speculation and decoding processes
+        finished_dependencies = set(self._window_completion_times.keys())
+        window_idx = 0
+        while window_idx < len(all_windows):
+            window = all_windows[window_idx]
 
-        for window, time_remaining in self._active_window_progress.items():
-            if time_remaining <= 0:
-                completed_windows.append(window)
-                if np.random.choice([True, False], p=[1 - self.speculation_accuracy, self.speculation_accuracy]):
-                    # Mis-speculation
-                    poisoned_windows.append(window)
-                
-        for window in completed_windows:
-            self._window_completion_times[window] = self._current_round
-            self._active_window_progress.pop(window)
-
-        # Step speculation forward; check if any windows are ready to be decoded
-        for window in self._speculation_progress:
-            self._speculation_progress[window] -= 1
-        speculated_windows = []
-        for window, time_remaining in self._speculation_progress.items():
-            if time_remaining <= 0:
-                speculated_windows.append(window)
-        for window in speculated_windows:
-            self._speculated_windows.add(window)
-            self._speculation_progress.pop(window)
-
-        # Update poisoned windows
-        for window_idx, window in enumerate(all_windows):
-            parents = list(window_idx_dag.predecessors(window_idx))
-            if any(all_windows[parent_idx] in poisoned_windows for parent_idx in parents):
-                if window in self._window_completion_times:
-                    self._window_completion_times.pop(window)
-                elif window in self._active_window_progress:
-                    self._active_window_progress.pop(window)
-                if window in self._speculation_progress:
-                    self._speculation_progress.pop(window)
-                elif window in self._speculated_windows:
-                    self._speculated_windows.remove(window)
-
-        # Check dependencies for all windows
-        finished_dependencies = set(self._window_completion_times.keys()) | self._speculated_windows
-        for window_idx, window in enumerate(all_windows):
             if not window.constructed:
+                window_idx += 1
                 continue
 
             if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
                 break
 
-            if self.speculation_mode == 'separate' and window not in (self._speculated_windows | set(self._speculation_progress.keys())):
-                # immediately speculate any window that is ready
+            # begin a speculation
+            if self.speculation_mode == 'separate' and window not in (self._speculated_windows | set(self._speculation_progress.keys()) | set(self._window_completion_times.keys())):
                 if self.speculation_time > 0:
                     self._speculation_progress[window] = self.speculation_time
                 else:
                     self._speculated_windows.add(window)
+                    window_idx = 0 # reset window_idx to 0 to recheck all windows for decoding
+                    continue
             
             if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
                 break
 
-            if window not in self._window_completion_times and window not in self._active_window_progress and window not in self._pending_windows:
+            if window not in self._window_completion_times and window not in self._active_window_progress:
                 # window has not been processed yet
                 parents = list(window_idx_dag.predecessors(window_idx))
-                if any(all_windows[parent_idx] not in finished_dependencies for parent_idx in parents):
+                if any(all_windows[parent_idx] not in (finished_dependencies | self._speculated_windows) for parent_idx in parents):
+                    window_idx += 1
                     continue
+                # begin decoding
                 self._active_window_progress[window] = self.decoding_time_function(window.total_spacetime_volume())
+                self._window_used_parent_speculations[window] = {}
+                for parent_idx in parents:
+                    parent = all_windows[parent_idx]
+                    if parent in finished_dependencies:
+                        self._window_used_parent_speculations[window][parent] = False
+                    else:
+                        assert parent in self._speculated_windows
+                        self._window_used_parent_speculations[window][parent] = True
                 if self.speculation_mode == 'integrated':
+                    # begin a speculation along with decoding
                     if self.speculation_time > 0:
                         self._speculation_progress[window] = self.speculation_time
                     else:
                         self._speculated_windows.add(window)
+                        window_idx = 0 # reset window_idx to 0 to recheck all windows for decoding
+                        continue
+            window_idx += 1
 
-        self._current_round += 1
-        if not self.max_parallel_processes:
-            self._parallel_processes_by_round.append(len(self._active_window_progress))
+    def decoded_windows(self) -> set[DecodingWindow]:
+        """Return the set of windows that have been decoded."""
+        return set(self._window_completion_times.keys())
     
-    def decoded_instruction_idx(self) -> set[int]:
+    def get_finished_instruction_indices(self, all_windows: list[DecodingWindow]) -> set[int]:
+        """Return the set of instruction idx that have been decoded."""
+        decoded_instructions = set()
+        for window in self._window_completion_times:
+            decoded_instructions |= window.parent_instr_idx
+        for window in all_windows:
+            if window not in self._window_completion_times:
+                decoded_instructions -= window.parent_instr_idx
+        decoded_instructions -= {-1}
+        return decoded_instructions
+
+    def decoded_instruction_indices(self) -> set[int]:
         """Return the set of instruction idx that have been decoded."""
         decoded_instructions = set()
         for window in self._window_completion_times:
             decoded_instructions |= window.parent_instr_idx
         for window in self._active_window_progress:
             decoded_instructions -= window.parent_instr_idx
+        decoded_instructions -= {-1}
         return decoded_instructions
 
     def get_data(self) -> DecoderData:
