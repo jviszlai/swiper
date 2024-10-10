@@ -1,5 +1,6 @@
 from typing import Callable
 import networkx as nx
+import tqdm
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper2.device_manager import DeviceData, DeviceManager
 from swiper2.decoder_manager import DecoderData, DecoderManager
@@ -50,7 +51,8 @@ class DecodingSimulator:
             scheduling_method: str,
             enforce_window_alignment: bool,
             max_parallel_processes: int | None = None,
-        ) -> tuple[DeviceData, WindowData, DecoderData, list[int]]:
+            progress_bar: bool = False,
+        ) -> tuple[DeviceData, WindowData, DecoderData]:
         """TODO
         
         Args:
@@ -60,6 +62,7 @@ class DecodingSimulator:
                 or 'dynamic'.
             max_parallel_processes: Maximum number of parallel decoding
                 processes to run. If None, run as many as possible.
+            progress_bar: If True, display a progress bar for the simulation.
         """
         device_manager = DeviceManager(self.distance, schedule)
         if scheduling_method == 'sliding':
@@ -80,11 +83,18 @@ class DecodingSimulator:
             speculation_mode=self.speculation_mode,
         )
 
-        window_queue_history = []
+        if progress_bar:
+            pbar_r = tqdm.tqdm(desc='Surface code rounds')
+            # pbar_i = tqdm.tqdm(total=len(schedule.all_instructions), desc='Scheduled instructions complete')
+
         while not device_manager.is_done() or windows_to_decode > 0:
             # step device forward
             decoding_manager.step(window_manager.all_windows, window_manager.window_dag)
             fully_decoded_instructions = decoding_manager.get_finished_instruction_indices(window_manager.all_windows) - window_manager.pending_instruction_indices()
+            if progress_bar and decoding_manager._current_round % 100 == 0:
+                pbar_r.update(100)
+                # pbar_i.update(len(fully_decoded_instructions) - pbar_i.n)
+                # pbar_i.refresh()
             new_round = device_manager.get_next_round(fully_decoded_instructions)
             
             # process new round
@@ -92,9 +102,14 @@ class DecodingSimulator:
             decoding_manager.update_decoding(window_manager.all_windows, window_manager.window_dag)
             
             windows_to_decode = len(window_manager.all_windows) - len(decoding_manager._window_completion_times)
-            window_queue_history.append(windows_to_decode)
+
+        if progress_bar:
+            pbar_r.update(decoding_manager._current_round - pbar_r.n)
+            # pbar_i.update(pbar_i.total - pbar_i.n)
+            pbar_r.close()
+            # pbar_i.close()
 
         device_data = device_manager.get_data()
         window_data = window_manager.get_data()
         decoding_data = decoding_manager.get_data()
-        return device_data, window_data, decoding_data, window_queue_history
+        return device_data, window_data, decoding_data
