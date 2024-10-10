@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 import networkx as nx
 from dataclasses import dataclass
+import numpy as np
+from numpy.typing import NDArray
 
 from swiper2.window_builder import WindowBuilder, DecodingWindow, SpacetimeRegion
 from swiper2.device_manager import SyndromeRound
@@ -15,6 +17,7 @@ class WindowData:
     window_dag: nx.DiGraph
     window_end_lookup: dict[int, list[int]]
     window_buffer_wait: dict[int, int]
+    window_count_history: NDArray[np.int_]
 
 class WindowManager(ABC):
 
@@ -24,6 +27,7 @@ class WindowManager(ABC):
         self.window_dag = nx.DiGraph()
         self.window_end_lookup = {}
         self.window_buffer_wait = {}
+        self._window_count_history = []
 
     @abstractmethod
     def process_round(self, new_rounds: list[SyndromeRound]) -> None:
@@ -117,6 +121,7 @@ class SlidingWindowManager(WindowManager):
                             self.window_dag.add_edge(new_window_start + window_1, new_window_start + window_2)
 
         self.update_buffer_wait()
+        self._window_count_history.append(len(self.all_windows))
 
     def update_buffer_wait(self) -> None:
         # Look for dangling windows to mark as constructed
@@ -135,6 +140,7 @@ class SlidingWindowManager(WindowManager):
             window_dag=self.window_dag,
             window_end_lookup=self.window_end_lookup,
             window_buffer_wait=self.window_buffer_wait,
+            window_count_history=np.array(self._window_count_history, int),
         )
         
         

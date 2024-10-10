@@ -4,6 +4,7 @@ from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule, Duration, I
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+from numpy.typing import NDArray
 import copy
 
 @dataclass
@@ -23,8 +24,8 @@ class DeviceData:
     num_rounds: int
     instructions: list[Instruction]
     all_patch_coords: set[tuple[int, int]]
-    syndrome_count_by_round: list[int]
-    instruction_count_by_round: list[int]
+    syndrome_count_by_round: NDArray[np.int_]
+    instruction_count_by_round: NDArray[np.int_]
     generated_syndrome_data: list[list[SyndromeRound]]
     patches_initialized_by_round: dict[int, set[tuple[int, int]]]
 
@@ -249,8 +250,8 @@ class DeviceManager:
             num_rounds=self.current_round,
             instructions=copy.deepcopy(self.schedule.all_instructions),
             all_patch_coords=self._all_patch_coords,
-            syndrome_count_by_round=self._syndrome_count_by_round,
-            instruction_count_by_round=self._instruction_count_by_round,
+            syndrome_count_by_round=np.array(self._syndrome_count_by_round, int),
+            instruction_count_by_round=np.array(self._instruction_count_by_round, int),
             generated_syndrome_data=self._generated_syndrome_data,
             patches_initialized_by_round=patches_initialized_by_round,
         )
