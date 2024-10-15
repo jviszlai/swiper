@@ -38,9 +38,9 @@ class DecodingWindow:
         constructed: True if window is finished being constructed with buffers
         
     '''
-    commit_region: SpacetimeRegion
+    commit_region: tuple[SpacetimeRegion, ...]
     buffer_regions: frozenset[SpacetimeRegion]
-    merge_instr: Instruction | None
+    merge_instr: frozenset[Instruction]
     parent_instr_idx: frozenset[int]
     constructed: bool
 
@@ -49,7 +49,10 @@ class DecodingWindow:
         Calculate the total spacetime volume of this window, in units of
         rounds*d^2.
         '''
-        return self.commit_region.duration + sum([region.duration for region in self.buffer_regions])
+        if isinstance(self.commit_region, SpacetimeRegion):
+            return self.commit_region.duration + sum(region.duration for region in self.buffer_regions)
+        else:
+            return sum(region.duration for region in self.commit_region) + sum(region.duration for region in self.buffer_regions)
 
 
 class WindowBuilder():
@@ -101,9 +104,9 @@ class WindowBuilder():
                 commit_region = SpacetimeRegion(patch=patch,
                                                 round_start=min_round.round,
                                                 duration=duration)
-                new_windows.append(DecodingWindow(commit_region=commit_region,
+                new_windows.append(DecodingWindow(commit_region=(commit_region,),
                                                   buffer_regions=frozenset(),
-                                                  merge_instr=None if min_round.instruction.name != 'MERGE' else min_round.instruction,
+                                                  merge_instr=frozenset() if min_round.instruction.name != 'MERGE' else frozenset([min_round.instruction]),
                                                   parent_instr_idx=parent_instr_idx,
                                                   constructed=False))
                 for round in rounds:
@@ -133,4 +136,35 @@ class WindowBuilder():
                 for round in rounds:
                     self._waiting_rounds.remove(round)
 
+        return new_windows
+
+    def flush(self):
+        '''
+        Flush all remaining rounds into windows
+        '''
+        new_windows = []
+        patch_groups = {}
+        for round in self._waiting_rounds:
+            patch_groups.setdefault(round.patch, []).append(round)
+        for patch, rounds in patch_groups.items():
+            min_round = min(rounds, key=lambda x: x.round)
+            max_round = max(rounds, key=lambda x: x.round)
+            duration = max_round.round - min_round.round + 1
+            parent_instr_idx = frozenset([round.instruction_idx for round in rounds])
+            commit_region = SpacetimeRegion(
+                patch=patch,
+                round_start=min_round.round,
+                duration=duration,
+            )
+            new_windows.append(DecodingWindow(
+                commit_region=(commit_region,),
+                buffer_regions=frozenset(),
+                merge_instr=frozenset() if min_round.instruction.name != 'MERGE' else frozenset([min_round.instruction]),
+                parent_instr_idx=parent_instr_idx,
+                constructed=False,
+            ))
+            for round in rounds:
+                self._waiting_rounds.remove(round)
+
+        assert len(self._waiting_rounds) == 0
         return new_windows
