@@ -16,6 +16,7 @@ class SyndromeRound:
     instruction_idx: int
     initialized_patch: bool
     is_unwanted_idle: bool = False
+    discard_after: bool = False
 
 @dataclass
 class DeviceData:
@@ -130,7 +131,7 @@ class DeviceManager:
 
         return first_round, after_last_round
 
-    def _update_active_instructions(self, fully_decoded_instructions: set[int] = set()):
+    def _update_active_instructions(self, fully_decoded_instructions: set[int] = set()) -> None:
         """Add new instructions to the active set if they are ready to start.
         Immediately complete any instructions with duration 0. Instructions with
         conditional dependencies cannot be started if any of the instructions
@@ -209,7 +210,7 @@ class DeviceManager:
             self._completed_instructions[instruction_idx] = self.current_round
             self._active_instructions.pop(instruction_idx)
 
-    def get_next_round(self, fully_decoded_instructions: set[int]) -> list[SyndromeRound] | None:
+    def get_next_round(self, fully_decoded_instructions: set[int]) -> tuple[list[SyndromeRound], set[tuple[int, int]]]:
         """Return another round of syndrome measurements, starting new
         instructions if possible.
 
@@ -218,21 +219,26 @@ class DeviceManager:
                 has been fully decoded.
         
         Returns:
-            List of tuples, each containing a syndrome measurement coordinate,
-            the current round index, and the index of the instruction that it is
-            associated with.
+            generated_syndrome_rounds: List of SyndromeRound objects for the
+                current round.
+            discarded_patches: Set of patches that were discarded after the
+                current round.
         """
         if self.is_done():
-            return None
+            return [], set()
 
-        self._update_active_instructions(fully_decoded_instructions)
+        # self._update_active_instructions(fully_decoded_instructions)
+        init_active_patches = copy.deepcopy(self._active_patches)
         generated_syndrome_rounds, completed_instructions = self._generate_syndrome_round()
         self._clean_completed_instructions(completed_instructions)
 
         if not self.is_done():
             self.current_round += 1
+
+        self._update_active_instructions(fully_decoded_instructions)
+        discarded_patches = init_active_patches - self._active_patches
     
-        return generated_syndrome_rounds
+        return generated_syndrome_rounds, discarded_patches
     
     def is_done(self) -> bool:
         """Return whether all instructions have been completed."""
