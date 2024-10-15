@@ -45,6 +45,10 @@ class DecodingSimulator:
         assert speculation_mode in ['integrated', 'separate']
         self.speculation_mode = speculation_mode
 
+        self._device_manager: DeviceManager | None = None
+        self._window_manager: SlidingWindowManager | ParallelWindowManager | DynamicWindowManager | None = None
+        self._decoding_manager: DecoderManager | None = None
+
     def run(
             self,
             schedule: LatticeSurgerySchedule,
@@ -64,18 +68,51 @@ class DecodingSimulator:
                 processes to run. If None, run as many as possible.
             progress_bar: If True, display a progress bar for the simulation.
         """
-        device_manager = DeviceManager(self.distance, schedule)
+        self.initialize_experiment(
+            schedule=schedule,
+            scheduling_method=scheduling_method,
+            enforce_window_alignment=enforce_window_alignment,
+            max_parallel_processes=max_parallel_processes,
+        )
+        self._window_manager.source_indices = set()
+
+        if progress_bar:
+            pbar_r = tqdm.tqdm(desc='Surface code rounds')
+            # pbar_i = tqdm.tqdm(total=len(schedule.all_instructions), desc='Scheduled instructions complete')
+
+        while not self.is_done():
+            self.step_experiment()
+            if progress_bar and self._decoding_manager._current_round % 100 == 0:
+                pbar_r.update(100)
+                # pbar_i.update(len(fully_decoded_instructions) - pbar_i.n)
+                # pbar_i.refresh()
+            
+        if progress_bar:
+            pbar_r.update(self._decoding_manager._current_round - pbar_r.n)
+            # pbar_i.update(pbar_i.total - pbar_i.n)
+            pbar_r.close()
+            # pbar_i.close()
+
+        return self.get_data()
+    
+    def initialize_experiment(
+            self,
+            schedule: LatticeSurgerySchedule,
+            scheduling_method: str,
+            enforce_window_alignment: bool,
+            max_parallel_processes: int | None = None,
+        ) -> None:
+        self._device_manager = DeviceManager(self.distance, schedule)
         if scheduling_method == 'sliding':
-            window_manager = SlidingWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
+            self._window_manager = SlidingWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
         elif scheduling_method == 'parallel':
-            raise NotImplementedError
-            # window_manager = ParallelWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
+            self._window_manager = ParallelWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
         elif scheduling_method == 'dynamic':
             raise NotImplementedError
-            # window_manager = DynamicWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
+            # self._window_manager = DynamicWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
         else:
             raise ValueError(f"Unknown scheduling method: {scheduling_method}")
-        decoding_manager = DecoderManager(
+        self._decoding_manager = DecoderManager(
             decoding_time_function=self.decoding_latency_fn,
             speculation_time=self.speculation_latency,
             speculation_accuracy=self.speculation_accuracy,
@@ -83,33 +120,28 @@ class DecodingSimulator:
             speculation_mode=self.speculation_mode,
         )
 
-        if progress_bar:
-            pbar_r = tqdm.tqdm(desc='Surface code rounds')
-            # pbar_i = tqdm.tqdm(total=len(schedule.all_instructions), desc='Scheduled instructions complete')
+    def step_experiment(self) -> None:
+        if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
+            raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
 
-        while not device_manager.is_done() or windows_to_decode > 0:
-            # step device forward
-            decoding_manager.step(window_manager.all_windows, window_manager.window_dag)
-            fully_decoded_instructions = decoding_manager.get_finished_instruction_indices(window_manager.all_windows) - window_manager.pending_instruction_indices()
-            if progress_bar and decoding_manager._current_round % 100 == 0:
-                pbar_r.update(100)
-                # pbar_i.update(len(fully_decoded_instructions) - pbar_i.n)
-                # pbar_i.refresh()
-            new_round = device_manager.get_next_round(fully_decoded_instructions)
-            
-            # process new round
-            window_manager.process_round(new_round)
-            decoding_manager.update_decoding(window_manager.all_windows, window_manager.window_dag)
-            
-            windows_to_decode = len(window_manager.all_windows) - len(decoding_manager._window_completion_times)
+        if self.is_done():
+            raise ValueError("Experiment is already done. Run run() to start a new experiment.")
 
-        if progress_bar:
-            pbar_r.update(decoding_manager._current_round - pbar_r.n)
-            # pbar_i.update(pbar_i.total - pbar_i.n)
-            pbar_r.close()
-            # pbar_i.close()
+        # step device forward
+        self._decoding_manager.step(self._window_manager.all_windows, self._window_manager.window_dag)
+        fully_decoded_instructions = self._decoding_manager.get_finished_instruction_indices(self._window_manager.all_windows) - self._window_manager.pending_instruction_indices()
 
-        device_data = device_manager.get_data()
-        window_data = window_manager.get_data()
-        decoding_data = decoding_manager.get_data()
+        new_round = self._device_manager.get_next_round(fully_decoded_instructions)
+
+        # process new round
+        self._window_manager.process_round(new_round)
+        self._decoding_manager.update_decoding(self._window_manager.all_windows, self._window_manager.window_dag)
+
+    def is_done(self) -> bool:
+        return self._device_manager.is_done() and len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times) == 0
+
+    def get_data(self) -> tuple[DeviceData, WindowData, DecoderData]:
+        device_data = self._device_manager.get_data()
+        window_data = self._window_manager.get_data()
+        decoding_data = self._decoding_manager.get_data()
         return device_data, window_data, decoding_data
