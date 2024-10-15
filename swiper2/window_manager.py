@@ -40,13 +40,6 @@ class WindowManager(ABC):
         '''
         raise NotImplementedError
 
-    # @abstractmethod
-    # def _update_buffer_wait(self) -> None:
-    #     '''
-    #     Update the buffer wait time for each window
-    #     '''
-    #     raise NotImplementedError
-    
     def pending_instruction_indices(self) -> set[int]:
         '''
         Get the set of instruction indices that are currently generating windows
@@ -57,7 +50,7 @@ class WindowManager(ABC):
         '''
         Merge two windows into a new window. Removes window_2 from all_windows.
 
-        WARNING: unlike _append_to_buffers or _mark_constructed, this method
+        WARNING: like _append_to_buffers or _mark_constructed, this method
         modifies all_windows, window_dag, window_buffer_wait, and other internal
         data structures.
 
@@ -148,7 +141,13 @@ class WindowManager(ABC):
         return new_window
     
     def _update_buffer_wait(self) -> None:
-        # Look for dangling windows to mark as constructed
+        """Look for dangling windows to mark as constructed.
+
+        TODO: might be better to change how this is done. Each window could
+        instead be marked as "waiting for more commit regions", "waiting for
+        more buffer regions", or "waiting for predecessor to be generated". We
+        could then release the window once all conditions are met.
+        """
         constructed_windows = set()
         for window_idx in self.window_buffer_wait.keys():
             self.window_buffer_wait[window_idx] -= 1
@@ -166,9 +165,9 @@ class WindowManager(ABC):
 
 class SlidingWindowManager(WindowManager):
     
-    def process_round(self, new_rounds: list[SyndromeRound] | None) -> None:
+    def process_round(self, new_rounds: list[SyndromeRound], discarded_patches: list[tuple[int, int]]) -> None:
         if new_rounds:
-            new_commits = self.window_builder.build_windows(new_rounds)
+            new_commits = self.window_builder.build_windows(new_rounds, discarded_patches)
         else:
             new_commits = self.window_builder.flush()
         
@@ -194,6 +193,9 @@ class SlidingWindowManager(WindowManager):
                 if (patch, prev_window_end) in self.window_end_lookup:
                     prev_window_idx,_ = self.window_end_lookup[(patch, prev_window_end)]
                     prev_window = self.all_windows[prev_window_idx]
+                    prev_commit = prev_window.commit_region[0]
+                    if prev_commit.discard_after:
+                        continue
                     # For sliding window, buffers extend at most one step forward in time
                     # Mark prev window as constructed and ready to decode
                     # TODO: buffer has to be d_m cycles "tall", so we may
@@ -205,7 +207,6 @@ class SlidingWindowManager(WindowManager):
                     # every round?
                     assert not prev_window.constructed
                     prev_window = self._append_to_buffers(prev_window, window.commit_region[0], inplace=True)
-                    self._mark_constructed(prev_window, inplace=True)
                     self.window_dag.add_edge(prev_window_idx, window_idx)
 
             # Process buffers in space (windows covering same MERGE instruction)
@@ -242,7 +243,13 @@ class SlidingWindowManager(WindowManager):
             assert all(window.constructed for window in self.all_windows)
         
 class ParallelWindowManager(WindowManager):
-    '''TODO'''
+    '''TODO
+    
+    Ideally, a source contains one commit region and some buffer regions
+    surrounding it. A sink contains three commit regions in a line, where the
+    start and end are buffered by neighboring sources. However, this gets
+    complicated when we have dense merge schedules and more pipe junctions.
+    '''
     source_indices: set[int]
     sink_indices: set[int]
 
@@ -251,28 +258,26 @@ class ParallelWindowManager(WindowManager):
         self.sink_indices = set()
         super().__init__(window_builder)
 
-    # TODO: idea: source = one commit region, drain = 3 adjacent commit regions.
-    # We begin with a source. 
-
-    def process_round(self, new_rounds: list[SyndromeRound] | None) -> None:
+    def process_round(self, new_rounds: list[SyndromeRound], discarded_patches: list[tuple[int, int]]) -> None:
         if new_rounds:
-            new_commits = self.window_builder.build_windows(new_rounds)
+            new_commits = self.window_builder.build_windows(new_rounds, discarded_patches)
         else:
             new_commits = self.window_builder.flush()
 
         if new_commits:
             self.all_windows.extend(new_commits)
-            # Add new windows to window_end_lookup
             for window in new_commits:
                 window_idx = self.all_windows.index(window)
-                end_per_patch = {}
-                for i,cr in enumerate(window.commit_region):
-                    end = cr.round_start + cr.duration
-                    end_per_patch[cr.patch] = (max(end, end_per_patch.setdefault(cr.patch, end)), i)
-                for patch, (end_round, cr_idx) in end_per_patch.items():
-                    self.window_end_lookup[(patch, end_round)] = (window_idx, cr_idx)
+                assert len(window.commit_region) == 1
+                cr = window.commit_region[0]
+                patch, end = cr.patch, cr.round_start + cr.duration
+                assert (patch, end) not in self.window_end_lookup
+                self.window_end_lookup[(patch, end)] = (window_idx, 0)
                 self.window_dag.add_node(window_idx)
-                self.window_buffer_wait[window_idx] = self.window_builder.d+1
+                if cr.discard_after:
+                    self.window_buffer_wait[window_idx] = 1 # should this be 0?
+                else:
+                    self.window_buffer_wait[window_idx] = self.window_builder.d+1
 
             # Process buffers in time (windows covering same patch)
             # Make soft decisions to assign each window as a source or sink. May
@@ -286,7 +291,10 @@ class ParallelWindowManager(WindowManager):
                     prev_window_idx, cr_idx = self.window_end_lookup[(patch, prev_window_end)]
                     prev_window = self.all_windows[prev_window_idx]
                     prev_commit = prev_window.commit_region[cr_idx]
-                    if prev_window_idx in self.sink_indices:
+                    if prev_commit.discard_after:
+                        # No previous window to merge with; this will be a source
+                        self.source_indices.add(window_idx)
+                    elif prev_window_idx in self.sink_indices:
                         if len(prev_window.commit_region) < 3:
                             # Merge with prev sink and remove from all_windows
                             assert not prev_window.constructed
@@ -299,20 +307,17 @@ class ParallelWindowManager(WindowManager):
                             self.source_indices.add(window_idx)
                             # Mark prev window as constructed
                             assert not prev_window.constructed
-                            self._mark_constructed(prev_window, inplace=True)
-
                             self._append_to_buffers(window, prev_commit, inplace=True)
                             self.window_dag.add_edge(window_idx, prev_window_idx)
                     else:
                         # This will be a sink; add buffer to prev source and
                         # mark as complete
                         assert prev_window_idx in self.source_indices
-                        assert not prev_window.constructed
+                        assert not prev_window.constructed, (prev_commit.patch, prev_commit.round_start, prev_commit.duration, window.commit_region[0].round_start)
                         # TODO: buffer has to be d_m cycles "tall", so we may
                         # need to add more than just the next commit region
                         self.sink_indices.add(window_idx)
                         prev_window = self._append_to_buffers(prev_window, window.commit_region[0], inplace=True)
-                        self._mark_constructed(prev_window, inplace=True)
                         self.window_dag.add_edge(prev_window_idx, window_idx)
                 else:
                     # No previous window to merge with; this will be a source
@@ -342,7 +347,7 @@ class ParallelWindowManager(WindowManager):
             # sources into each other.
             # TODO: this is not a good approach because we can end up with
             # arbitrarily large windows. Should postprocess to split windows up
-            # again into valid sources and sinks.
+            # again into (valid) sources and sinks.
             change_made = True
             while change_made:
                 change_made = False
