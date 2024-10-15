@@ -17,6 +17,7 @@ class SpacetimeRegion:
     patch: tuple[int, int]
     round_start: int
     duration: int
+    discard_after: bool = False
 
     def contains_syndrome_round(self, syndrome_round: SyndromeRound) -> bool:
         '''
@@ -62,9 +63,11 @@ class WindowBuilder():
         self.d = d
         self.enforce_alignment = enforce_alignment
 
-    def build_windows(self, 
-                      new_rounds: list[SyndromeRound]
-                      ) -> list[DecodingWindow]:
+    def build_windows(
+            self, 
+            new_rounds: list[SyndromeRound],
+            discarded_patches: list[tuple[int, int]],
+        ) -> list[DecodingWindow]:
         '''
         TODO
         '''
@@ -89,7 +92,7 @@ class WindowBuilder():
                 min_round = min(rounds, key=lambda x: x.round)
                 max_round = max(rounds, key=lambda x: x.round)
                 duration = self.d
-                if max_round.round != curr_round:
+                if max_round.round != curr_round or patch in discarded_patches:
                     # Dangling rounds (e.g. S gate cap)
                     duration = max_round.round - min_round.round + 1
                 elif (max_round.round - min_round.round) + 1 < duration:
@@ -101,14 +104,19 @@ class WindowBuilder():
                     rounds = [round for round in rounds if round.round <= junk_round_end.round]
                     duration = junk_round_end.round - min_round.round + 1
                 parent_instr_idx = frozenset([round.instruction_idx for round in rounds])
-                commit_region = SpacetimeRegion(patch=patch,
-                                                round_start=min_round.round,
-                                                duration=duration)
-                new_windows.append(DecodingWindow(commit_region=(commit_region,),
-                                                  buffer_regions=frozenset(),
-                                                  merge_instr=frozenset() if min_round.instruction.name != 'MERGE' else frozenset([min_round.instruction]),
-                                                  parent_instr_idx=parent_instr_idx,
-                                                  constructed=False))
+                commit_region = SpacetimeRegion(
+                    patch=patch,
+                    round_start=min_round.round,
+                    duration=duration,
+                    discard_after=patch in discarded_patches
+                )
+                new_windows.append(DecodingWindow(
+                    commit_region=(commit_region,),
+                    buffer_regions=frozenset(),
+                    merge_instr=frozenset() if min_round.instruction.name != 'MERGE' else frozenset([min_round.instruction]),
+                    parent_instr_idx=parent_instr_idx,
+                    constructed=False,
+                ))
                 for round in rounds:
                     self._waiting_rounds.remove(round)
                     
