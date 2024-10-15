@@ -32,7 +32,6 @@ class LatticeSurgerySchedule:
                                                                 update_instr.conditioned_on_idx,
                                                                 update_instr.conditional_dependencies | frozenset([len(self.all_instructions) - 1]))
                                                             
-
     def merge(
             self,
             active_qubits: list[tuple[int, int]],
@@ -40,8 +39,11 @@ class LatticeSurgerySchedule:
         ):
         instruction = Instruction('MERGE', frozenset(active_qubits + routing_qubits), Duration.D_ROUNDS)
         self.all_instructions.append(instruction)
+        self.discard(routing_qubits) 
 
     def discard(self, patches: list[tuple[int, int]]):
+        if len(patches) == 0:
+            return
         instruction = Instruction('DISCARD', frozenset(patches), 0)
         self.all_instructions.append(instruction)
 
