@@ -52,15 +52,28 @@ class LatticeSurgerySchedule:
             instruction = Instruction('IDLE', frozenset(patches), num_rounds)
             self.all_instructions.append(instruction)
 
-    def to_dag(self):
+    def to_dag(self, dummy_final_node=False):
         dag = nx.DiGraph()
         for i,instruction in enumerate(self.all_instructions):
-            dag.add_node(i)
+            dag.add_node(i, duration=instruction.duration)
             hidden_patches = set() # patches we will no longer draw connections to
             for j,instr in reversed(list(enumerate(self.all_instructions[:i]))):
                 if (set(instruction.patches) & set(instr.patches)) - hidden_patches:
-                    dag.add_edge(j, i)
+                    dag.add_edge(j, i, weight=instr.duration)
 
                 hidden_patches |= set(instr.patches)
-        
+        if dummy_final_node:
+            for i,instruction in enumerate(self.all_instructions):
+                dag.add_edge(i, len(self.all_instructions), weight=instruction.duration)
         return dag
+    
+    def total_duration(self, distance: int):
+        dag = self.to_dag(dummy_final_node=True)
+        for edge in dag.edges:
+            weight = dag.edges[edge]['weight']
+            if isinstance(weight, Duration):
+                if weight == Duration.HALF_D_ROUNDS:
+                    dag.edges[edge]['weight'] = distance // 2 + 2
+                elif weight == Duration.D_ROUNDS:
+                    dag.edges[edge]['weight'] = distance
+        return nx.dag_longest_path_length(dag)
