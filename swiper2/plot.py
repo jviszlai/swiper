@@ -79,7 +79,7 @@ def plot_device_schedule_trace(
                 alpha = 0.5
                 containing_window_idx = -10**10
                 for window_idx, window in enumerate(windows):
-                    if window.commit_region.contains_syndrome_round(syndrome):
+                    if any(cr.contains_syndrome_round(syndrome) for cr in window.commit_region):
                         if containing_window_idx >= 0:
                             print(f'WARNING: multiple commit regions contain the same syndrome round! Syndrome: {syndrome}, Windows: {containing_window_idx}, {window_idx}')
                         containing_window_idx = window_idx
