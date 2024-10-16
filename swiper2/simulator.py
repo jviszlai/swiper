@@ -56,7 +56,8 @@ class DecodingSimulator:
             enforce_window_alignment: bool,
             max_parallel_processes: int | None = None,
             progress_bar: bool = False,
-        ) -> tuple[DeviceData, WindowData, DecoderData]:
+            pending_window_count_cutoff: int = 0,
+        ) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         """TODO
         
         Args:
@@ -81,7 +82,7 @@ class DecodingSimulator:
             # pbar_i = tqdm.tqdm(total=len(schedule.all_instructions), desc='Scheduled instructions complete')
 
         while not self.is_done():
-            self.step_experiment()
+            self.step_experiment(pending_window_count_cutoff=pending_window_count_cutoff)
             if progress_bar and self._decoding_manager._current_round % 100 == 0:
                 pbar_r.update(100)
                 # pbar_i.update(len(fully_decoded_instructions) - pbar_i.n)
@@ -102,6 +103,7 @@ class DecodingSimulator:
             enforce_window_alignment: bool,
             max_parallel_processes: int | None = None,
         ) -> None:
+        self.failed = False
         self._device_manager = DeviceManager(self.distance, schedule)
         if scheduling_method == 'sliding':
             self._window_manager = SlidingWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
@@ -120,12 +122,17 @@ class DecodingSimulator:
             speculation_mode=self.speculation_mode,
         )
 
-    def step_experiment(self) -> None:
+    def step_experiment(self, pending_window_count_cutoff: int = 0) -> None:
         if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
             raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
 
         if self.is_done():
             raise ValueError("Experiment is already done. Run run() to start a new experiment.")
+
+        pending_window_count = len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times)
+        if pending_window_count_cutoff > 0 and pending_window_count > pending_window_count_cutoff:
+            self.failed = True
+            return
 
         # step device forward
         self._decoding_manager.step(self._window_manager.all_windows, self._window_manager.window_dag)
@@ -138,10 +145,10 @@ class DecodingSimulator:
         self._decoding_manager.update_decoding(self._window_manager.all_windows, self._window_manager.window_dag)
 
     def is_done(self) -> bool:
-        return self._device_manager.is_done() and len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times) == 0
+        return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times) == 0)
 
-    def get_data(self) -> tuple[DeviceData, WindowData, DecoderData]:
+    def get_data(self) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         device_data = self._device_manager.get_data()
         window_data = self._window_manager.get_data()
         decoding_data = self._decoding_manager.get_data()
-        return device_data, window_data, decoding_data
+        return not self.failed, device_data, window_data, decoding_data
