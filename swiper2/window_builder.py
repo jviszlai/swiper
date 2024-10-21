@@ -24,11 +24,11 @@ class SpacetimeRegion:
         """
         return syndrome_round.patch == self.patch and self.round_start <= syndrome_round.round < self.round_start + self.duration
     
-    def shares_boundary(self, other: 'SpacetimeRegion') -> bool:
-        """Check if this region shares a boundary with another region.
+    def shares_timelike_boundary(self, other: 'SpacetimeRegion') -> bool:
+        """Check if this region shares a timelike boundary with another region.
         """
-        shares_timelike = (
-            (self.patch == other.patch)
+        return (
+            self.patch == other.patch
             and
             (
                 (
@@ -44,14 +44,22 @@ class SpacetimeRegion:
                 )
             )
         )
-        shares_spacelike = (
+    
+    def shares_spacelike_boundary(self, other: 'SpacetimeRegion') -> bool:
+        """Check if this region shares a spacelike boundary with another region.
+        """
+        return (
             self.round_start == other.round_start
             and
             self.duration == other.duration
             and
             np.linalg.norm(np.array(self.patch) - np.array(other.patch)) == 1
         )
-        return shares_timelike or shares_spacelike
+
+    def shares_boundary(self, other: 'SpacetimeRegion') -> bool:
+        """Check if this region shares a boundary with another region.
+        """
+        return self.shares_timelike_boundary(other) or self.shares_spacelike_boundary(other)
     
     def overlaps(self, other: 'SpacetimeRegion') -> bool:
         """Check if this region overlaps with another region.
@@ -90,10 +98,29 @@ class DecodingWindow:
         else:
             return sum(region.duration for region in self.commit_region) + sum(region.duration for region in self.buffer_regions)
 
-    def shares_boundary(self, other: 'DecodingWindow') -> bool:
+    def shares_timelike_boundary(self, other: 'DecodingWindow') -> bool:
         for region in self.commit_region:
             for other_region in other.commit_region:
-                if region.shares_boundary(other_region):
+                if region.shares_timelike_boundary(other_region):
+                    return True
+        return False
+
+    def shares_spacelike_boundary(self, other: 'DecodingWindow') -> bool:
+        if not self.merge_instr.intersection(other.merge_instr):
+            return False
+        for region in self.commit_region:
+            for other_region in other.commit_region:
+                if region.shares_spacelike_boundary(other_region):
+                    return True
+        return False
+
+    def shares_boundary(self, other: 'DecodingWindow') -> bool:
+        spacelike_valid = self.merge_instr.intersection(other.merge_instr)
+        for region in self.commit_region:
+            for other_region in other.commit_region:
+                if region.shares_timelike_boundary(other_region):
+                    return True
+                if spacelike_valid and region.shares_spacelike_boundary(other_region):
                     return True
         return False
     
@@ -120,7 +147,7 @@ class DecodingWindow:
         return False
     
     def __repr__(self):
-        return f'Window({self.commit_region}, {self.buffer_regions}, {self.merge_instr}, {self.parent_instr_idx}, {self.constructed})'
+        return f'Window({self.commit_region}, {self.buffer_regions}, {self.parent_instr_idx}, {self.constructed})'
 
 class WindowBuilder():
 

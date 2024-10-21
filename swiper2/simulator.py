@@ -75,7 +75,7 @@ class DecodingSimulator:
             enforce_window_alignment=enforce_window_alignment,
             max_parallel_processes=max_parallel_processes,
         )
-        self._window_manager.source_indices = set()
+        self._window_manager.layer1_indices = set()
 
         if progress_bar:
             pbar_r = tqdm.tqdm(desc='Surface code rounds')
