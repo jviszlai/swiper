@@ -36,6 +36,7 @@ def test_sliding_idle():
    """Test that SlidingWindowManager can correctly handle idle rounds."""
    simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
    simulator.initialize_experiment(idle_schedule, 'sliding', False)
+   assert simulator._window_manager
 
    # Check windows as they are released
    while not simulator.is_done():
@@ -47,7 +48,8 @@ def test_sliding_idle():
             assert window.constructed
    
    # Check final windows
-   device_data, window_data, decoding_data = simulator.get_data()
+   success, device_data, window_data, decoding_data = simulator.get_data()
+   assert success
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
    assert nx.is_directed_acyclic_graph(window_data.window_dag)
    assert set(window_data.window_dag.nodes) == set(range(len(window_data.all_windows)))
@@ -71,6 +73,7 @@ def test_parallel_idle():
    """Test that ParallelWindowManager can correctly handle idle rounds."""
    simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
    simulator.initialize_experiment(idle_schedule, 'parallel', False)
+   assert simulator._window_manager
 
    # Check windows as they are released
    while not simulator.is_done():
@@ -80,7 +83,8 @@ def test_parallel_idle():
          assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
    
    # Check final windows
-   device_data, window_data, decoding_data = simulator.get_data()
+   success, device_data, window_data, decoding_data = simulator.get_data()
+   assert success
    source_indices = simulator._window_manager.source_indices
    sink_indices = simulator._window_manager.sink_indices
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
@@ -150,6 +154,7 @@ def test_sliding_merge():
    """Test that SlidingWindowManager can correctly handle a merge schedule."""
    simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
    simulator.initialize_experiment(merge_schedule, 'sliding', False)
+   assert simulator._window_manager
 
    # Check windows as they are released
    while not simulator.is_done():
@@ -157,7 +162,8 @@ def test_sliding_merge():
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
          assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
 
-   device_data, window_data, decoding_data = simulator.get_data()
+   success, device_data, window_data, decoding_data = simulator.get_data()
+   assert success
    assert nx.is_directed_acyclic_graph(window_data.window_dag)
    assert set(window_data.window_dag.nodes) == set(range(len(window_data.all_windows)))
    for i,window in enumerate(window_data.all_windows):
@@ -183,13 +189,15 @@ def test_parallel_merge():
    """Test that ParallelWindowManager can correctly handle a merge schedule."""
    simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
    simulator.initialize_experiment(merge_schedule, 'parallel', False)
+   assert simulator._window_manager
 
    while not simulator.is_done():
       simulator.step_experiment()
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
          assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
 
-   device_data, window_data, decoding_data = simulator.get_data()
+   success, device_data, window_data, decoding_data = simulator.get_data()
+   assert success
    assert nx.is_directed_acyclic_graph(window_data.window_dag)
    assert set(window_data.window_dag.nodes) == set(range(len(window_data.all_windows)))
    assert nx.is_bipartite(window_data.window_dag)

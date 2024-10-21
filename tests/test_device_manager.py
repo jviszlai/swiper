@@ -6,3 +6,7 @@ test:
         blocked, and does happen once it is unblocked.
     ...
 """
+from swiper2.schedule_experiments import *
+from swiper2.device_manager import DeviceManager, DeviceData
+
+# def test_device_manager_simple():

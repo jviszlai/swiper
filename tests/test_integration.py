@@ -26,7 +26,7 @@ def test_poor_predictor_same_as_slow_predictor():
         speculation_accuracy=speculation_accuracy,
         speculation_mode='integrated',
     )
-    device_data, window_data, decoding_data = simulator.run(
+    success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         scheduling_method='sliding',
         enforce_window_alignment=False,
@@ -44,7 +44,7 @@ def test_poor_predictor_same_as_slow_predictor():
         speculation_accuracy=speculation_accuracy,
         speculation_mode='integrated',
     )
-    device_data, window_data, decoding_data = simulator.run(
+    success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         scheduling_method='sliding',
         enforce_window_alignment=False,
@@ -70,7 +70,7 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
         speculation_accuracy=speculation_accuracy,
         speculation_mode='integrated',
     )
-    device_data, window_data, decoding_data = simulator.run(
+    success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         scheduling_method='sliding',
         enforce_window_alignment=False,
@@ -85,7 +85,7 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
         speculation_accuracy=speculation_accuracy,
         speculation_mode='separate',
     )
-    device_data, window_data, decoding_data = simulator.run(
+    success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         scheduling_method='sliding',
         enforce_window_alignment=False,
