@@ -1,33 +1,70 @@
 from dataclasses import dataclass
 import math
+import numpy as np
 
 from swiper2.lattice_surgery_schedule import Instruction
 from swiper2.device_manager import SyndromeRound
 
 @dataclass(frozen=True)
 class SpacetimeRegion:
-    '''
-    A region of spacetime in the decoding volume
+    """A region of spacetime in the decoding volume.
 
     Attributes:
         patch: spatial coordinates of region
         round_start: measurement round starting the region
         duration: temporal length in units of measurement rounds
-    '''
+    """
     patch: tuple[int, int]
     round_start: int
     duration: int
     discard_after: bool = False
 
     def contains_syndrome_round(self, syndrome_round: SyndromeRound) -> bool:
-        '''
-        Check if a syndrome round is contained in this region
-        '''
+        """Check if a syndrome round is contained in this region.
+        """
         return syndrome_round.patch == self.patch and self.round_start <= syndrome_round.round < self.round_start + self.duration
+    
+    def shares_boundary(self, other: 'SpacetimeRegion') -> bool:
+        """Check if this region shares a boundary with another region.
+        """
+        shares_timelike = (
+            (self.patch == other.patch)
+            and
+            (
+                (
+                    not other.discard_after
+                    and
+                    self.round_start == other.round_start + other.duration
+                )
+                or 
+                (
+                    not self.discard_after
+                    and
+                    other.round_start == self.round_start + self.duration
+                )
+            )
+        )
+        shares_spacelike = (
+            self.round_start == other.round_start
+            and
+            self.duration == other.duration
+            and
+            np.linalg.norm(np.array(self.patch) - np.array(other.patch)) == 1
+        )
+        return shares_timelike or shares_spacelike
+    
+    def overlaps(self, other: 'SpacetimeRegion') -> bool:
+        """Check if this region overlaps with another region.
+        """
+        return self.patch == other.patch and self.round_start < other.round_start + other.duration and other.round_start < self.round_start + self.duration
+    
+    def __repr__(self):
+        return f'Region({self.patch}, {self.round_start}, {self.duration})'
 
 @dataclass(frozen=True)
 class DecodingWindow:
-    '''
+    """A decoding window with commit and buffer regions.
+
     Attributes:
         commit_region: Spacetime region that is commited after decoding.
         buffer_regions: Spacetime regions that are not commited after decoding.
@@ -36,9 +73,8 @@ class DecodingWindow:
                         adjacent windows.
         merge_instr: MERGE instruction for spatial buffers if necessary.
         parent_instr_idx: List of indices of instructions that generated this window.
-        constructed: True if window is finished being constructed with buffers
-        
-    '''
+        constructed: True if window is finished being constructed with buffers 
+    """
     commit_region: tuple[SpacetimeRegion, ...]
     buffer_regions: frozenset[SpacetimeRegion]
     merge_instr: frozenset[Instruction]
@@ -46,15 +82,45 @@ class DecodingWindow:
     constructed: bool
 
     def total_spacetime_volume(self) -> int:
-        '''
-        Calculate the total spacetime volume of this window, in units of
+        """Calculate the total spacetime volume of this window, in units of
         rounds*d^2.
-        '''
+        """
         if isinstance(self.commit_region, SpacetimeRegion):
             return self.commit_region.duration + sum(region.duration for region in self.buffer_regions)
         else:
             return sum(region.duration for region in self.commit_region) + sum(region.duration for region in self.buffer_regions)
 
+    def shares_boundary(self, other: 'DecodingWindow') -> bool:
+        for region in self.commit_region:
+            for other_region in other.commit_region:
+                if region.shares_boundary(other_region):
+                    return True
+        return False
+    
+    def get_adjacent_commit_regions(self, other: 'DecodingWindow') -> list[SpacetimeRegion]:
+        """Get the commit regions of `other` that share a boundary with any
+        commit region of this window.
+        """
+        adjacent_regions = []
+        for region in self.commit_region:
+            for other_region in other.commit_region:
+                if region.shares_boundary(other_region):
+                    adjacent_regions.append(other_region)
+        return adjacent_regions
+    
+    def overlaps(self, other: 'DecodingWindow') -> bool:
+        for self_commit in self.commit_region:
+            for other_buffer in other.buffer_regions:
+                if self_commit.overlaps(other_buffer):
+                    return True
+        for other_commit in other.commit_region:
+            for self_buffer in self.buffer_regions:
+                if other_commit.overlaps(self_buffer):
+                    return True
+        return False
+    
+    def __repr__(self):
+        return f'Window({self.commit_region}, {self.buffer_regions}, {self.merge_instr}, {self.parent_instr_idx}, {self.constructed})'
 
 class WindowBuilder():
 
@@ -121,28 +187,29 @@ class WindowBuilder():
                     self._waiting_rounds.remove(round)
                     
         else:
-            instr_patch_groups = {}
-            for round in self._waiting_rounds:
-                instr, patch = round.instruction, round.patch
-                instr_patch_groups.setdefault((instr, patch), []).append(round)
+            raise NotImplementedError('Enforcing alignment is not yet tested')
+            # instr_patch_groups = {}
+            # for round in self._waiting_rounds:
+            #     instr, patch = round.instruction, round.patch
+            #     instr_patch_groups.setdefault((instr, patch), []).append(round)
                 
-            for (instr, patch), rounds in instr_patch_groups.items():
-                min_round = min(rounds, key=lambda x: x.round)
-                max_round = max(rounds, key=lambda x: x.round)
-                # TODO: how to handle arbitrary duration idles
-                expected_duration = min(math.ceil(0.5 * self.d * (instr.duration if isinstance(instr.duration, int) else instr.duration.value)),
-                                        self.d)
+            # for (instr, patch), rounds in instr_patch_groups.items():
+            #     min_round = min(rounds, key=lambda x: x.round)
+            #     max_round = max(rounds, key=lambda x: x.round)
+            #     # TODO: how to handle arbitrary duration idles
+            #     expected_duration = min(math.ceil(0.5 * self.d * (instr.duration if isinstance(instr.duration, int) else instr.duration.value)),
+            #                             self.d)
             
-                if (max_round.round - min_round.round) + 1 < expected_duration:
-                    # Not enough rounds to create a window
-                    continue
-                commit_region = SpacetimeRegion(space_footprint=[patch],
-                                                round_start=min_round.round,
-                                                duration=expected_duration)
-                new_windows.append(DecodingWindow(commit_region=commit_region, 
-                                                  buffer_regions=[], decoding_time=0))
-                for round in rounds:
-                    self._waiting_rounds.remove(round)
+            #     if (max_round.round - min_round.round) + 1 < expected_duration:
+            #         # Not enough rounds to create a window
+            #         continue
+            #     commit_region = SpacetimeRegion(space_footprint=[patch],
+            #                                     round_start=min_round.round,
+            #                                     duration=expected_duration)
+            #     new_windows.append(DecodingWindow(commit_region=commit_region, 
+            #                                       buffer_regions=[], decoding_time=0))
+            #     for round in rounds:
+            #         self._waiting_rounds.remove(round)
 
         return new_windows
 

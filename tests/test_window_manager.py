@@ -19,6 +19,8 @@ import numpy as np
 import networkx as nx
 from swiper2.simulator import DecodingSimulator
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
+from swiper2.window_builder import WindowBuilder
+from swiper2.window_manager import WindowManager, WindowData
 
 idle_schedule = LatticeSurgerySchedule()
 idle_schedule.idle([(0,0)], 101)
@@ -31,6 +33,27 @@ merge_schedule.merge([(0,0), (0,10)], [(0,i) for i in range(1,10)])
 merge_schedule.merge([(0,0), (0,10)], [(0,i) for i in range(1,10)])
 merge_schedule.merge([(0,0), (0,10)], [(0,i) for i in range(1,10)])
 merge_schedule.discard([(0,0), (0,10)])
+
+def check_dependencies(window_data: WindowData):
+   """Check that DAG is valid and consistent with window buffer overlaps.
+   """
+   assert nx.is_directed_acyclic_graph(window_data.window_dag)
+   assert set(window_data.window_dag.nodes) == set(range(len(window_data.all_windows)))
+   covered_edges = set()
+   for i,window in enumerate(window_data.all_windows):
+      for j,w in enumerate(window_data.all_windows[:i]):
+         if window.shares_boundary(w):
+            assert any([cr.overlaps(buff) for cr in window.commit_region for buff in w.buffer_regions]) or any([cr.overlaps(buff) for cr in w.commit_region for buff in window.buffer_regions])
+            assert (i,j) in window_data.window_dag.edges or (j,i) in window_data.window_dag.edges
+            covered_edges.add((i,j) if (i,j) in window_data.window_dag.edges else (j,i))
+   assert covered_edges == set(window_data.window_dag.edges)
+
+class WindowManagerTester(WindowManager):
+   def process_round(self, new_rounds):
+      pass
+
+def test_window_manager():
+   window_manager = WindowManagerTester(WindowBuilder(7, False))
 
 def test_sliding_idle():
    """Test that SlidingWindowManager can correctly handle idle rounds."""
@@ -51,8 +74,7 @@ def test_sliding_idle():
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
-   assert nx.is_directed_acyclic_graph(window_data.window_dag)
-   assert set(window_data.window_dag.nodes) == set(range(len(window_data.all_windows)))
+   check_dependencies(window_data)
    for i,window in enumerate(window_data.all_windows):
       assert len(window.commit_region) == 1
       cr = window.commit_region[0]
@@ -65,6 +87,7 @@ def test_sliding_idle():
       rounds_committed = np.arange(cr.round_start, cr.round_start + cr.duration)
       assert np.all(device_rounds_covered[rounds_committed] == -1)
       device_rounds_covered[rounds_committed] = i
+
    # TODO: when device is finished, need to flush final incomplete window so
    # that this test passes
    assert np.all(device_rounds_covered >= 0)
@@ -88,8 +111,7 @@ def test_parallel_idle():
    source_indices = simulator._window_manager.source_indices
    sink_indices = simulator._window_manager.sink_indices
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
-   assert nx.is_directed_acyclic_graph(window_data.window_dag)
-   assert set(window_data.window_dag.nodes) == set(range(len(window_data.all_windows)))
+   check_dependencies(window_data)
    assert nx.is_bipartite(window_data.window_dag)
    assert len(list(nx.topological_generations(window_data.window_dag))) == 2
    for i,window in enumerate(window_data.all_windows):
@@ -146,6 +168,7 @@ def test_parallel_idle():
       rounds_committed = np.concatenate([range(cr.round_start, cr.round_start + cr.duration) for cr in window.commit_region])
       assert np.all(device_rounds_covered[rounds_committed] == -1)
       device_rounds_covered[rounds_committed] = i
+
    # TODO: when device is finished, need to flush final incomplete window so
    # that this test passes
    assert np.all(device_rounds_covered >= 0)
@@ -164,8 +187,7 @@ def test_sliding_merge():
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
-   assert nx.is_directed_acyclic_graph(window_data.window_dag)
-   assert set(window_data.window_dag.nodes) == set(range(len(window_data.all_windows)))
+   check_dependencies(window_data)
    for i,window in enumerate(window_data.all_windows):
       assert len(window.commit_region) == 1
       cr = window.commit_region[0]
@@ -198,18 +220,13 @@ def test_parallel_merge():
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
-   assert nx.is_directed_acyclic_graph(window_data.window_dag)
-   assert set(window_data.window_dag.nodes) == set(range(len(window_data.all_windows)))
+   check_dependencies(window_data)
    assert nx.is_bipartite(window_data.window_dag)
    assert len(list(nx.topological_generations(window_data.window_dag))) == 2
    
-   # # Check that no source-source or sink-sink conflicts exist
-   # for window_idx_1, window_1 in enumerate(window_data.all_windows):
-   #    for window_idx_2, window_2 in enumerate(window_data.all_windows[:window_idx_1]):
-   #       for patch1 in [cr.patch for cr in window_1.commit_region]:
-   #             for patch2 in [cr.patch for cr in window_2.commit_region]:
-   #                if (abs(patch1[0] - patch2[0]) + abs(patch1[1] - patch2[1]) == 1):
-   #                   assert (window_idx_1 in simulator._window_manager.sink_indices and window_idx_2 in simulator._window_manager.source_indices) or (window_idx_1 in simulator._window_manager.source_indices and window_idx_2 in simulator._window_manager.sink_indices)
+   for i,window in enumerate(window_data.all_windows):
+      # TODO: more tests here
+      pass
 
 if __name__ == '__main__':
    test_parallel_merge()

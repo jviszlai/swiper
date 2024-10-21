@@ -35,20 +35,42 @@ class WindowManager(ABC):
 
     @abstractmethod
     def process_round(self, new_rounds: list[SyndromeRound]) -> None:
-        '''
-        Process new syndrome rounds and update the decoding window dependency graph as needed
-        '''
+        """Process new syndrome rounds and update the decoding window dependency
+        graph as needed.
+        """
         raise NotImplementedError
 
     def pending_instruction_indices(self) -> set[int]:
-        '''
-        Get the set of instruction indices that are currently generating windows
-        '''
+        """Get the set of instruction indices that are currently generating
+        windows.
+        """
         return set([instr_idx for window in self.all_windows for instr_idx in window.parent_instr_idx if not window.constructed])
 
-    def _merge_windows(self, window_1: DecodingWindow, window_2: DecodingWindow) -> DecodingWindow:
-        '''
-        Merge two windows into a new window. Removes window_2 from all_windows.
+    def _add_window(self, window: DecodingWindow) -> None:
+        """TODO"""
+
+    def _remove_window(self, window: DecodingWindow) -> None:
+        """TODO"""
+
+    def _is_contiguous(self, regions: list[SpacetimeRegion]):
+        connectivity = []
+        for i,cr1 in enumerate(regions):
+            for j,cr2 in enumerate(regions):
+                if i != j and cr1.shares_boundary(cr2):
+                    connectivity.append((i,j))
+        g = nx.Graph()
+        g.add_nodes_from(range(len(regions)))
+        g.add_edges_from(connectivity)
+        return nx.is_connected(g)
+
+    def _merge_windows(
+            self,
+            window_1: DecodingWindow,
+            window_2: DecodingWindow,
+            enforce_contiguous: bool = True,
+        ) -> DecodingWindow:
+        """Merge two windows into a new window. Removes window_2 from
+        all_windows.
 
         WARNING: like _append_to_buffers or _mark_constructed, this method
         modifies all_windows, window_dag, window_buffer_wait, and other internal
@@ -61,14 +83,20 @@ class WindowManager(ABC):
         Args:
             window_1: Main window
             window_2: Window to merge into window_1
+            enforce_contiguous: If True, the commit regions of window_1 and
+                window_2 must be contiguous in spacetime.
         
         Returns:
             new_window: The new window created by merging window_1 and window_2.
                 Note that this window will already be in self.all_windows.
-        '''
-        assert window_1.constructed == window_2.constructed
+        """
+        assert window_1.constructed == window_2.constructed == False
         window_idx_1 = self.all_windows.index(window_1)
         window_idx_2 = self.all_windows.index(window_2)
+
+        if enforce_contiguous:
+            if not self._is_contiguous(list(window_1.commit_region) + list(window_2.commit_region)):
+                raise ValueError("Commit regions must be contiguous")
 
         # Add window 2's attributes to window 1
         for succ in self.window_dag.successors(window_idx_2):
@@ -103,14 +131,14 @@ class WindowManager(ABC):
         for k,(w_idx,cr_idx) in self.window_end_lookup.items():
             if w_idx > window_idx_2:
                 self.window_end_lookup[k] = (w_idx-1, cr_idx)
-
-        return new_window        
+        return new_window
 
     def _append_to_buffers(self, window: DecodingWindow, region: SpacetimeRegion, constructed: bool=False, inplace=False) -> DecodingWindow:
-        '''
-        Create new window with region appended to buffer regions
-        '''
-        
+        """Create new window with region appended to buffer regions
+        """
+        assert not window.constructed
+        if region in window.buffer_regions:
+            return window
         new_window = DecodingWindow(window.commit_region, 
                               window.buffer_regions | frozenset([region]), 
                               window.merge_instr, 
@@ -122,9 +150,9 @@ class WindowManager(ABC):
         return new_window
 
     def _mark_constructed(self, window: DecodingWindow, inplace=False) -> DecodingWindow:
-        '''
-        Create new window marked constructed to indicate it is ready to be decoded
-        '''
+        """Create new window marked constructed to indicate it is ready to be
+        decoded.
+        """
         window_idx = self.all_windows.index(window)
         if inplace:
             if window_idx in self.window_buffer_wait:
@@ -243,13 +271,16 @@ class SlidingWindowManager(WindowManager):
             assert all(window.constructed for window in self.all_windows)
         
 class ParallelWindowManager(WindowManager):
-    '''TODO
+    """TODO
     
     Ideally, a source contains one commit region and some buffer regions
     surrounding it. A sink contains three commit regions in a line, where the
     start and end are buffered by neighboring sources. However, this gets
     complicated when we have dense merge schedules and more pipe junctions.
-    '''
+
+    Addition: there are two layers of sources. By default, we only use the
+    second source layer and the sinks, but in a big merge operation, we can 
+    """
     source_indices: set[int]
     sink_indices: set[int]
 
@@ -340,8 +371,8 @@ class ParallelWindowManager(WindowManager):
                             merge_windows.setdefault(m_i, []).append(i)
                 return merge_windows
 
-            # At this point, every new commit region can only be connected
-            # vertically to anything else.
+            # At this point, every new commit region will only be connected
+            # vertically to anything else. We now need to connect horizontally.
 
             # Naive approach to resolve conflicts: merge any adjacent sinks or
             # sources into each other.
@@ -374,18 +405,25 @@ class ParallelWindowManager(WindowManager):
                                             change_made = True
                                             break
 
-            # Now, all windows are valid. Add spacelike edges to DAG.
+            # Now, all windows are valid. We finish by adding buffer regions and
+            # updating DAG dependencies appropriately.
             merge_windows = get_merge_windows()
-            for _, window_idxs in merge_windows.items():
+            for instr, window_idxs in merge_windows.items():
                 for i, window_idx_1 in enumerate(window_idxs):
+                    window_1 = self.all_windows[window_idx_1]
                     for window_idx_2 in window_idxs[:i]:
-                        for patch1 in [cr.patch for cr in self.all_windows[window_idx_1].commit_region]:
-                            for patch2 in [cr.patch for cr in self.all_windows[window_idx_2].commit_region]:
-                                if (abs(patch1[0] - patch2[0]) + abs(patch1[1] - patch2[1]) == 1):
-                                    if (window_idx_1 in self.sink_indices and window_idx_2 in self.source_indices) and not (window_idx_1 in self.window_dag.successors(window_idx_2)):
-                                        self.window_dag.add_edge(window_idx_2, window_idx_1)
-                                    elif (window_idx_1 in self.source_indices and window_idx_2 in self.sink_indices) and not (window_idx_2 in self.window_dag.successors(window_idx_1)):
-                                        self.window_dag.add_edge(window_idx_1, window_idx_2)
+                        window_2 = self.all_windows[window_idx_2]
+                        if window_1.shares_boundary(window_2):
+                            assert not (window_idx_1 in self.sink_indices and window_idx_2 in self.sink_indices)
+                            assert not (window_idx_1 in self.source_indices and window_idx_2 in self.source_indices)
+                            if (window_idx_1 in self.sink_indices and window_idx_2 in self.source_indices):
+                                for region in window_2.get_adjacent_commit_regions(window_1):
+                                    window_2 = self._append_to_buffers(window_2, region, inplace=True)
+                                self.window_dag.add_edge(window_idx_2, window_idx_1)
+                            elif (window_idx_1 in self.source_indices and window_idx_2 in self.sink_indices):
+                                for region in window_1.get_adjacent_commit_regions(window_2):
+                                    window_1 = self._append_to_buffers(window_1, region, inplace=True)
+                                self.window_dag.add_edge(window_idx_1, window_idx_2)
 
         self._update_buffer_wait()
         self._window_count_history.append(len(self.all_windows))
@@ -399,6 +437,9 @@ class ParallelWindowManager(WindowManager):
             assert all(window.constructed for window in self.all_windows)
 
     def _merge_windows(self, window_1: DecodingWindow, window_2: DecodingWindow) -> DecodingWindow:
+        """Wrapper for super()._merge_windows that updates source and sink
+        indices.
+        """
         window_idx_1 = self.all_windows.index(window_1)
         window_idx_2 = self.all_windows.index(window_2)
 
