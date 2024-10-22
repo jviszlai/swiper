@@ -4,7 +4,7 @@ import tqdm
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper2.device_manager import DeviceData, DeviceManager
 from swiper2.decoder_manager import DecoderData, DecoderManager
-from swiper2.window_manager import WindowData, SlidingWindowManager, ParallelWindowManager, DynamicWindowManager
+from swiper2.window_manager import WindowData, SlidingWindowManager, ParallelWindowManager, TAlignedWindowManager
 from swiper2.window_builder import WindowBuilder
 
 class DecodingSimulator:
@@ -46,7 +46,7 @@ class DecodingSimulator:
         self.speculation_mode = speculation_mode
 
         self._device_manager: DeviceManager | None = None
-        self._window_manager: SlidingWindowManager | ParallelWindowManager | DynamicWindowManager | None = None
+        self._window_manager: SlidingWindowManager | ParallelWindowManager | TAlignedWindowManager | None = None
         self._decoding_manager: DecoderManager | None = None
 
     def run(
@@ -64,7 +64,7 @@ class DecodingSimulator:
             schedule: LatticeSurgerySchedule encoding operations to be
                 performed.
             scheduling_method: Window scheduling method. 'sliding', 'parallel', 
-                or 'dynamic'.
+                or 'aligned'.
             max_parallel_processes: Maximum number of parallel decoding
                 processes to run. If None, run as many as possible.
             progress_bar: If True, display a progress bar for the simulation.
@@ -109,9 +109,8 @@ class DecodingSimulator:
             self._window_manager = SlidingWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
         elif scheduling_method == 'parallel':
             self._window_manager = ParallelWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
-        elif scheduling_method == 'dynamic':
-            raise NotImplementedError
-            # self._window_manager = DynamicWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
+        elif scheduling_method == 'aligned':
+            self._window_manager = TAlignedWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
         else:
             raise ValueError(f"Unknown scheduling method: {scheduling_method}")
         self._decoding_manager = DecoderManager(

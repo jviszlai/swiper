@@ -161,9 +161,7 @@ class WindowBuilder():
             new_rounds: list[SyndromeRound],
             discarded_patches: list[tuple[int, int]],
         ) -> list[DecodingWindow]:
-        '''
-        TODO
-        '''
+        """TODO"""
         if not new_rounds or len(new_rounds) == 0:
             # Time to chug through that backlog
             curr_round = -1
@@ -241,9 +239,8 @@ class WindowBuilder():
         return new_windows
 
     def flush(self):
-        '''
-        Flush all remaining rounds into windows
-        '''
+        """Flush all remaining rounds into windows
+        """
         new_windows = []
         patch_groups = {}
         for round in self._waiting_rounds:

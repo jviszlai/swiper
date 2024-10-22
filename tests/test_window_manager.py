@@ -20,8 +20,8 @@ import networkx as nx
 from swiper2.simulator import DecodingSimulator
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper2.window_builder import WindowBuilder
-from swiper2.window_manager import WindowManager, WindowData, SlidingWindowManager, ParallelWindowManager, DynamicWindowManager
-from swiper2.schedule_experiments import MSD15To1Schedule
+from swiper2.window_manager import WindowManager, WindowData, SlidingWindowManager, ParallelWindowManager, TAlignedWindowManager
+from swiper2.schedule_experiments import MSD15To1Schedule, RandomTSchedule
 
 idle_schedule = LatticeSurgerySchedule()
 idle_schedule.idle([(0,0)], 101)
@@ -34,6 +34,12 @@ merge_schedule.merge([(0,0), (0,10)], [(0,i) for i in range(1,10)])
 merge_schedule.merge([(0,0), (0,10)], [(0,i) for i in range(1,10)])
 merge_schedule.merge([(0,0), (0,10)], [(0,i) for i in range(1,10)])
 merge_schedule.discard([(0,0), (0,10)])
+
+distance = 7
+decoding_fn = lambda _: 8
+speculation_latency = 2
+speculation_accuracy = 0
+speculation_mode = 'integrated'
 
 def check_dependencies(window_data: WindowData):
    """Check that DAG is valid and consistent with window buffer overlaps.
@@ -62,7 +68,13 @@ def test_window_manager():
 
 def test_sliding_idle():
    """Test that SlidingWindowManager can correctly handle idle rounds."""
-   simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
+   simulator = DecodingSimulator(
+      distance=distance,
+      decoding_latency_fn=decoding_fn,
+      speculation_latency=speculation_latency,
+      speculation_accuracy=speculation_accuracy,
+      speculation_mode=speculation_mode,
+   )
    simulator.initialize_experiment(idle_schedule, 'sliding', False)
    assert simulator._window_manager
 
@@ -100,7 +112,13 @@ def test_sliding_idle():
 
 def test_parallel_idle():
    """Test that ParallelWindowManager can correctly handle idle rounds."""
-   simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
+   simulator = DecodingSimulator(
+      distance=distance,
+      decoding_latency_fn=decoding_fn,
+      speculation_latency=speculation_latency,
+      speculation_accuracy=speculation_accuracy,
+      speculation_mode=speculation_mode,
+   )
    simulator.initialize_experiment(idle_schedule, 'parallel', False)
    assert isinstance(simulator._window_manager, ParallelWindowManager)
 
@@ -182,7 +200,13 @@ def test_parallel_idle():
 
 def test_sliding_merge():
    """Test that SlidingWindowManager can correctly handle a merge schedule."""
-   simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
+   simulator = DecodingSimulator(
+      distance=distance,
+      decoding_latency_fn=decoding_fn,
+      speculation_latency=speculation_latency,
+      speculation_accuracy=speculation_accuracy,
+      speculation_mode=speculation_mode,
+   )
    simulator.initialize_experiment(merge_schedule, 'sliding', False)
    assert simulator._window_manager
 
@@ -217,7 +241,13 @@ def test_sliding_merge():
 
 def test_parallel_merge():
    """Test that ParallelWindowManager can correctly handle a merge schedule."""
-   simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
+   simulator = DecodingSimulator(
+      distance=distance,
+      decoding_latency_fn=decoding_fn,
+      speculation_latency=speculation_latency,
+      speculation_accuracy=speculation_accuracy,
+      speculation_mode=speculation_mode,
+   )
    simulator.initialize_experiment(merge_schedule, 'parallel', False)
    assert simulator._window_manager
 
@@ -239,7 +269,13 @@ def test_parallel_merge():
 def test_sliding_distillation():
    """Test that SlidingWindowManager can correctly handle the 15-to-1
    distillation schedule."""
-   simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
+   simulator = DecodingSimulator(
+      distance=distance,
+      decoding_latency_fn=decoding_fn,
+      speculation_latency=speculation_latency,
+      speculation_accuracy=speculation_accuracy,
+      speculation_mode=speculation_mode,
+   )
    simulator.initialize_experiment(MSD15To1Schedule().schedule, 'sliding', False)
    assert simulator._window_manager
  
@@ -260,7 +296,13 @@ def test_sliding_distillation():
 
 def test_parallel_distillation():
    """Test that ParallelWindowManager can correctly handle a merge schedule."""
-   simulator = DecodingSimulator(7, lambda _: 14, 2, 0, speculation_mode='separate')
+   simulator = DecodingSimulator(
+      distance=distance,
+      decoding_latency_fn=decoding_fn,
+      speculation_latency=speculation_latency,
+      speculation_accuracy=speculation_accuracy,
+      speculation_mode=speculation_mode,
+   )
    simulator.initialize_experiment(MSD15To1Schedule().schedule, 'parallel', False)
    assert simulator._window_manager
 
@@ -276,6 +318,64 @@ def test_parallel_distillation():
    
    for i,window in enumerate(window_data.all_windows):
       # TODO: more tests here
+      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert len(window.commit_region) <= 6
+
+def test_aligned():
+   """Test that TAlignedWindowManager can correctly handle a RandomT schedule."""
+   simulator = DecodingSimulator(
+      distance=distance,
+      decoding_latency_fn=decoding_fn,
+      speculation_latency=speculation_latency,
+      speculation_accuracy=speculation_accuracy,
+      speculation_mode=speculation_mode,
+   )
+   simulator.initialize_experiment(RandomTSchedule(10, 50).schedule, 'aligned', False)
+   assert simulator._window_manager
+
+   while not simulator.is_done():
+      simulator.step_experiment()
+      for window_idx, window in enumerate(simulator._window_manager.all_windows):
+         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+
+   success, device_data, window_data, decoding_data = simulator.get_data()
+   assert success
+   check_dependencies(window_data)
+   assert len(list(nx.topological_generations(window_data.window_dag))) == 3
+   
+   for i,window in enumerate(window_data.all_windows):
+      # TODO: more tests here
+      if window.merge_instr:
+         assert simulator._window_manager._get_layer_idx(i) == 2
+      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert len(window.commit_region) <= 3
+
+def test_aligned_distillation():
+   """Test that TAlignedWindowManager can correctly handle a distillation schedule."""
+   simulator = DecodingSimulator(
+      distance=distance,
+      decoding_latency_fn=decoding_fn,
+      speculation_latency=speculation_latency,
+      speculation_accuracy=speculation_accuracy,
+      speculation_mode=speculation_mode,
+   )
+   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'aligned', False)
+   assert simulator._window_manager
+
+   while not simulator.is_done():
+      simulator.step_experiment()
+      for window_idx, window in enumerate(simulator._window_manager.all_windows):
+         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+
+   success, device_data, window_data, decoding_data = simulator.get_data()
+   assert success
+   check_dependencies(window_data)
+   assert len(list(nx.topological_generations(window_data.window_dag))) == 4
+   
+   for i,window in enumerate(window_data.all_windows):
+      # TODO: more tests here
+      if any(instr.conditional_dependencies for instr in window.merge_instr):
+         assert simulator._window_manager._get_layer_idx(i) == 2
       assert simulator._window_manager._is_contiguous(list(window.commit_region))
       assert len(window.commit_region) <= 6
       
