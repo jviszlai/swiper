@@ -1,11 +1,13 @@
 from typing import Callable
 import networkx as nx
 import tqdm
+import matplotlib.pyplot as plt
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper2.device_manager import DeviceData, DeviceManager
 from swiper2.decoder_manager import DecoderData, DecoderManager
 from swiper2.window_manager import WindowData, SlidingWindowManager, ParallelWindowManager, TAlignedWindowManager
 from swiper2.window_builder import WindowBuilder
+import swiper2.plot as plotter
 
 class DecodingSimulator:
     def __init__(
@@ -57,6 +59,7 @@ class DecodingSimulator:
             max_parallel_processes: int | None = None,
             progress_bar: bool = False,
             pending_window_count_cutoff: int = 0,
+            save_animation_frames: bool = False,
         ) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         """TODO
         
@@ -68,6 +71,7 @@ class DecodingSimulator:
             max_parallel_processes: Maximum number of parallel decoding
                 processes to run. If None, run as many as possible.
             progress_bar: If True, display a progress bar for the simulation.
+            save_animation_frames: If using in Jupyter notebook, use %%capture TODO: broken
         """
         self.initialize_experiment(
             schedule=schedule,
@@ -81,12 +85,20 @@ class DecodingSimulator:
             pbar_r = tqdm.tqdm(desc='Surface code rounds')
             # pbar_i = tqdm.tqdm(total=len(schedule.all_instructions), desc='Scheduled instructions complete')
 
+        if save_animation_frames:
+            fig = plt.figure()
+            self.frame_data = []
+
         while not self.is_done():
             self.step_experiment(pending_window_count_cutoff=pending_window_count_cutoff)
             if progress_bar and self._decoding_manager._current_round % 100 == 0:
                 pbar_r.update(100)
                 # pbar_i.update(len(fully_decoded_instructions) - pbar_i.n)
                 # pbar_i.refresh()
+            if save_animation_frames:
+                ax = plotter.plot_device_schedule_trace(self._device_manager.get_data(), spacing=1, default_fig=fig)
+                ax.set_zticks([])
+                self.frame_data.append(ax)
             
         if progress_bar:
             pbar_r.update(self._decoding_manager._current_round - pbar_r.n)
@@ -151,3 +163,6 @@ class DecodingSimulator:
         window_data = self._window_manager.get_data()
         decoding_data = self._decoding_manager.get_data()
         return not self.failed, device_data, window_data, decoding_data
+    
+    def get_frame_data(self) -> list[plt.Axes]:
+        return self.frame_data
