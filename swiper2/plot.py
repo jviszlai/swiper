@@ -30,6 +30,7 @@ def plot_device_schedule_trace(
         selected_window_colors: list[str] = [
             'firebrick', 'pink', 'orange',
         ],
+        hide_z_ticks: bool = False,
         default_fig: plt.Figure | None = None,
     ):
     fig = plt.figure() if not default_fig else default_fig
@@ -132,6 +133,8 @@ def plot_device_schedule_trace(
     ax.view_init(elev=15, azim=30)
     ax.set_xticks([])
     ax.set_yticks([])
+    if hide_z_ticks:
+        ax.set_zticks([])
     # flip both x and y axes to match the orientation of the device
     # ax.invert_xaxis()
     # ax.invert_yaxis()
