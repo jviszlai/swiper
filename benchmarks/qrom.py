@@ -4,10 +4,10 @@ import numpy as np
 
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
 
-class QROM_30:
+class QROM_Schedule:
 
-    def __init__(self):
-        qrom_bloq = QROM([np.arange(4)], selection_bitsizes=(6,), target_bitsizes=(6,))
+    def __init__(self, data: list[int], select_bitsize: int, target_bitsize: int):
+        qrom_bloq = QROM(data, selection_bitsizes=(select_bitsize,), target_bitsizes=(target_bitsize,))
         circuit = qrom_bloq.as_composite_bloq().flatten().to_cirq_circuit()
         self.schedule = self._build_ls_schedule(circuit)
 
