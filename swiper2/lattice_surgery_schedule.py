@@ -5,14 +5,18 @@ from enum import Enum
 class Duration(Enum):
     HALF_D_ROUNDS = 1
     D_ROUNDS = 2
+    HALF_D_ROUNDS_ROUNDED_DOWN = 3
+    HALF_D_ROUNDS_ROUNDED_UP = 4
 
 @dataclass(frozen=True)
 class Instruction:
     name: str
     patches: frozenset[tuple[int, int]]
     duration: Duration | int
-    conditioned_on_idx: int | None = None
+    conditioned_on_idx: frozenset[int] = field(default_factory=frozenset)
     conditional_dependencies: frozenset[int] = field(default_factory=frozenset)
+    conditioned_on_completion_idx: frozenset[int] = field(default_factory=frozenset)
+    conditional_completion_dependencies: frozenset[int] = field(default_factory=frozenset)
 
 class LatticeSurgerySchedule:
     """Represents a planned series of lattice surgery operations."""
@@ -23,8 +27,13 @@ class LatticeSurgerySchedule:
         instruction = Instruction('INJECT_T', frozenset([patch_coords]), Duration.D_ROUNDS)
         self.all_instructions.append(instruction)
 
+    # def inject_T(self, patches: list[tuple[int, int]]):
+    #     for patch in patches:
+    #         instruction = Instruction('INJECT_T', frozenset([patch]), Duration.D_ROUNDS)
+    #         self.all_instructions.append(instruction)
+
     def conditional_S(self, patch_coords: tuple[int, int], conditioned_on_idx: int):
-        instruction = Instruction('CONDITIONAL_S', frozenset([patch_coords]), Duration.HALF_D_ROUNDS, conditioned_on_idx)
+        instruction = Instruction('CONDITIONAL_S', frozenset([patch_coords]), Duration.HALF_D_ROUNDS, frozenset([conditioned_on_idx]))
         self.all_instructions.append(instruction)
         
         update_instr = self.all_instructions[conditioned_on_idx]
@@ -36,21 +45,46 @@ class LatticeSurgerySchedule:
             self,
             active_qubits: list[tuple[int, int]],
             routing_qubits: list[tuple[int, int]],
+            duration: Duration | int = Duration.D_ROUNDS,
         ):
-        instruction = Instruction('MERGE', frozenset(active_qubits + routing_qubits), Duration.D_ROUNDS)
+        instruction = Instruction('MERGE', frozenset(active_qubits + routing_qubits), duration)
         self.all_instructions.append(instruction)
         self.discard(routing_qubits) 
 
-    def discard(self, patches: list[tuple[int, int]]):
+    def discard(self, patches: list[tuple[int, int]], conditioned_on_idx: set[int] = set()):
         if len(patches) == 0:
             return
-        instruction = Instruction('DISCARD', frozenset(patches), 0)
+        instruction = Instruction('DISCARD', frozenset(patches), 0, conditioned_on_completion_idx=frozenset(conditioned_on_idx))
         self.all_instructions.append(instruction)
+        for idx in conditioned_on_idx:
+            update_instr = self.all_instructions[idx]
+            self.all_instructions[idx] = Instruction(
+                update_instr.name,
+                update_instr.patches,
+                update_instr.duration,
+                update_instr.conditioned_on_idx,
+                update_instr.conditional_dependencies,
+                update_instr.conditioned_on_completion_idx,
+                update_instr.conditional_completion_dependencies  | frozenset([len(self.all_instructions) - 1]),
+            )
 
     def idle(self, patches: list[tuple[int, int]], num_rounds: Duration | int = Duration.D_ROUNDS):
         if isinstance(num_rounds, Duration) or num_rounds > 0:
             instruction = Instruction('IDLE', frozenset(patches), num_rounds)
             self.all_instructions.append(instruction)
+
+    # def discard(self, patches: list[tuple[int, int]]):
+    #     if len(patches) == 0:
+    #         return
+    #     for patch in patches:
+    #         instruction = Instruction('DISCARD', frozenset([patch]), 0)
+    #         self.all_instructions.append(instruction)
+
+    # def idle(self, patches: list[tuple[int, int]], num_rounds: Duration | int = Duration.D_ROUNDS):
+    #     if isinstance(num_rounds, Duration) or num_rounds > 0:
+    #         for patch in patches:
+    #             instruction = Instruction('IDLE', frozenset([patch]), num_rounds)
+    #             self.all_instructions.append(instruction)
 
     def to_dag(self, dummy_final_node=False):
         dag = nx.DiGraph()
@@ -76,4 +110,8 @@ class LatticeSurgerySchedule:
                     dag.edges[edge]['weight'] = distance // 2 + 2
                 elif weight == Duration.D_ROUNDS:
                     dag.edges[edge]['weight'] = distance
+                elif weight == Duration.HALF_D_ROUNDS_ROUNDED_DOWN:
+                    dag.edges[edge]['weight'] = distance // 2
+                elif weight == Duration.HALF_D_ROUNDS_ROUNDED_UP:
+                    dag.edges[edge]['weight'] = distance // 2 + 2
         return nx.dag_longest_path_length(dag)
