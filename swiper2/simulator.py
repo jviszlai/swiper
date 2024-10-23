@@ -2,6 +2,7 @@ from typing import Callable
 import networkx as nx
 import tqdm
 import matplotlib.pyplot as plt
+import numpy as np
 from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper2.device_manager import DeviceData, DeviceManager
 from swiper2.decoder_manager import DecoderData, DecoderManager
@@ -39,6 +40,7 @@ class DecodingSimulator:
                 can be run independently of decoding. In this case, speculation
                 uses a parallel process and counts towards
                 max_parallel_processes.
+            rng: Random number generator.
         """
         self.distance = distance
         self.decoding_latency_fn = decoding_latency_fn
@@ -60,6 +62,7 @@ class DecodingSimulator:
             progress_bar: bool = False,
             pending_window_count_cutoff: int = 0,
             save_animation_frames: bool = False,
+            rng: int | np.random.Generator = np.random.default_rng(),
         ) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         """TODO
         
@@ -71,13 +74,16 @@ class DecodingSimulator:
             max_parallel_processes: Maximum number of parallel decoding
                 processes to run. If None, run as many as possible.
             progress_bar: If True, display a progress bar for the simulation.
-            save_animation_frames: If using in Jupyter notebook, use %%capture TODO: broken
+            save_animation_frames: If using in Jupyter notebook, use %%capture
+                TODO: broken
+            rng: Random number generator.
         """
         self.initialize_experiment(
             schedule=schedule,
             scheduling_method=scheduling_method,
             enforce_window_alignment=enforce_window_alignment,
             max_parallel_processes=max_parallel_processes,
+            rng=rng,
         )
         self._window_manager.layer1_indices = set()
 
@@ -114,9 +120,10 @@ class DecodingSimulator:
             scheduling_method: str,
             enforce_window_alignment: bool,
             max_parallel_processes: int | None = None,
+            rng: int | np.random.Generator = np.random.default_rng(),
         ) -> None:
         self.failed = False
-        self._device_manager = DeviceManager(self.distance, schedule)
+        self._device_manager = DeviceManager(self.distance, schedule, rng=rng)
         if scheduling_method == 'sliding':
             self._window_manager = SlidingWindowManager(WindowBuilder(self.distance, enforce_alignment=enforce_window_alignment))
         elif scheduling_method == 'parallel':

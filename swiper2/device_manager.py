@@ -31,7 +31,7 @@ class DeviceData:
     patches_initialized_by_round: dict[int, set[tuple[int, int]]]
 
 class DeviceManager:
-    def __init__(self, d_t: int, schedule: LatticeSurgerySchedule):
+    def __init__(self, d_t: int, schedule: LatticeSurgerySchedule, rng: int | np.random.Generator = np.random.default_rng()):
         """TODO
 
         Args:
@@ -55,11 +55,22 @@ class DeviceManager:
         self._active_patches = set()
         self._instruction_frontier = set()
 
-        self._active_instructions[0] = self._get_duration(0)
+        if isinstance(rng, int):
+            self.rng = np.random.default_rng(rng)
+        else:
+            self.rng = rng
+
+        self._instruction_durations = [self._get_duration(i) for i in range(len(self.schedule.all_instructions))]
+
+        self._active_instructions[0] = self._instruction_durations[0]
         self._update_active_instructions()
 
     def _get_duration(self, instruction_idx: int) -> int:
         """Return the duration of an instruction."""
+        if self.schedule.all_instructions[instruction_idx].name == 'CONDITIONAL_S':
+            if self.rng.random() < 0.5:
+                return 0
+
         duration = self.schedule.all_instructions[instruction_idx].duration
         if isinstance(duration, int):
             return duration
@@ -67,6 +78,10 @@ class DeviceManager:
             return self.d_t // 2 + 2
         elif duration == Duration.D_ROUNDS:
             return self.d_t
+        elif duration == Duration.HALF_D_ROUNDS_ROUNDED_DOWN:
+            return self.d_t // 2
+        elif duration == Duration.HALF_D_ROUNDS_ROUNDED_UP:
+            return self.d_t // 2 + 2
         else:
             raise ValueError(f"Invalid instruction duration: {self.schedule.all_instructions[instruction_idx].duration}")
 
@@ -101,18 +116,18 @@ class DeviceManager:
             is_startup_instruction = self._is_startup_instruction(instruction_idx)
             if instruction_idx in self._completed_instructions:
                 # already completed
-                first_round[instruction_idx] = self._completed_instructions[instruction_idx] - self._get_duration(instruction_idx) + 1
+                first_round[instruction_idx] = self._completed_instructions[instruction_idx] - self._instruction_durations[instruction_idx] + 1
                 after_last_round[instruction_idx] = self._completed_instructions[instruction_idx] + 1
             elif instruction_idx in self._active_instructions:
                 # currently active
-                first_round[instruction_idx] = self._active_instructions[instruction_idx] + self.current_round - self._get_duration(instruction_idx)
+                first_round[instruction_idx] = self._active_instructions[instruction_idx] + self.current_round - self._instruction_durations[instruction_idx]
                 after_last_round[instruction_idx] = self._active_instructions[instruction_idx] + self.current_round
             elif is_startup_instruction and all(inst_idx in first_round for inst_idx in self.schedule_dag.successors(instruction_idx)):
                 # if startup instruction; schedule ALAP (before soonest successor)
                 successor_first_rounds = [first_round[inst_idx] for inst_idx in self.schedule_dag.successors(instruction_idx)]
-                first_round[instruction_idx] = min(successor_first_rounds, default=0) - self._get_duration(instruction_idx)
+                first_round[instruction_idx] = min(successor_first_rounds, default=0) - self._instruction_durations[instruction_idx]
                 first_round[instruction_idx] = max(first_round[instruction_idx], self.current_round)
-                after_last_round[instruction_idx] = first_round[instruction_idx] + self._get_duration(instruction_idx)
+                after_last_round[instruction_idx] = first_round[instruction_idx] + self._instruction_durations[instruction_idx]
             elif not is_startup_instruction and all(inst_idx in after_last_round for inst_idx in self.schedule_dag.predecessors(instruction_idx) if not self._is_startup_instruction(inst_idx)):
                 # standard operation; schedule ASAP (after last predecessor)
                 predecessor_last_rounds = []
@@ -124,7 +139,7 @@ class DeviceManager:
                         assert self._is_startup_instruction(inst_idx)
                 first_round[instruction_idx] = max(predecessor_last_rounds, default=0)
                 first_round[instruction_idx] = max(first_round[instruction_idx], self.current_round)
-                after_last_round[instruction_idx] = first_round[instruction_idx] + self._get_duration(instruction_idx)
+                after_last_round[instruction_idx] = first_round[instruction_idx] + self._instruction_durations[instruction_idx]
             else:
                 # not ready to be processed; push to back
                 instruction_queue = instruction_queue + [instruction_idx]
@@ -151,7 +166,10 @@ class DeviceManager:
                 if set(self.schedule.all_instructions[instruction_idx].patches) & patches_in_use:
                     # at least one patch is already in use
                     continue
-                elif self.schedule.all_instructions[instruction_idx].conditioned_on_idx is not None and self.schedule.all_instructions[instruction_idx].conditioned_on_idx not in fully_decoded_instructions:
+                elif not self.schedule.all_instructions[instruction_idx].conditioned_on_idx.issubset(fully_decoded_instructions):
+                    # decoding dependency not yet satisfied
+                    continue
+                elif not self.schedule.all_instructions[instruction_idx].conditioned_on_completion_idx.issubset(set(self._completed_instructions.keys())):
                     # dependency not yet satisfied
                     continue
                 elif set(self.schedule_dag.predecessors(instruction_idx)) - set(self._completed_instructions.keys()):
@@ -163,7 +181,7 @@ class DeviceManager:
                     if self.schedule.all_instructions[instruction_idx].name == 'DISCARD':
                         self._active_patches -= set(self.schedule.all_instructions[instruction_idx].patches)
                 else:
-                    self._active_instructions[instruction_idx] = self._get_duration(instruction_idx)
+                    self._active_instructions[instruction_idx] = self._instruction_durations[instruction_idx]
                     patches_in_use.update(self.schedule.all_instructions[instruction_idx].patches)
 
     def _generate_syndrome_round(self) -> tuple[list[SyndromeRound], set[int]]:
@@ -193,7 +211,7 @@ class DeviceManager:
         generated_syndrome_rounds.extend([
             SyndromeRound(coords, 
                           self.current_round, 
-                          Instruction('UNWANTED_IDLE', frozenset([coords]), Duration.D_ROUNDS), 
+                          Instruction('UNWANTED_IDLE', frozenset([coords]), 1), 
                           -1,
                           initialized_patch=False, 
                           is_unwanted_idle=True) 

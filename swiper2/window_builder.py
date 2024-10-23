@@ -210,7 +210,7 @@ class WindowBuilder():
                 ))
                 for round in rounds:
                     self._waiting_rounds.remove(round)
-                    
+
         else:
             raise NotImplementedError('Enforcing alignment is not yet tested')
             # instr_patch_groups = {}

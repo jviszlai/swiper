@@ -31,6 +31,7 @@ def test_poor_predictor_same_as_slow_predictor():
         scheduling_method='sliding',
         enforce_window_alignment=False,
         max_parallel_processes=None,
+        rng=0,
     )
     num_rounds_bad_speculation = decoding_data.num_rounds
 
@@ -49,6 +50,7 @@ def test_poor_predictor_same_as_slow_predictor():
         scheduling_method='sliding',
         enforce_window_alignment=False,
         max_parallel_processes=None,
+        rng=0,
     )
     num_rounds_slow_speculation = decoding_data.num_rounds
 
@@ -75,6 +77,7 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
         scheduling_method='sliding',
         enforce_window_alignment=False,
         max_parallel_processes=None,
+        rng=0,
     )
     num_rounds_integrated = decoding_data.num_rounds
 
@@ -90,6 +93,7 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
         scheduling_method='sliding',
         enforce_window_alignment=False,
         max_parallel_processes=None,
+        rng=0,
     )
     num_rounds_separate = decoding_data.num_rounds
 
