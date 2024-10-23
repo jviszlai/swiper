@@ -20,7 +20,7 @@ class QROM_Schedule:
 
                 ancilla_qbit = (0, qbit_idx[op.qubits[0]])
                 data_qbit = (1, qbit_idx[op.qubits[0]])
-                schedule.inject_T(ancilla_qbit)
+                schedule.inject_T([ancilla_qbit])
                 schedule.merge([ancilla_qbit, data_qbit], [])
                 schedule.conditional_S(data_qbit, len(schedule.all_instructions) - 1)
                 schedule.discard([ancilla_qbit])

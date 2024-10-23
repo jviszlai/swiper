@@ -60,32 +60,12 @@ class DeviceManager:
         else:
             self.rng = rng
 
-        self._instruction_durations = [self._get_duration(i) for i in range(len(self.schedule.all_instructions))]
+        self._instruction_durations = [self.schedule.get_true_duration(instr.duration, self.d_t) for instr in self.schedule.all_instructions]
         
         # Begin by starting the first instruction
         first_instruction_idx = self._find_first_instruction_idx()
         self._active_instructions[first_instruction_idx] = self._instruction_durations[first_instruction_idx]
         self._update_active_instructions()
-
-    def _get_duration(self, instruction_idx: int) -> int:
-        """Return the duration of an instruction."""
-        if self.schedule.all_instructions[instruction_idx].name == 'CONDITIONAL_S':
-            if self.rng.random() < 0.5:
-                return 0
-
-        duration = self.schedule.all_instructions[instruction_idx].duration
-        if isinstance(duration, int):
-            return duration
-        elif duration == Duration.HALF_D_ROUNDS:
-            return self.d_t // 2 + 2
-        elif duration == Duration.D_ROUNDS:
-            return self.d_t
-        elif duration == Duration.HALF_D_ROUNDS_ROUNDED_DOWN:
-            return self.d_t // 2
-        elif duration == Duration.HALF_D_ROUNDS_ROUNDED_UP:
-            return self.d_t // 2 + 2
-        else:
-            raise ValueError(f"Invalid instruction duration: {self.schedule.all_instructions[instruction_idx].duration}")
 
     def _get_initialized_patches(self, instruction_idx: int) -> set[tuple[int, int]]:
         """Return the set of patches initialized by an instruction."""
