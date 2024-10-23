@@ -86,32 +86,46 @@ class LatticeSurgerySchedule:
     #             instruction = Instruction('IDLE', frozenset([patch]), num_rounds)
     #             self.all_instructions.append(instruction)
 
-    def to_dag(self, dummy_final_node=False):
+    def to_dag(self, d: int | None = None, dummy_final_node: bool = False):
+        """Generate a DAG representations of the instruction indices, with
+        'duration' attributes on the nodes. Each edge weight is set to the
+        duration of the source instruction of the edge.
+        
+        Args:
+            dummy_final_node: If True, add a dummy final node that all
+            instructions point to. This is useful when calculating critical
+            paths in the graph, because we do this using edge weights leading
+            out of each node (so we need a terminal node to point to for the
+            last instructions).
+        """
         dag = nx.DiGraph()
         for i,instruction in enumerate(self.all_instructions):
-            dag.add_node(i, duration=instruction.duration)
+            dag.add_node(i, duration=self.get_true_duration(instruction.duration, distance=d))
             hidden_patches = set() # patches we will no longer draw connections to
             for j,instr in reversed(list(enumerate(self.all_instructions[:i]))):
                 if (set(instruction.patches) & set(instr.patches)) - hidden_patches:
-                    dag.add_edge(j, i, weight=instr.duration)
+                    dag.add_edge(j, i, weight=self.get_true_duration(instr.duration, distance=d))
 
                 hidden_patches |= set(instr.patches)
         if dummy_final_node:
             for i,instruction in enumerate(self.all_instructions):
-                dag.add_edge(i, len(self.all_instructions), weight=instruction.duration)
+                dag.add_edge(i, len(self.all_instructions), weight=self.get_true_duration(instruction.duration, distance=d))
         return dag
     
     def total_duration(self, distance: int):
-        dag = self.to_dag(dummy_final_node=True)
-        for edge in dag.edges:
-            weight = dag.edges[edge]['weight']
-            if isinstance(weight, Duration):
-                if weight == Duration.HALF_D_ROUNDS:
-                    dag.edges[edge]['weight'] = distance // 2 + 2
-                elif weight == Duration.D_ROUNDS:
-                    dag.edges[edge]['weight'] = distance
-                elif weight == Duration.HALF_D_ROUNDS_ROUNDED_DOWN:
-                    dag.edges[edge]['weight'] = distance // 2
-                elif weight == Duration.HALF_D_ROUNDS_ROUNDED_UP:
-                    dag.edges[edge]['weight'] = distance // 2 + 2
+        dag = self.to_dag(d=distance, dummy_final_node=True)
         return nx.dag_longest_path_length(dag)
+    
+    def get_true_duration(self, duration: Duration | int, distance: int | None = None):
+        if distance is None:
+            return duration
+        if isinstance(duration, Duration):
+            if duration == Duration.HALF_D_ROUNDS:
+                return distance // 2 + 2
+            elif duration == Duration.D_ROUNDS:
+                return distance
+            elif duration == Duration.HALF_D_ROUNDS_ROUNDED_DOWN:
+                return distance // 2
+            elif duration == Duration.HALF_D_ROUNDS_ROUNDED_UP:
+                return distance // 2 + 2
+        return duration

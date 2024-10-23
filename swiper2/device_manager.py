@@ -61,8 +61,10 @@ class DeviceManager:
             self.rng = rng
 
         self._instruction_durations = [self._get_duration(i) for i in range(len(self.schedule.all_instructions))]
-
-        self._active_instructions[0] = self._instruction_durations[0]
+        
+        # Begin by starting the first instruction
+        first_instruction_idx = self._find_first_instruction_idx()
+        self._active_instructions[first_instruction_idx] = self._instruction_durations[first_instruction_idx]
         self._update_active_instructions()
 
     def _get_duration(self, instruction_idx: int) -> int:
@@ -101,6 +103,10 @@ class DeviceManager:
     def _is_startup_instruction(self, instruction_idx: int) -> bool:
         """Return whether an instruction is a startup instruction."""
         return len(self._patches_initialized_by_instr[instruction_idx]) == len(self.schedule.all_instructions[instruction_idx].patches)
+
+    def _find_first_instruction_idx(self) -> int:
+        schedule_longest_path = nx.dag_longest_path(self.schedule.to_dag(d=self.d_t, dummy_final_node=True))
+        return schedule_longest_path[0]
 
     def _predict_instruction_start_times(self):
         """For each not-yet-started instruction in the frontier, get number of
