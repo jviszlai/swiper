@@ -18,6 +18,9 @@ class SyndromeRound:
     is_unwanted_idle: bool = False
     discard_after: bool = False
 
+    def __repr__(self):
+        return f'SyndromeRound({self.patch}, r={self.round}, instr={self.instruction_idx}, init={self.initialized_patch}, discard={self.discard_after})'
+
 @dataclass
 class DeviceData:
     """Data containing the history of a device."""
@@ -53,7 +56,6 @@ class DeviceManager:
         self._completed_instructions = dict()
         self._active_instructions = dict()
         self._active_patches = set()
-        self._instruction_frontier = set()
 
         if isinstance(rng, int):
             self.rng = np.random.default_rng(rng)
@@ -197,7 +199,7 @@ class DeviceManager:
         generated_syndrome_rounds.extend([
             SyndromeRound(coords, 
                           self.current_round, 
-                          Instruction('UNWANTED_IDLE', frozenset([coords]), 1), 
+                          Instruction('UNWANTED_IDLE', None, frozenset([coords]), 1), 
                           -1,
                           initialized_patch=False, 
                           is_unwanted_idle=True) 
@@ -241,6 +243,9 @@ class DeviceManager:
 
         self._update_active_instructions(fully_decoded_instructions)
         discarded_patches = init_active_patches - self._active_patches
+        for dp in discarded_patches:
+            syndrome_round = [sr for sr in generated_syndrome_rounds if sr.patch == dp][0]
+            syndrome_round.discard_after = True
     
         return generated_syndrome_rounds, discarded_patches
     

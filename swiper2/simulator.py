@@ -85,7 +85,6 @@ class DecodingSimulator:
             max_parallel_processes=max_parallel_processes,
             rng=rng,
         )
-        self._window_manager.layer1_indices = set()
 
         if progress_bar:
             pbar_r = tqdm.tqdm(desc='Surface code rounds')
@@ -159,7 +158,7 @@ class DecodingSimulator:
         syndrome_rounds, discarded_patches = self._device_manager.get_next_round(fully_decoded_instructions)
 
         # process new round
-        self._window_manager.process_round(syndrome_rounds, discarded_patches)
+        self._window_manager.process_round(syndrome_rounds)
         self._decoding_manager.update_decoding(self._window_manager.all_windows, self._window_manager.window_dag)
 
     def is_done(self) -> bool:

@@ -10,19 +10,35 @@ class SpacetimeRegion:
     """A region of spacetime in the decoding volume.
 
     Attributes:
-        patch: spatial coordinates of region
-        round_start: measurement round starting the region
-        duration: temporal length in units of measurement rounds
+        patch: Spatial coordinates of region.
+        round_start: Measurement round starting the region.
+        duration: Temporal length, in units of measurement rounds.
+        num_spatial_boundaries: Number of spatial faces which are not shared
+            with another region.
+        initialized_patch: If True, this region was the first of the patch.
+        discard_after: If True, this patch was discarded after this region.
+        prior_t: If True, a T gate was injected in the round before this region.
+        merge_instr: MERGE instruction if applicable
     """
     patch: tuple[int, int]
     round_start: int
     duration: int
+    num_spatial_boundaries: int
+    initialized_patch: bool = False
     discard_after: bool = False
+    prior_t: bool = False
+    merge_instr: Instruction | None = None
 
-    def contains_syndrome_round(self, syndrome_round: SyndromeRound) -> bool:
-        """Check if a syndrome round is contained in this region.
+    def contains_syndrome_round(self, *, patch: tuple[int, int] | None = None, round: int | None = None, syndrome_round: SyndromeRound | None = None) -> bool:
+        """Check if a syndrome round is contained in this region. Either patch
+        and round must be given, or a syndrome round object.
         """
-        return syndrome_round.patch == self.patch and self.round_start <= syndrome_round.round < self.round_start + self.duration
+        if patch is not None and round is not None:
+            return patch == self.patch and self.round_start <= round < self.round_start + self.duration
+        elif syndrome_round is not None:
+            return syndrome_round.patch == self.patch and self.round_start <= syndrome_round.round < self.round_start + self.duration
+        else:
+            raise ValueError('Either patch and round or a syndrome round must be given.')
     
     def shares_timelike_boundary(self, other: 'SpacetimeRegion') -> bool:
         """Check if this region shares a timelike boundary with another region.
@@ -32,13 +48,13 @@ class SpacetimeRegion:
             and
             (
                 (
-                    not other.discard_after
+                    (not other.discard_after)
                     and
                     self.round_start == other.round_start + other.duration
                 )
                 or 
                 (
-                    not self.discard_after
+                    (not self.discard_after)
                     and
                     other.round_start == self.round_start + self.duration
                 )
@@ -49,17 +65,46 @@ class SpacetimeRegion:
         """Check if this region shares a spacelike boundary with another region.
         """
         return (
-            self.round_start == other.round_start
-            and
-            self.duration == other.duration
-            and
-            np.linalg.norm(np.array(self.patch) - np.array(other.patch)) == 1
+            self.merge_instr is not None and other.merge_instr is not None
+            and self.merge_instr == other.merge_instr
+            and ((self.patch, other.patch) in self.merge_instr.merge_faces or (other.patch, self.patch) in self.merge_instr.merge_faces)
         )
-
+    
     def shares_boundary(self, other: 'SpacetimeRegion') -> bool:
-        """Check if this region shares a boundary with another region.
-        """
         return self.shares_timelike_boundary(other) or self.shares_spacelike_boundary(other)
+    
+    def adjacent_timelike(self, other: 'SpacetimeRegion') -> bool:
+        """Check if this region is adjacent in time to another region.
+        """
+        return (
+            self.patch == other.patch
+            and (self.round_start == other.round_start + other.duration
+                 or other.round_start == self.round_start + self.duration))
+    
+    def adjacent_spacelike(self, other: 'SpacetimeRegion', at_round: int | None = None) -> bool:
+        """Check if this region is adjacent in space to another region. NOTE:
+        two windows can be adjacent in space without sharing a boundary (for
+        example, two idling patches that are never merged).
+        """
+        if at_round:
+            return (
+                self.round_start <= at_round < self.round_start + self.duration
+                and other.round_start <= at_round < other.round_start + other.duration
+                and np.linalg.norm(np.array(self.patch) - np.array(other.patch)) == 1
+            )
+        else:
+            return (
+                self.round_start < other.round_start + other.duration
+                and other.round_start < self.round_start + self.duration
+                and np.linalg.norm(np.array(self.patch) - np.array(other.patch)) == 1
+            )
+
+    def adjacent(self, other: 'SpacetimeRegion') -> bool:
+        """Check if this region is adjacent in space or time to another region.
+        NOTE: two windows can be adjacent without sharing a boundary (for
+        example, two idling patches that are never merged).
+        """
+        return self.adjacent_timelike(other) or self.adjacent_spacelike(other)
     
     def overlaps(self, other: 'SpacetimeRegion') -> bool:
         """Check if this region overlaps with another region.
@@ -67,7 +112,7 @@ class SpacetimeRegion:
         return self.patch == other.patch and self.round_start < other.round_start + other.duration and other.round_start < self.round_start + self.duration
     
     def __repr__(self):
-        return f'Region({self.patch}, {self.round_start}, {self.duration})'
+        return f'Region({self.patch}, {self.round_start}, {self.duration}, {self.num_spatial_boundaries}, {self.initialized_patch}, {self.discard_after})'
 
 @dataclass(frozen=True)
 class DecodingWindow:
@@ -105,9 +150,15 @@ class DecodingWindow:
                     return True
         return False
 
+    def shared_spacelike_boundaries(self, other: 'DecodingWindow') -> list[tuple[SpacetimeRegion, SpacetimeRegion]]:
+        shared_boundaries = []
+        for region in self.commit_region:
+            for other_region in other.commit_region:
+                if region.shares_spacelike_boundary(other_region):
+                    shared_boundaries.append((region, other_region))
+        return shared_boundaries
+    
     def shares_spacelike_boundary(self, other: 'DecodingWindow') -> bool:
-        if not self.merge_instr.intersection(other.merge_instr):
-            return False
         for region in self.commit_region:
             for other_region in other.commit_region:
                 if region.shares_spacelike_boundary(other_region):
@@ -115,26 +166,29 @@ class DecodingWindow:
         return False
 
     def shares_boundary(self, other: 'DecodingWindow') -> bool:
-        spacelike_valid = self.merge_instr.intersection(other.merge_instr)
-        for region in self.commit_region:
-            for other_region in other.commit_region:
-                if region.shares_timelike_boundary(other_region):
-                    return True
-                if spacelike_valid and region.shares_spacelike_boundary(other_region):
-                    return True
-        return False
-    
+        return self.shares_timelike_boundary(other) or self.shares_spacelike_boundary(other)
+
     def get_adjacent_commit_regions(self, other: 'DecodingWindow') -> list[SpacetimeRegion]:
-        """Get the commit regions of `other` that share a boundary with any
-        commit region of this window.
+        """Get the commit regions of `other` that are adjacent
         """
         adjacent_regions = []
         for region in self.commit_region:
             for other_region in other.commit_region:
-                if region.shares_boundary(other_region):
+                if region.adjacent_spacelike(other_region):
                     adjacent_regions.append(other_region)
         return adjacent_regions
-    
+
+    def get_touching_commit_regions(self, other: 'DecodingWindow') -> list[SpacetimeRegion]:
+        """Get the commit regions of `other` that are touching
+        """
+        shared_boundaries = self.shared_spacelike_boundaries(other)
+        adjacent_regions = []
+        for region in self.commit_region:
+            for other_region in other.commit_region:
+                if (region, other_region) in shared_boundaries or (other_region, region) in shared_boundaries:
+                    adjacent_regions.append(other_region)
+        return adjacent_regions
+
     def overlaps(self, other: 'DecodingWindow') -> bool:
         for self_commit in self.commit_region:
             for other_buffer in other.buffer_regions:
@@ -145,6 +199,17 @@ class DecodingWindow:
                 if other_commit.overlaps(self_buffer):
                     return True
         return False
+
+    def buffer_boundary_commits(self) -> dict[SpacetimeRegion, list[SpacetimeRegion]]:
+        """Returns dict mapping each buffer region to all the commit regions
+        touching it.
+        """
+        commits = {}
+        for br in self.buffer_regions:
+            for cr in self.commit_region:
+                if br.shares_boundary(cr):
+                    commits.setdefault(br, []).append(cr)
+        return commits
     
     def __repr__(self):
         return f'Window({self.commit_region}, {self.buffer_regions}, {self.parent_instr_idx}, {self.constructed})'
@@ -153,13 +218,14 @@ class WindowBuilder():
 
     def __init__(self, d: int, enforce_alignment: bool) -> None:
         self._waiting_rounds = []
+        self._inject_t_rounds = []
         self.d = d
         self.enforce_alignment = enforce_alignment
 
     def build_windows(
             self, 
             new_rounds: list[SyndromeRound],
-            discarded_patches: list[tuple[int, int]],
+            # discarded_patches: list[tuple[int, int]],
         ) -> list[DecodingWindow]:
         """TODO"""
         if not new_rounds or len(new_rounds) == 0:
@@ -172,6 +238,9 @@ class WindowBuilder():
             self._waiting_rounds.extend([round 
                                         for round in new_rounds
                                         if round.instruction.name != 'INJECT_T']) # T injection is not decoded 
+            self._inject_t_rounds.extend([round 
+                                        for round in new_rounds
+                                        if round.instruction.name == 'INJECT_T'])
         new_windows = []
 
         if not self.enforce_alignment:
@@ -183,23 +252,39 @@ class WindowBuilder():
                 min_round = min(rounds, key=lambda x: x.round)
                 max_round = max(rounds, key=lambda x: x.round)
                 duration = self.d
-                if max_round.round != curr_round or patch in discarded_patches:
+                if max_round.round != curr_round or max_round.discard_after:
                     # Dangling rounds (e.g. S gate cap)
                     duration = max_round.round - min_round.round + 1
-                elif (max_round.round - min_round.round) + 1 < duration:
-                    # Not enough rounds to create a window
-                    continue
                 elif min_round.instruction.name != 'MERGE' and max_round.instruction.name == 'MERGE':
                     # Aligning windows with merges is non-negotiable due to the need for spatial buffers
                     junk_round_end = max(rounds, key=lambda x: x.round * (0 if x.instruction.name == 'MERGE' else 1))
                     rounds = [round for round in rounds if round.round <= junk_round_end.round]
                     duration = junk_round_end.round - min_round.round + 1
+                elif min_round.instruction.name == 'MERGE' and max_round.instruction.name != 'MERGE':
+                    junk_round_end = max(rounds, key=lambda x: x.round * (1 if x.instruction.name == 'MERGE' else 0))
+                    rounds = [round for round in rounds if round.round <= junk_round_end.round]
+                    duration = junk_round_end.round - min_round.round + 1
+                elif (max_round.round - min_round.round) + 1 < duration:
+                    # Not enough rounds to create a window
+                    continue
+                max_round = max(rounds, key=lambda x: x.round)
+                num_spatial_boundaries = 4 - sum(patch in face for face in min_round.instruction.merge_faces)
+                prior_t = False
+                if not min_round.initialized_patch:
+                    for t_round in self._inject_t_rounds:
+                        if t_round.patch == patch and t_round.round == min_round.round-1:
+                            prior_t = True
+                            break
                 parent_instr_idx = frozenset([round.instruction_idx for round in rounds])
                 commit_region = SpacetimeRegion(
                     patch=patch,
                     round_start=min_round.round,
                     duration=duration,
-                    discard_after=patch in discarded_patches
+                    num_spatial_boundaries=num_spatial_boundaries,
+                    initialized_patch=min_round.initialized_patch,
+                    discard_after=max_round.discard_after,
+                    prior_t=prior_t,
+                    merge_instr=min_round.instruction if min_round.instruction.name == 'MERGE' else None,
                 )
                 new_windows.append(DecodingWindow(
                     commit_region=(commit_region,),
@@ -249,11 +334,16 @@ class WindowBuilder():
             min_round = min(rounds, key=lambda x: x.round)
             max_round = max(rounds, key=lambda x: x.round)
             duration = max_round.round - min_round.round + 1
+            num_spatial_boundaries = 4 - sum(patch in face for face in min_round.instruction.merge_faces)
             parent_instr_idx = frozenset([round.instruction_idx for round in rounds])
             commit_region = SpacetimeRegion(
                 patch=patch,
                 round_start=min_round.round,
                 duration=duration,
+                num_spatial_boundaries=num_spatial_boundaries,
+                initialized_patch=min_round.initialized_patch,
+                discard_after=True,
+                merge_instr=min_round.instruction if min_round.instruction.name == 'MERGE' else None,
             )
             new_windows.append(DecodingWindow(
                 commit_region=(commit_region,),
