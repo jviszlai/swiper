@@ -32,6 +32,8 @@ def plot_device_schedule_trace(
         ],
         hide_z_ticks: bool = False,
         default_fig: plt.Figure | None = None,
+        z_min: int | None = None,
+        z_max: int | None = None,
     ):
     fig = plt.figure() if not default_fig else default_fig
     ax = fig.add_subplot(111, projection='3d')
@@ -39,9 +41,14 @@ def plot_device_schedule_trace(
     rows = max([r for r,c in data.all_patch_coords]) - min([r for r,c in data.all_patch_coords]) + 1
     cols = max([c for r,c in data.all_patch_coords]) - min([c for r,c in data.all_patch_coords]) + 1
 
-    x,y,z = np.meshgrid(np.cumsum([0]+[data.d, spacing]*cols), np.cumsum([0]+[data.d, spacing]*rows), np.arange((spacing+1)*data.num_rounds+2))
+    num_rounds = data.num_rounds
+    if z_max:
+        num_rounds = z_max
+    if z_min:
+        num_rounds -= z_min
+    x,y,z = np.meshgrid(np.cumsum([0]+[data.d, spacing]*cols), np.cumsum([0]+[data.d, spacing]*rows), np.arange((spacing+1)*num_rounds+2))
 
-    volume = np.zeros((2*rows, 2*cols, (spacing+1)*data.num_rounds+1))
+    volume = np.zeros((2*rows, 2*cols, (spacing+1)*num_rounds+1))
     colors = np.empty_like(volume, dtype=object)
     edgecolors = np.empty_like(volume, dtype=object)
     linewidth = (0.5 if len(windows) == 0 else 1)
@@ -55,6 +62,12 @@ def plot_device_schedule_trace(
     z_offset = 0
     increased_z = False
     for round_idx, round_data in enumerate(data.generated_syndrome_data):
+        if z_max and round_idx > z_max:
+            continue
+        if z_min:
+            if round_idx < z_min:
+                continue
+            round_idx -= z_min
 
         # if there is a discard operation in the previous round, bump up z coord
         # to avoid connecting the patches
@@ -80,7 +93,7 @@ def plot_device_schedule_trace(
                 alpha = 0.5
                 containing_window_idx = -10**10
                 for window_idx, window in enumerate(windows):
-                    if any(cr.contains_syndrome_round(syndrome) for cr in window.commit_region):
+                    if any(cr.contains_syndrome_round(syndrome_round=syndrome) for cr in window.commit_region):
                         if containing_window_idx >= 0:
                             print(f'WARNING: multiple commit regions contain the same syndrome round! Syndrome: {syndrome}, Windows: {containing_window_idx}, {window_idx}')
                         containing_window_idx = window_idx
@@ -91,7 +104,7 @@ def plot_device_schedule_trace(
 
                 containing_buffer_idx = -10**10
                 for window_idx in window_buffers_to_highlight:
-                    if any(buffer.contains_syndrome_round(syndrome) for buffer in windows[window_idx].buffer_regions):
+                    if any(buffer.contains_syndrome_round(syndrome_round=syndrome) for buffer in windows[window_idx].buffer_regions):
                         if containing_buffer_idx >= 0:
                             print(f'WARNING: multiple highlighted buffer regions contain the same syndrome round! Syndrome: {syndrome}, Windows: {containing_buffer_idx}, {window_idx}')
                         containing_buffer_idx = window_idx
@@ -129,6 +142,7 @@ def plot_device_schedule_trace(
                     colors[coords[0]*2, coords[1]*2, coords[2]+z_offset-spacing:coords[2]+z_offset] = color
                     edgecolors[coords[0]*2, coords[1]*2, coords[2]+z_offset-spacing:coords[2]+z_offset] = edgecolor
     ax.voxels(x,y,z, filled=volume, facecolors=colors, edgecolors=edgecolors, lightsource=mpl.colors.LightSource(azdeg=315, altdeg=45), alpha=alpha, linewidths=linewidth)
+    
     ax.set_aspect('equal')
     ax.view_init(elev=15, azim=30)
     ax.set_xticks([])
@@ -138,6 +152,8 @@ def plot_device_schedule_trace(
     # flip both x and y axes to match the orientation of the device
     # ax.invert_xaxis()
     # ax.invert_yaxis()
+    
+
 
     return ax
 
