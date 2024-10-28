@@ -347,9 +347,6 @@ class SlidingWindowManager(WindowManager):
                                     cr = window.commit_region[0]
                                     self.window_dag.add_edge(window_idx, w_idx)
 
-        for window_idx, window in enumerate(self.all_windows):
-            assert window.constructed or (window_idx in set(self.window_future_buffer_wait.keys()) | self.window_construction_wait)
-
         self._update_waiting_windows()
         self._window_count_history.append(len(self.all_windows))
 
@@ -416,13 +413,6 @@ class ParallelWindowManager(WindowManager):
             assert (patch, end) not in self.window_end_lookup
             self.window_end_lookup[(patch, end)] = (window_idx, 0)
             self.window_dag.add_node(window_idx)
-            # if cr.discard_after:
-                # TODO: we can't set this near 0 because of some weird edge cases
-                # self.window_buffer_wait[window_idx] = 1 # should this be
-                # 0?
-                # self.window_future_buffer_wait[window_idx] = self.window_builder.d+1
-            # else:
-                # self.window_future_buffer_wait[window_idx] = self.window_builder.d+1
             self.window_construction_wait.add(window_idx)
 
     def _assign_window_layers(self, new_commits: list[DecodingWindow]) -> None:
