@@ -50,6 +50,38 @@ class LLInstruction:
                           default=lambda o: o.__dict__, 
                           indent=4)
 
+S_GATE_MAPPING = {
+    'H' : cirq.H,
+    'I' : cirq.I,
+    'S' : cirq.S,
+    'X' : cirq.X,
+    'T' : cirq.T,
+    'Z' : cirq.Z,
+}
+
+def _get_gridsynth_sequence(op: cirq.Operation, rads: float, precision: float = 1e-10):
+    assert len(op.qubits) == 1
+    # pi / x = rz_angle => x = pi / rz_angle
+    angle_str = f'{rads}' if rads >= 0 else f'({rads})'
+    command = ["../benchmarks/gridsynth", angle_str, f'--epsilon={precision}']
+    output = subprocess.check_output(command)
+    
+    ss = str(output)[2:-3].strip('W')[::-1]
+    
+    # Merge double S gate
+    new_s = ''
+    for i in range(1, len(ss)):
+        if ss[i] == ss[i-1] == 'S':
+            new_s += 'Z'
+        else:
+            new_s += ss[i]
+    
+    # Build a circuit from this
+    approx_seq = []
+    for s in new_s:
+        approx_seq.append(S_GATE_MAPPING[s].on(op.qubits[0]))
+    return approx_seq
+
 def _get_merge(cell_program, endpoint: Cell):
     if endpoint.patch_type != 'Qubit':
         raise Exception('Endpoint must be data qubit cell')
@@ -130,20 +162,34 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
                 test_qasm = no_control_op._qasm_(cirq.QasmArgs(qubit_id_map=qbit_mapping))
                 if 'ry' in test_qasm:
                     raise Exception('Ry gate') # TODO: Properly convert Ry gates
+                if isinstance(op.gate, cirq.ZPowGate) and op.gate._exponent != 1:
+                    # Undecomposed gate TODO
+                    if op.gate == cirq.T or op.gate == cirq.S:
+                        continue
+                    raise Exception('Undecomposed Gate')
+                if isinstance(op.gate, cirq.XPowGate) and op.gate._exponent != 1:
+                    # Undecomposed gate TODO
+                    raise Exception('Undecomposed Gate')
+                if isinstance(op.gate, cirq.YPowGate) and op.gate._exponent != 1:
+                    # Undecomposed gate TODO
+                    raise Exception('Undecomposed Gate')
             except Exception:
                 bad_ops.append((i, op))
     circ.batch_remove(bad_ops)
-    def decomp(op):
+    def decomp(op: cirq.Operation) -> cirq.OP_TREE:
         return cirq.decompose(op, keep=lambda op: len(op.qubits) <= 2)
-    def make_qasm_compat(op):
+    def map_approx_rz(op: cirq.Operation) -> cirq.OP_TREE:
+        if isinstance(op.gate, cirq.Rz):
+            return _get_gridsynth_sequence(op, op.gate._rads)
+        return op
+    def make_qasm_compat(op: cirq.Operation) -> cirq.OP_TREE:
         return op.without_classical_controls()
 
-    circ = circ.map_operations(decomp)
-    circ = circ.map_operations(make_qasm_compat)
+    circ = circ.map_operations(decomp).map_operations(map_approx_rz).map_operations(make_qasm_compat)
 
     os.makedirs('../benchmarks/tmp')
     circ.save_qasm('../benchmarks/tmp/prog.qasm')
-    subprocess.call(['../benchmarks/lsqecc_slicer', '-q', '-i', '../benchmarks/tmp/prog.qasm', '-L', 'edpc', '--disttime', '1', '--nostagger', '-P', 'wave', '--printlli', 'sliced', '-o', '../benchmarks/tmp/lli.txt'])
+    #subprocess.call(['../benchmarks/lsqecc_slicer', '-q', '-i', '../benchmarks/tmp/prog.qasm', '-L', 'edpc', '--disttime', '1', '--nostagger', '-P', 'wave', '--printlli', 'sliced', '-o', '../benchmarks/tmp/lli.txt'])
     subprocess.call(['../benchmarks/lsqecc_slicer', '-q', '-i', '../benchmarks/tmp/prog.qasm', '-L', 'edpc', '--disttime', '1', '--nostagger', '-P', 'wave', '-o', '../benchmarks/tmp/compiled.json'])
 
     prog_data = json.load(open('../benchmarks/tmp/compiled.json', 'rb'))
