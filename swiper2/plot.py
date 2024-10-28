@@ -31,7 +31,7 @@ def plot_device_schedule_trace(
             'firebrick', 'pink', 'orange',
         ],
         hide_z_ticks: bool = False,
-        default_fig: plt.Figure | None = None,
+        default_fig: plt.Figure | None = None
     ):
     fig = plt.figure() if not default_fig else default_fig
     ax = fig.add_subplot(111, projection='3d')

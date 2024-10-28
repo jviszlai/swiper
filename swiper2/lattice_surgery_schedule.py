@@ -46,10 +46,20 @@ class LatticeSurgerySchedule:
             active_qubits: list[tuple[int, int]],
             routing_qubits: list[tuple[int, int]],
             duration: Duration | int = Duration.D_ROUNDS,
+            conditioned_on_idx: int = None
         ):
-        instruction = Instruction('MERGE', frozenset(active_qubits + routing_qubits), duration)
+        if conditioned_on_idx:
+            instruction = Instruction('MERGE', frozenset(active_qubits + routing_qubits), duration, frozenset([conditioned_on_idx]))
+        else:
+            instruction = Instruction('MERGE', frozenset(active_qubits + routing_qubits), duration)
         self.all_instructions.append(instruction)
+        if conditioned_on_idx:
+            update_instr = self.all_instructions[conditioned_on_idx]
+            self.all_instructions[conditioned_on_idx] = Instruction(update_instr.name, update_instr.patches, update_instr.duration,
+                                                                    update_instr.conditioned_on_idx,
+                                                                    update_instr.conditional_dependencies | frozenset([len(self.all_instructions) - 1]))
         self.discard(routing_qubits) 
+
 
     def discard(self, patches: list[tuple[int, int]], conditioned_on_idx: set[int] = set()):
         if len(patches) == 0:
