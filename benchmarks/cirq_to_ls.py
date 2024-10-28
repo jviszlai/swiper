@@ -209,6 +209,10 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
                                         pass # TODO: Non-conditional S gates
                         else:
                             schedule.merge(data, routing, merge_faces)
+                            for data_coords in data:
+                                data_cell = cell_major_program[data_coords[0]][data_coords[1]][slice_idx]
+                                if data_cell.activity == 'Measurement':
+                                    schedule.discard([data_coords])
                         processed_cells.extend(data)
                         processed_cells.extend(routing)
                     elif cell.activity == 'Measurement':
