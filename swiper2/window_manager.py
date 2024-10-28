@@ -30,7 +30,8 @@ class WindowManager(ABC):
         self.window_builder = window_builder
         self.window_dag = nx.DiGraph()
         self.window_end_lookup: dict[tuple[tuple[int, int], int], tuple[int, int]] = {}
-        self.window_buffer_wait: dict[int, int] = {}
+        self.window_future_buffer_wait: dict[int, int] = {}
+        self.window_construction_wait: set[int] = set()
         self._window_count_history: list[int] = []
 
     @abstractmethod
@@ -49,16 +50,23 @@ class WindowManager(ABC):
     def get_unconstructed_windows(self):
         return [i for i, window in enumerate(self.all_windows) if not window.constructed]
 
-    def _add_window(self, window: DecodingWindow) -> None:
+    def _remove_window(self, window_idx: int) -> None:
         """TODO"""
+        # Remove window from all_windows, and update window indices
+        self.all_windows.pop(window_idx)
+        self.window_dag.remove_node(window_idx)
+        self.window_dag = nx.relabel_nodes(self.window_dag, {i:(i-1 if i > window_idx else i) for i in self.window_dag.nodes})
+        if window_idx in self.window_future_buffer_wait:
+            self.window_future_buffer_wait.pop(window_idx)
+        self.window_future_buffer_wait = {(i-1 if i > window_idx else i):wait for i,wait in self.window_future_buffer_wait.items()}
+        if window_idx in self.window_construction_wait:
+            self.window_construction_wait.remove(window_idx)
+        self.window_construction_wait = {i-1 if i > window_idx else i for i in self.window_construction_wait}
+        for k,(w_idx,cr_idx) in self.window_end_lookup.items():
+            if w_idx > window_idx:
+                self.window_end_lookup[k] = (w_idx-1, cr_idx)
 
-    def _remove_window(self, window: DecodingWindow) -> None:
-        """TODO"""
-
-    def _replace_window(self, window: DecodingWindow, new_window: DecodingWindow) -> None:
-        """TODO"""
-
-    def _is_contiguous(self, regions: list[SpacetimeRegion]):
+    def _all_regions_touching(self, regions: list[SpacetimeRegion]):
         connectivity = []
         for i,cr1 in enumerate(regions):
             for j,cr2 in enumerate(regions):
@@ -69,12 +77,12 @@ class WindowManager(ABC):
         g.add_edges_from(connectivity)
         return nx.is_connected(g)
     
-    def _get_adjacent_unconstructed_window_indices(self, window: DecodingWindow) -> list[int]:
+    def _get_touching_unconstructed_window_indices(self, window: DecodingWindow) -> list[int]:
         """Get all unconstructed windows that share a boundary with window.
         """
         adjacent_windows = []
         for j, other_window in enumerate(self.all_windows):
-            if not other_window.constructed and window.shares_boundary(other_window):
+            if (not other_window.constructed) and window.shares_boundary(other_window):
                 adjacent_windows.append(j)
         return adjacent_windows
 
@@ -110,7 +118,7 @@ class WindowManager(ABC):
         window_idx_2 = self.all_windows.index(window_2)
 
         if enforce_contiguous:
-            if not self._is_contiguous(list(window_1.commit_region) + list(window_2.commit_region)):
+            if not self._all_regions_touching(list(window_1.commit_region) + list(window_2.commit_region)):
                 raise ValueError("Commit regions must be contiguous")
 
         # Add window 2's attributes to window 1
@@ -121,7 +129,10 @@ class WindowManager(ABC):
             if pred != window_idx_1:
                 self.window_dag.add_edge(pred, window_idx_1)
         if not (window_1.constructed and window_2.constructed):
-            self.window_buffer_wait[window_idx_1] = max(self.window_buffer_wait.get(window_idx_1, 0), self.window_buffer_wait.get(window_idx_2, 0))
+            pass
+            # self.window_future_buffer_wait[window_idx_1] = max(self.window_future_buffer_wait.get(window_idx_1, 0), self.window_future_buffer_wait.get(window_idx_2, 0))
+        if window_idx_2 in self.window_construction_wait:
+            self.window_construction_wait.add(window_idx_1)
         for k,(w_idx,cr_idx) in self.window_end_lookup.items():
             if w_idx == window_idx_2:
                 self.window_end_lookup[k] = (window_idx_1, len(window_1.commit_region)+cr_idx)
@@ -136,126 +147,9 @@ class WindowManager(ABC):
         )
         self.all_windows[window_idx_1] = new_window
 
-        # Remove window_2 from all_windows, and update window indices
-        self.all_windows.pop(window_idx_2)
-        self.window_dag.remove_node(window_idx_2)
-        self.window_dag = nx.relabel_nodes(self.window_dag, {i:(i-1 if i > window_idx_2 else i) for i in self.window_dag.nodes})
-        if window_idx_2 in self.window_buffer_wait:
-            self.window_buffer_wait.pop(window_idx_2)
-        self.window_buffer_wait = {(i-1 if i > window_idx_2 else i):wait for i,wait in self.window_buffer_wait.items()}
-        for k,(w_idx,cr_idx) in self.window_end_lookup.items():
-            if w_idx > window_idx_2:
-                self.window_end_lookup[k] = (w_idx-1, cr_idx)
+        self._remove_window(window_idx_2)
+
         return new_window
-
-    # def _split_windows(
-    #         self,
-    #         window: DecodingWindow,
-    #         source_commit_regions: list[SpacetimeRegion],
-    #         sink_commit_regions: list[SpacetimeRegion],
-    #         enforce_contiguous: bool = True,
-    #     ) -> tuple[DecodingWindow, DecodingWindow]:
-    #     """Split a window into two (or more!) windows that each contain some of the commit
-    #     regions of the original window. The original window is removed from
-    #     all_windows, and the new windows are added.
-
-    #     Buffer dependency relationships of the original window are preserved in
-    #     the new windows. The first new window will be a parent ("source") of the
-    #     second new window ("sink").
-
-    #     Args:
-    #         window: Window to split
-    #         source_commit_regions: Commit regions for the first new window.
-    #         sink_commit_regions: Commit regions for the second new window (the
-    #             sink). This window will be a dependency of the first new window.
-    #         enforce_contiguous: If True, the source and sink commit regions must
-    #             be contiguous in spacetime. If False, the source commit regions
-    #             can be non-contiguous.
-    #     """
-    #     window_idx = self.all_windows.index(window)
-    #     assert not window.constructed
-    #     assert set(source_commit_regions) | set(sink_commit_regions) == set(window.commit_region)
-    #     assert len(source_commit_regions) > 0
-    #     assert len(sink_commit_regions) > 0
-
-    #     if enforce_contiguous:
-    #         assert self._is_contiguous(list(window.commit_region))
-    #         if not self._is_contiguous(source_commit_regions):
-    #             raise ValueError("Source commit regions must be contiguous")
-    #         if not self._is_contiguous(sink_commit_regions):
-    #             raise ValueError("Sink commit regions must be contiguous")
-
-    #     source_buffers = set()
-    #     sink_buffers = set()
-    #     for region in window.buffer_regions:
-    #         if any(region.shares_boundary(cr) for cr in source_commit_regions):
-    #             source_buffers.add(region)
-    #         if any(region.shares_boundary(cr) for cr in sink_commit_regions):
-    #             sink_buffers.add(region)
-    #     for source_commit in source_commit_regions:
-    #         for sink_commit in sink_commit_regions:
-    #             if source_commit.shares_boundary(sink_commit):
-    #                 source_buffers.add(sink_commit)
-    #     assert source_buffers.intersection(sink_commit_regions)
-
-    #     # Construct new windows
-    #     source_window = DecodingWindow(
-    #         tuple(source_commit_regions),
-    #         frozenset(source_buffers),
-    #         window.merge_instr,
-    #         window.parent_instr_idx,
-    #         window.constructed,
-    #     )
-    #     sink_window = DecodingWindow(
-    #         tuple(sink_commit_regions),
-    #         frozenset(sink_buffers),
-    #         window.merge_instr,
-    #         window.parent_instr_idx,
-    #         window.constructed,
-    #     )
-
-    #     predecessors = list(self.window_dag.predecessors(window_idx))
-    #     successors = list(self.window_dag.successors(window_idx))
-    #     predecessors_source = []
-    #     predecessors_sink = []
-    #     successors_source = []
-    #     successors_sink = []
-    #     for node in predecessors:
-    #         w = self.all_windows[node]
-    #         if source_window.shares_boundary(w):
-    #             predecessors_source.append(node)
-    #         if sink_window.shares_boundary(w):
-    #             predecessors_sink.append(node)
-    #     for node in successors:
-    #         w = self.all_windows[node]
-    #         if source_window.shares_boundary(w):
-    #             successors_source.append(node)
-    #         if sink_window.shares_boundary(w):
-    #             successors_sink.append(node)
-
-    #     # Add new windows to all_windows and update data structures
-    #     self.all_windows[window_idx] = source_window
-    #     self.window_dag.remove_edges_from([(p, window_idx) for p in predecessors if p not in predecessors_source])
-    #     self.window_dag.remove_edges_from([(window_idx, s) for s in successors if s not in successors_source])
-        
-    #     self.all_windows.append(sink_window)
-    #     sink_idx = len(self.all_windows) - 1
-    #     self.window_dag.add_edges_from([(p, sink_idx) for p in predecessors_sink])
-    #     self.window_dag.add_edges_from([(sink_idx, s) for s in successors_sink])
-    #     self.window_buffer_wait[sink_idx] = self.window_buffer_wait[window_idx]
-        
-    #     self.window_dag.add_edge(window_idx, sink_idx)
-
-    #     source_cr_indices = [i for i,cr in enumerate(window.commit_region) if cr in source_commit_regions]
-    #     sink_cr_indices = [i for i,cr in enumerate(window.commit_region) if cr in sink_commit_regions]
-    #     for k,(w_idx,cr_idx) in self.window_end_lookup.items():
-    #         if w_idx == window_idx:
-    #             if cr_idx in sink_cr_indices:
-    #                 self.window_end_lookup[k] = (sink_idx, sink_commit_regions.index(window.commit_region[cr_idx]))
-    #             else:
-    #                 assert cr_idx in source_cr_indices
-    #                 self.window_end_lookup[k] = (window_idx, source_commit_regions.index(window.commit_region[cr_idx]))
-    #     return source_window, sink_window
 
     def _append_to_buffers(self, window: DecodingWindow, region: SpacetimeRegion, constructed: bool=False, inplace=False) -> DecodingWindow:
         """Create new window with region appended to buffer regions
@@ -273,14 +167,16 @@ class WindowManager(ABC):
             self.all_windows[window_idx] = new_window
         return new_window
 
-    def _mark_constructed(self, window: DecodingWindow, inplace=False) -> DecodingWindow:
+    def _mark_constructed(self, window_idx: int, inplace=False) -> DecodingWindow:
         """Create new window marked constructed to indicate it is ready to be
         decoded.
         """
-        window_idx = self.all_windows.index(window)
+        window = self.all_windows[window_idx]
         if inplace:
-            if window_idx in self.window_buffer_wait:
-                self.window_buffer_wait.pop(window_idx)
+            if window_idx in self.window_future_buffer_wait:
+                self.window_future_buffer_wait.pop(window_idx)
+            if window_idx in self.window_construction_wait:
+                self.window_construction_wait.remove(window_idx)
         if window.constructed:
             return window
         new_window = DecodingWindow(window.commit_region,
@@ -292,7 +188,38 @@ class WindowManager(ABC):
             self.all_windows[window_idx] = new_window
         return new_window
     
-    def _update_buffer_wait(self) -> None:
+    def count_covered_faces(self, window_idx, cr_idx):
+        # Need to make sure every face of every commit region either touches
+        # another commit region, has an outgoing buffer, has an incoming
+        # buffer, or is an initialization/discard/spatial boundary.
+        window = self.all_windows[window_idx]
+        cr = window.commit_region[cr_idx]
+        predecessors = list(self.window_dag.predecessors(window_idx))
+
+        num_commit_neighbors = 0
+        num_incoming_other_buffers = 0
+        num_outgoing_buffers = 0
+        num_terminations = 0
+        for cr1 in window.commit_region:
+            if cr1 != cr and cr1.shares_boundary(cr):
+                num_commit_neighbors += 1
+        for other_idx in predecessors:
+            other_window = self.all_windows[other_idx]
+            for br,commits in other_window.buffer_boundary_commits().items():
+                if br.overlaps(cr):
+                    num_incoming_other_buffers += len(commits)
+        for br,commits in window.buffer_boundary_commits().items():
+            if cr in commits:
+                num_outgoing_buffers += 1
+        if cr.initialized_patch or cr.prior_t:
+            num_terminations += 1
+        if cr.discard_after:
+            num_terminations += 1
+        num_terminations += cr.num_spatial_boundaries
+
+        return num_commit_neighbors, num_incoming_other_buffers, num_outgoing_buffers, num_terminations
+    
+    def _update_waiting_windows(self) -> None:
         """Look for dangling windows to mark as constructed.
 
         TODO: might be better to change how this is done. Each window could
@@ -301,12 +228,46 @@ class WindowManager(ABC):
         could then release the window once all conditions are met.
         """
         constructed_windows = set()
-        for window_idx in self.window_buffer_wait.keys():
-            self.window_buffer_wait[window_idx] -= 1
-            if self.window_buffer_wait[window_idx] <= 0:
+        for window_idx in self.window_future_buffer_wait.keys():
+            self.window_future_buffer_wait[window_idx] -= 1
+            if self.window_future_buffer_wait[window_idx] <= 0:
                 constructed_windows.add(self.all_windows[window_idx])
-        for window in constructed_windows:
-            self._mark_constructed(window, inplace=True)
+
+        surrounded_windows = set()
+        for window_idx in self.window_construction_wait:
+            # Need to make sure every face of every commit region either touches
+            # another commit region, has an outgoing buffer, has an incoming
+            # buffer, or is an initialization/discard/spatial boundary.
+            window = self.all_windows[window_idx]
+            ready_to_construct = True
+            for cr_idx in range(len(window.commit_region)):
+                num_commit_neighbors, num_incoming_other_buffers, num_outgoing_buffers, num_terminations = self.count_covered_faces(window_idx, cr_idx)
+                total = num_commit_neighbors + num_incoming_other_buffers + num_outgoing_buffers + num_terminations
+                if total < 6:
+                    ready_to_construct = False
+                    break
+
+                if total != 6:
+                    print(window)
+                    cr = window.commit_region[cr_idx]
+                    print(cr)
+                    print(num_commit_neighbors, num_incoming_other_buffers, num_outgoing_buffers, num_terminations)
+                    raise ValueError(f'Total should be 6, but is {total}. {num_commit_neighbors}, {num_incoming_other_buffers}, {num_outgoing_buffers}, {num_terminations}, {cr.num_spatial_boundaries}, {window}, {cr}')
+                assert total == 6
+            if ready_to_construct:
+                surrounded_windows.add(window_idx)
+
+        for window_idx in surrounded_windows:
+            self._mark_constructed(window_idx, inplace=True)
+
+    def _flush_windows(self) -> None:
+        # No new rounds; flush any dangling windows
+        unconstructed_windows = list(self.window_construction_wait)
+        for window_idx in unconstructed_windows:
+            window = self.all_windows[window_idx]
+            assert not window.constructed
+            self._mark_constructed(window_idx, inplace=True)
+        assert all(window.constructed for window in self.all_windows)
 
     def get_data(self) -> WindowData:
         return WindowData(
@@ -317,9 +278,9 @@ class WindowManager(ABC):
 
 class SlidingWindowManager(WindowManager):
     
-    def process_round(self, new_rounds: list[SyndromeRound], discarded_patches: list[tuple[int, int]]) -> None:
+    def process_round(self, new_rounds: list[SyndromeRound]) -> None:
         if new_rounds:
-            new_commits = self.window_builder.build_windows(new_rounds, discarded_patches)
+            new_commits = self.window_builder.build_windows(new_rounds)
         else:
             new_commits = self.window_builder.flush()
         
@@ -335,7 +296,8 @@ class SlidingWindowManager(WindowManager):
                 assert (patch, end) not in self.window_end_lookup
                 self.window_end_lookup[(patch, end)] = (window_idx, 0)
                 self.window_dag.add_node(window_idx)
-                self.window_buffer_wait[new_window_start + i] = self.window_builder.d+1
+                # self.window_future_buffer_wait[new_window_start + i] = self.window_builder.d+1
+                self.window_construction_wait.add(window_idx)
             
             # Process buffers in time (windows covering same patch)
             for i, window in enumerate(new_commits):
@@ -349,50 +311,73 @@ class SlidingWindowManager(WindowManager):
                     if prev_commit.discard_after:
                         continue
                     # For sliding window, buffers extend at most one step forward in time
-                    # Mark prev window as constructed and ready to decode
-                    # TODO: buffer has to be d_m cycles "tall", so we may
-                    # need to add more than just the next commit region.
-                    # Implementation: do not ever mark this as constructed;
-                    # let this happen in update_buffer_wait, and only when
-                    # the buffer is tall enough. If buffer exists but is not
-                    # tall enough, should upadte_buffer_wait add more to it
-                    # every round?
                     assert not prev_window.constructed
                     prev_window = self._append_to_buffers(prev_window, window.commit_region[0], inplace=True)
                     self.window_dag.add_edge(prev_window_idx, window_idx)
 
             # Process buffers in space (windows covering same MERGE instruction)
-            merge_windows = {}
-            for i, window in enumerate(new_commits):
-                for m_i in window.merge_instr:
-                    merge_windows.setdefault(m_i, []).append(new_window_start + i)
-            for _, window_idxs in merge_windows.items():
-                for i, window_idx_1 in enumerate(window_idxs):
-                    for window_idx_2 in window_idxs[i + 1:]:
-                        patch1 = self.all_windows[window_idx_1].commit_region[0].patch
-                        patch2 = self.all_windows[window_idx_2].commit_region[0].patch
-                        if abs(patch1[0] - patch2[0]) + abs(patch1[1] - patch2[1]) == 1:
-                            # Adjacent, merged patches
-                            assert not self.all_windows[window_idx_1].constructed
-                            # Spatial alignment will always be correct (i.e.
-                            # commit region will always be wide enough), so we
-                            # can just append the neighboring commit region.
-                            self._append_to_buffers(self.all_windows[window_idx_1], self.all_windows[window_idx_2].commit_region[0], inplace=True)
-                            self.window_dag.add_edge(window_idx_1, window_idx_2)
+            unconstructed_window_indices = self.get_unconstructed_windows()
+            for window_idx in unconstructed_window_indices:
+                window = self.all_windows[window_idx]
+                cr = window.commit_region[0]
+                merge_instr = cr.merge_instr
+                if merge_instr:
+                    touching_windows = self._get_touching_unconstructed_window_indices(window)
+                    for w_idx in touching_windows:
+                        other_window = self.all_windows[w_idx]
+                        other_cr = other_window.commit_region[0]
+                        if other_cr.merge_instr == merge_instr: 
+                            patch1 = cr.patch
+                            patch2 = self.all_windows[w_idx].commit_region[0].patch
+                            if ((patch1, patch2) in merge_instr.merge_faces or (patch2, patch1) in merge_instr.merge_faces) and (patch1[0] >= patch2[0]) and (patch1[1] >= patch2[1]):
+                                if other_cr not in window.buffer_regions:
+                                    window = self._append_to_buffers(window, self.all_windows[w_idx].commit_region[0], inplace=True)
+                                    cr = window.commit_region[0]
+                                    self.window_dag.add_edge(window_idx, w_idx)
+            # for i,window in enumerate(new_commits):
+            #     merge_instr = window.commit_region[0].merge_instr
+            #     if merge_instr:
+            #         touching_windows = self._get_touching_unconstructed_window_indices(window)
+            #         for w_idx in touching_windows:
+            #             other_window = self.all_windows[w_idx]
+            #             if other_window.commit_region[0].merge_instr == merge_instr: 
+            #                 patch1 = window.commit_region[0].patch
+            #                 patch2 = self.all_windows[w_idx].commit_region[0].patch
+            #                 if ((patch1, patch2) in merge_instr.merge_faces or (patch2, patch1) in merge_instr.merge_faces) and (patch1[0] >= patch2[0]) and (patch1[1] >= patch2[1]):
+            #                     assert not other_window.constructed
+            #                     window = self._append_to_buffers(window, self.all_windows[w_idx].commit_region[0], inplace=True)
+            #                     self.window_dag.add_edge(new_window_start + i, w_idx)
+                    
+            # merge_windows = {}
+            # for i, window in enumerate(new_commits):
+            #     for m_i in window.merge_instr:
+            #         merge_windows.setdefault(m_i, []).append(self.all_windows.index(window))
+            # for merge_instruction, window_idxs in merge_windows.items():
+            #     if merge_instruction.idx == 65:
+            #         print(window_idxs)
+            #     for window_idx_1 in window_idxs:
+            #         for window_idx_2 in window_idxs:
+            #             if window_idx_1 == window_idx_2:
+            #                 continue
+            #             patch1 = self.all_windows[window_idx_1].commit_region[0].patch
+            #             patch2 = self.all_windows[window_idx_2].commit_region[0].patch
+            #             if ((patch1, patch2) in merge_instruction.merge_faces or (patch2, patch1) in merge_instruction.merge_faces) and (patch1[0] >= patch2[0]) and (patch1[1] >= patch2[1]):
+            #                 # Adjacent, merged patches
+            #                 assert not self.all_windows[window_idx_1].constructed
+            #                 # Spatial alignment will always be correct (i.e.
+            #                 # commit region will always be wide enough), so we
+            #                 # can just append the neighboring commit region.
+            #                 self._append_to_buffers(self.all_windows[window_idx_1], self.all_windows[window_idx_2].commit_region[0], inplace=True)
+            #                 self.window_dag.add_edge(window_idx_1, window_idx_2)
 
         for window_idx, window in enumerate(self.all_windows):
-            assert window.constructed or window_idx in self.window_buffer_wait
+            assert window.constructed or (window_idx in set(self.window_future_buffer_wait.keys()) | self.window_construction_wait)
 
-        self._update_buffer_wait()
+        self._update_waiting_windows()
         self._window_count_history.append(len(self.all_windows))
 
         if not new_rounds:
-            # No new rounds; flush any dangling windows
-            for window_idx in list(self.window_buffer_wait.keys()):
-                window = self.all_windows[window_idx]
-                assert not window.constructed
-                self._mark_constructed(window, inplace=True)
-            assert all(window.constructed for window in self.all_windows)
+            self._flush_windows()
         
 class ParallelWindowManager(WindowManager):
     """TODO
@@ -411,9 +396,9 @@ class ParallelWindowManager(WindowManager):
         self.layer_indices = [set(), set(), set()]
         super().__init__(window_builder)
 
-    def process_round(self, new_rounds: list[SyndromeRound], discarded_patches: list[tuple[int, int]]) -> None:
+    def process_round(self, new_rounds: list[SyndromeRound]) -> None:
         if new_rounds:
-            new_commits = self.window_builder.build_windows(new_rounds, discarded_patches)
+            new_commits = self.window_builder.build_windows(new_rounds)
         else:
             new_commits = self.window_builder.flush()
 
@@ -429,16 +414,11 @@ class ParallelWindowManager(WindowManager):
             # updating DAG dependencies appropriately.
             self._update_dependencies_and_dag()
 
-        self._update_buffer_wait()
+        self._update_waiting_windows()
         self._window_count_history.append(len(self.all_windows))
 
         if not new_rounds:
-            # No new rounds; flush any dangling windows
-            for window_idx in list(self.window_buffer_wait.keys()):
-                window = self.all_windows[window_idx]
-                assert not window.constructed
-                self._mark_constructed(window, inplace=True)
-            assert all(window.constructed for window in self.all_windows)
+            self._flush_windows()
 
     def _add_new_commits(self, new_commits: list[DecodingWindow]) -> None:
         """TODO"""
@@ -451,13 +431,14 @@ class ParallelWindowManager(WindowManager):
             assert (patch, end) not in self.window_end_lookup
             self.window_end_lookup[(patch, end)] = (window_idx, 0)
             self.window_dag.add_node(window_idx)
-            if cr.discard_after:
+            # if cr.discard_after:
                 # TODO: we can't set this near 0 because of some weird edge cases
                 # self.window_buffer_wait[window_idx] = 1 # should this be
                 # 0?
-                self.window_buffer_wait[window_idx] = self.window_builder.d+1
-            else:
-                self.window_buffer_wait[window_idx] = self.window_builder.d+1
+                # self.window_future_buffer_wait[window_idx] = self.window_builder.d+1
+            # else:
+                # self.window_future_buffer_wait[window_idx] = self.window_builder.d+1
+            self.window_construction_wait.add(window_idx)
 
     def _assign_window_layers(self, new_commits: list[DecodingWindow]) -> None:
         """Process new commits, deciding on their window layer based on previous
@@ -474,7 +455,7 @@ class ParallelWindowManager(WindowManager):
                 prev_commit = prev_window.commit_region[cr_idx]
                 if prev_commit.discard_after:
                     # No previous window to merge with; this will be a source
-                    if any(idx in self.layer_indices[1] for idx in self._get_adjacent_unconstructed_window_indices(window)):
+                    if any(idx in self.layer_indices[1] for idx in self._get_touching_unconstructed_window_indices(window)):
                         self.layer_indices[0].add(window_idx)
                     else:
                         self.layer_indices[1].add(window_idx)
@@ -505,7 +486,7 @@ class ParallelWindowManager(WindowManager):
                     self.window_dag.add_edge(prev_window_idx, window_idx)
             else:
                 # No previous window to merge with; this will be a source
-                if any(idx in self.layer_indices[1] for idx in self._get_adjacent_unconstructed_window_indices(window)):
+                if any(idx in self.layer_indices[1] for idx in self._get_touching_unconstructed_window_indices(window)):
                     self.layer_indices[0].add(window_idx)
                 else:
                     self.layer_indices[1].add(window_idx)
@@ -545,11 +526,11 @@ class ParallelWindowManager(WindowManager):
                     layer_idx_1 = self._get_layer_idx(window_idx_1)
                     layer_idx_2 = self._get_layer_idx(window_idx_2)
                     if layer_idx_1 < layer_idx_2: # window_1 is source
-                        for region in window_1.get_adjacent_commit_regions(window_2):
+                        for region in window_1.get_touching_commit_regions(window_2):
                             window_1 = self._append_to_buffers(window_1, region, inplace=True)
                         self.window_dag.add_edge(window_idx_1, window_idx_2)
                     elif layer_idx_1 > layer_idx_2: # window_2 is source
-                        for region in window_2.get_adjacent_commit_regions(window_1):
+                        for region in window_2.get_touching_commit_regions(window_1):
                             window_2 = self._append_to_buffers(window_2, region, inplace=True)
                         self.window_dag.add_edge(window_idx_2, window_idx_1)
                     else:
@@ -564,6 +545,16 @@ class ParallelWindowManager(WindowManager):
         if layer_idx == -1:
             raise ValueError("Window not in any layer")
         return layer_idx
+    
+    def _remove_window(self, window_idx: int) -> None:
+        """Wrapper for super()._remove_window that updates source and sink
+        indices.
+        """
+        layer_idx = self._get_layer_idx(window_idx)
+        self.layer_indices[layer_idx].discard(window_idx)
+        for i in range(len(self.layer_indices)):
+            self.layer_indices[i] = {idx - 1 if idx > window_idx else idx for idx in self.layer_indices[i]}
+        return super()._remove_window(window_idx)
 
     def _merge_windows(self, window_1: DecodingWindow, window_2: DecodingWindow) -> DecodingWindow:
         """Wrapper for super()._merge_windows that updates source and sink
@@ -576,10 +567,6 @@ class ParallelWindowManager(WindowManager):
         layer_idx_2 = self._get_layer_idx(window_idx_2)
         if layer_idx_1 != layer_idx_2:
             raise ValueError("Cannot merge windows that are not assigned to same dependency layer")
-        self.layer_indices[layer_idx_1].discard(window_idx_2)
-        
-        for i in range(len(self.layer_indices)):
-            self.layer_indices[i] = {idx - 1 if idx > window_idx_2 else idx for idx in self.layer_indices[i]}
 
         new_window = super()._merge_windows(window_1, window_2)
 
@@ -627,7 +614,7 @@ class TAlignedWindowManager(ParallelWindowManager):
                     # No previous window to merge with; this will be a source
                     if self._is_blocking_window(window):
                         self.layer_indices[2].add(window_idx)
-                    elif any(idx in self.layer_indices[1] for idx in self._get_adjacent_unconstructed_window_indices(window)):
+                    elif any(idx in self.layer_indices[1] for idx in self._get_touching_unconstructed_window_indices(window)):
                         self.layer_indices[0].add(window_idx)
                     else:
                         self.layer_indices[1].add(window_idx)
@@ -670,7 +657,7 @@ class TAlignedWindowManager(ParallelWindowManager):
                 # No previous window to merge with; this will be a source
                 if self._is_blocking_window(window):
                     self.layer_indices[2].add(window_idx)
-                elif any(idx in self.layer_indices[1] for idx in self._get_adjacent_unconstructed_window_indices(window)):
+                elif any(idx in self.layer_indices[1] for idx in self._get_touching_unconstructed_window_indices(window)):
                     self.layer_indices[0].add(window_idx)
                 else:
                     self.layer_indices[1].add(window_idx)

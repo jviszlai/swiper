@@ -1,12 +1,70 @@
 """Integration tests that use all components (device manager, window manager,
 decoder manager) together."""
 import pytest
+import math
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from swiper2.schedule_experiments import MemorySchedule, RegularTSchedule, MSD15To1Schedule
 from swiper2.simulator import DecodingSimulator
+
+def test_sliding_memory():
+    d=7
+    decoding_time = 14
+    speculation_time = 0
+    speculation_accuracy = 0
+    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=MemorySchedule(d).schedule,
+        scheduling_method='sliding',
+        enforce_window_alignment=False,
+        max_parallel_processes=None,
+    )
+    assert device_data.num_rounds == d
+    assert decoding_data.num_rounds == d+decoding_time
+
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=MemorySchedule(2*d).schedule,
+        scheduling_method='sliding',
+        enforce_window_alignment=False,
+        max_parallel_processes=None,
+    )
+    assert device_data.num_rounds == 2*d
+    assert decoding_data.num_rounds == 2*d + 2*decoding_time
+
+    d=7
+    decoding_time = 14
+    speculation_time = 1
+    speculation_accuracy = 1
+    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=MemorySchedule(2*d).schedule,
+        scheduling_method='sliding',
+        enforce_window_alignment=False,
+        max_parallel_processes=None,
+    )
+    assert device_data.num_rounds == 2*d
+    assert decoding_data.num_rounds == 2*d + 1 + decoding_time
+
+def test_sliding_regular_T():
+    d=7
+    decoding_time = 14
+    speculation_time = 0
+    speculation_accuracy = 0
+    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=RegularTSchedule(1, 0).schedule,
+        scheduling_method='sliding',
+        enforce_window_alignment=False,
+        max_parallel_processes=None,
+        rng=0,
+    )
+    assert device_data.num_rounds == 2*d + 2*decoding_time + d//2+2
+    assert decoding_data.num_rounds == 2*d + 2*decoding_time + math.ceil((2*decoding_time + d//2+2) / d) * decoding_time
 
 def test_poor_predictor_same_as_slow_predictor():
     """Test that a poor predictor (always gives the wrong answer) gives the same
@@ -98,3 +156,6 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
     num_rounds_separate = decoding_data.num_rounds
 
     assert num_rounds_integrated == num_rounds_separate
+
+if __name__ == '__main__':
+    test_sliding_regular_T()

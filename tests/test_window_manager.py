@@ -83,7 +83,7 @@ def test_sliding_idle():
       simulator.step_experiment()
 
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
-         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+         assert window.constructed or window_idx in simulator._window_manager.window_construction_wait
          if window_idx < len(simulator._window_manager.all_windows)-2:
             assert window.constructed
    
@@ -93,7 +93,7 @@ def test_sliding_idle():
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
    check_dependencies(window_data)
    for i,window in enumerate(window_data.all_windows):
-      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) == 1
       cr = window.commit_region[0]
       if i < len(window_data.all_windows)-1:
@@ -127,7 +127,7 @@ def test_parallel_idle():
       simulator.step_experiment()
 
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
-         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+         assert window.constructed or window_idx in simulator._window_manager.window_construction_wait
    
    # Check final windows
    success, device_data, window_data, decoding_data = simulator.get_data()
@@ -139,7 +139,7 @@ def test_parallel_idle():
    assert nx.is_bipartite(window_data.window_dag)
    assert len(list(nx.topological_generations(window_data.window_dag))) == 2
    for i,window in enumerate(window_data.all_windows):
-      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       if i < len(window_data.all_windows)-1:
          assert len(window.commit_region) == 1 or len(window.commit_region) == 3
          if len(window.commit_region) == 1:
@@ -214,16 +214,17 @@ def test_sliding_merge():
    while not simulator.is_done():
       simulator.step_experiment()
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
-         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+         assert window.constructed or window_idx in simulator._window_manager.window_construction_wait
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    check_dependencies(window_data)
    for i,window in enumerate(window_data.all_windows):
-      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) == 1
       cr = window.commit_region[0]
       merge_instr = window.merge_instr
+      assert 0 <= len(window.buffer_regions) <= 3
       if len(merge_instr) == 2:
          assert cr.patch == (0,0) or cr.patch == (0,10)
       # Check that only connections between the two merges are on the ends
@@ -231,7 +232,6 @@ def test_sliding_merge():
          assert len(merge_instr) == 1
          # Commit region is somewhere in merge ancilla region
          dag_neighbors = set(window_data.window_dag.successors(i)) | set(window_data.window_dag.predecessors(i))
-         print((cr.patch, cr.round_start), [(window_data.all_windows[neighbor].commit_region[0].patch, window_data.all_windows[neighbor].commit_region[0].round_start) for neighbor in dag_neighbors])
          assert len(dag_neighbors) == 2
          for neighbor in dag_neighbors:
             cr_n = window_data.all_windows[neighbor].commit_region[0]
@@ -254,7 +254,7 @@ def test_parallel_merge():
    while not simulator.is_done():
       simulator.step_experiment()
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
-         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+         assert window.constructed or window_idx in simulator._window_manager.window_construction_wait
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
@@ -263,7 +263,7 @@ def test_parallel_merge():
    
    for i,window in enumerate(window_data.all_windows):
       # TODO: more tests here
-      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) <= 3
 
 def test_sliding_distillation():
@@ -283,13 +283,13 @@ def test_sliding_distillation():
    while not simulator.is_done():
       simulator.step_experiment()
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
-         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+         assert window.constructed or window_idx in simulator._window_manager.window_construction_wait
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    check_dependencies(window_data)
    for i,window in enumerate(window_data.all_windows):
-      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) == 1
       cr = window.commit_region[0]
       merge_instr = window.merge_instr
@@ -309,7 +309,7 @@ def test_parallel_distillation():
    while not simulator.is_done():
       simulator.step_experiment()
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
-         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+         assert window.constructed or window_idx in simulator._window_manager.window_construction_wait
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
@@ -318,7 +318,7 @@ def test_parallel_distillation():
    
    for i,window in enumerate(window_data.all_windows):
       # TODO: more tests here
-      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) <= 6
 
 def test_aligned():
@@ -336,7 +336,7 @@ def test_aligned():
    while not simulator.is_done():
       simulator.step_experiment()
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
-         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+         assert window.constructed or window_idx in simulator._window_manager.window_construction_wait
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
@@ -347,7 +347,7 @@ def test_aligned():
       # TODO: more tests here
       if window.merge_instr:
          assert simulator._window_manager._get_layer_idx(i) == 2
-      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) <= 3
 
 def test_aligned_distillation():
@@ -365,7 +365,7 @@ def test_aligned_distillation():
    while not simulator.is_done():
       simulator.step_experiment()
       for window_idx, window in enumerate(simulator._window_manager.all_windows):
-         assert window.constructed or window_idx in simulator._window_manager.window_buffer_wait
+         assert window.constructed or window_idx in simulator._window_manager.window_construction_wait
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
@@ -376,8 +376,8 @@ def test_aligned_distillation():
       # TODO: more tests here
       if any(instr.conditional_dependencies for instr in window.merge_instr):
          assert simulator._window_manager._get_layer_idx(i) == 2
-      assert simulator._window_manager._is_contiguous(list(window.commit_region))
+      assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) <= 6
       
 if __name__ == '__main__':
-   test_parallel_merge()
+   test_sliding_merge()

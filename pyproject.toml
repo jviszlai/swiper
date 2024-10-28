@@ -6,13 +6,16 @@ authors = ["Joshua Viszlai <viszlai@uchicago.edu>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.10,<=3.12"
 pymatching = "^2.2.1"
 ipykernel = "^6.29.5"
 pytest = "^8.3.3"
 tqdm = "^4.66.5"
 dill = "^0.3.9"
-qualtran = "^0.5.0"
+qualtran = "^0.4.0"
+pyLIQTR = {git = "https://github.com/isi-usc-edu/pyLIQTR.git"}
+tweedledum = {git = "https://github.com/Alice-Bob-SW/tweedledum.git"}
+parse = "^1.20.2"
 
 
 [build-system]

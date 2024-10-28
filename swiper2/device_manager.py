@@ -18,6 +18,9 @@ class SyndromeRound:
     is_unwanted_idle: bool = False
     discard_after: bool = False
 
+    def __repr__(self):
+        return f'SyndromeRound({self.patch}, r={self.round}, instr={self.instruction_idx}, init={self.initialized_patch}, discard={self.discard_after})'
+
 @dataclass
 class DeviceData:
     """Data containing the history of a device."""
@@ -53,37 +56,18 @@ class DeviceManager:
         self._completed_instructions = dict()
         self._active_instructions = dict()
         self._active_patches = set()
-        self._instruction_frontier = set()
 
         if isinstance(rng, int):
             self.rng = np.random.default_rng(rng)
         else:
             self.rng = rng
 
-        self._instruction_durations = [self._get_duration(i) for i in range(len(self.schedule.all_instructions))]
-
-        self._active_instructions[0] = self._instruction_durations[0]
+        self._instruction_durations = [self.schedule.get_true_duration(instr.duration, self.d_t) for instr in self.schedule.all_instructions]
+        
+        # Begin by starting the first instruction
+        first_instruction_idx = self._find_first_instruction_idx()
+        self._active_instructions[first_instruction_idx] = self._instruction_durations[first_instruction_idx]
         self._update_active_instructions()
-
-    def _get_duration(self, instruction_idx: int) -> int:
-        """Return the duration of an instruction."""
-        if self.schedule.all_instructions[instruction_idx].name == 'CONDITIONAL_S':
-            if self.rng.random() < 0.5:
-                return 0
-
-        duration = self.schedule.all_instructions[instruction_idx].duration
-        if isinstance(duration, int):
-            return duration
-        elif duration == Duration.HALF_D_ROUNDS:
-            return self.d_t // 2 + 2
-        elif duration == Duration.D_ROUNDS:
-            return self.d_t
-        elif duration == Duration.HALF_D_ROUNDS_ROUNDED_DOWN:
-            return self.d_t // 2
-        elif duration == Duration.HALF_D_ROUNDS_ROUNDED_UP:
-            return self.d_t // 2 + 2
-        else:
-            raise ValueError(f"Invalid instruction duration: {self.schedule.all_instructions[instruction_idx].duration}")
 
     def _get_initialized_patches(self, instruction_idx: int) -> set[tuple[int, int]]:
         """Return the set of patches initialized by an instruction."""
@@ -101,6 +85,10 @@ class DeviceManager:
     def _is_startup_instruction(self, instruction_idx: int) -> bool:
         """Return whether an instruction is a startup instruction."""
         return len(self._patches_initialized_by_instr[instruction_idx]) == len(self.schedule.all_instructions[instruction_idx].patches)
+
+    def _find_first_instruction_idx(self) -> int:
+        schedule_longest_path = nx.dag_longest_path(self.schedule.to_dag(d=self.d_t, dummy_final_node=True))
+        return schedule_longest_path[0]
 
     def _predict_instruction_start_times(self):
         """For each not-yet-started instruction in the frontier, get number of
@@ -211,7 +199,7 @@ class DeviceManager:
         generated_syndrome_rounds.extend([
             SyndromeRound(coords, 
                           self.current_round, 
-                          Instruction('UNWANTED_IDLE', frozenset([coords]), 1), 
+                          Instruction('UNWANTED_IDLE', None, frozenset([coords]), 1), 
                           -1,
                           initialized_patch=False, 
                           is_unwanted_idle=True) 
@@ -255,6 +243,9 @@ class DeviceManager:
 
         self._update_active_instructions(fully_decoded_instructions)
         discarded_patches = init_active_patches - self._active_patches
+        for dp in discarded_patches:
+            syndrome_round = [sr for sr in generated_syndrome_rounds if sr.patch == dp][0]
+            syndrome_round.discard_after = True
     
         return generated_syndrome_rounds, discarded_patches
     
