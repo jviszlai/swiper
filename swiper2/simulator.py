@@ -152,14 +152,14 @@ class DecodingSimulator:
             return
 
         # step device forward
-        self._decoding_manager.step(self._window_manager.all_windows, self._window_manager.window_dag)
-        fully_decoded_instructions = self._decoding_manager.get_finished_instruction_indices(self._window_manager.all_windows) - self._window_manager.pending_instruction_indices()
+        self._decoding_manager.step()
+        fully_decoded_instructions = self._decoding_manager.get_finished_instruction_indices() - self._window_manager.pending_instruction_indices()
 
         syndrome_rounds, discarded_patches = self._device_manager.get_next_round(fully_decoded_instructions)
 
         # process new round
-        self._window_manager.process_round(syndrome_rounds)
-        self._decoding_manager.update_decoding(self._window_manager.all_windows, self._window_manager.window_dag)
+        newly_constructed_windows = self._window_manager.process_round(syndrome_rounds)
+        self._decoding_manager.update_decoding(newly_constructed_windows, self._window_manager.window_dag)
 
     def is_done(self) -> bool:
         return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times) == 0)

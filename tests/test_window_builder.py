@@ -19,16 +19,6 @@ speculation_latency = 2
 speculation_accuracy = 0
 speculation_mode = 'integrated'
 
-
-'''to check:
-- Each spacetime region is either entirely a merge instruction or entirely not
-  merge
-- Every spacetime region either shares a full face with another, or not at all.
-  No partial adjacency.
-
-
-'''
-
 def xor(a, b):
     return (a and not b) or (not a and b)
 
@@ -44,7 +34,7 @@ def test_spatial_adjacency():
 
     schedule = LatticeSurgerySchedule()
     schedule.idle([(0,0)], distance)
-    schedule.merge([(0,1), (1,0)], [(1,1)], distance)
+    schedule.merge([(0,1), (1,0)], [(1,1)], duration=distance)
 
     simulator.initialize_experiment(schedule, 'sliding', False, rng=0)
     assert simulator._window_manager
@@ -76,8 +66,8 @@ def test_spatial_adjacency():
 
     assert sum(w.total_spacetime_volume() for w in windows_by_patch.values()) == 6*distance
 
-    schedule.merge([(0,0)], [(0,1)], distance)
-    schedule.merge([(1,0)], [(1,1)], distance)
+    schedule.merge([(0,0)], [(0,1)], duration=distance)
+    schedule.merge([(1,0)], [(1,1)], duration=distance)
     schedule.discard([(0,0), (0,1), (1,0), (1,1)])
 
     simulator.initialize_experiment(schedule, 'sliding', False, rng=0)

@@ -90,6 +90,7 @@ def test_sliding_idle():
    # Check final windows
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
+   assert all(window.constructed for window in window_data.all_windows)
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
    check_dependencies(window_data)
    for i,window in enumerate(window_data.all_windows):
@@ -132,6 +133,7 @@ def test_parallel_idle():
    # Check final windows
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
+   assert all(window.constructed for window in window_data.all_windows)
    layer1_indices = simulator._window_manager.layer_indices[1]
    layer2_indices = simulator._window_manager.layer_indices[2]
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
@@ -218,6 +220,7 @@ def test_sliding_merge():
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
+   assert all(window.constructed for window in window_data.all_windows)
    check_dependencies(window_data)
    for i,window in enumerate(window_data.all_windows):
       assert simulator._window_manager._all_regions_touching(list(window.commit_region))
@@ -258,6 +261,7 @@ def test_parallel_merge():
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
+   assert all(window.constructed for window in window_data.all_windows)
    check_dependencies(window_data)
    assert len(list(nx.topological_generations(window_data.window_dag))) == 3
    
@@ -287,6 +291,7 @@ def test_sliding_distillation():
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
+   assert all(window.constructed for window in window_data.all_windows)
    check_dependencies(window_data)
    for i,window in enumerate(window_data.all_windows):
       assert simulator._window_manager._all_regions_touching(list(window.commit_region))
@@ -313,6 +318,7 @@ def test_parallel_distillation():
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
+   assert all(window.constructed for window in window_data.all_windows)
    check_dependencies(window_data)
    assert len(list(nx.topological_generations(window_data.window_dag))) == 3
    
@@ -340,6 +346,7 @@ def test_aligned():
 
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
+   assert all(window.constructed for window in window_data.all_windows)
    check_dependencies(window_data)
    assert len(list(nx.topological_generations(window_data.window_dag))) == 3
    
