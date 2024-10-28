@@ -14,14 +14,14 @@ def plot_device_schedule_trace(
             'INJECT_T': 'green',
             'CONDITIONAL_S': 'gold',
             'IDLE': 'white',
-            'UNWANTED_IDLE': 'firebrick'
+            'DECODE_IDLE': 'firebrick',
         },
         edgecolor_dict: dict[str, str] = {
             'MERGE': 'dimgray',
             'INJECT_T': 'darkgreen',
             'CONDITIONAL_S': 'orange',
             'IDLE': 'lightgray',
-            'UNWANTED_IDLE': 'maroon'
+            'DECODE_IDLE': 'maroon',
         },
         windows: list[DecodingWindow] = [],
         window_schedule_times: list[int] = [],
@@ -78,10 +78,7 @@ def plot_device_schedule_trace(
 
         for i, syndrome in enumerate(round_data):
             coords = syndrome.patch + (round_idx,)
-            if syndrome.is_unwanted_idle:
-                name = 'UNWANTED_IDLE'
-            else:
-                name = syndrome.instruction.name
+            name = syndrome.instruction.name
 
             if len(windows) == 0:
                 # color by instruction

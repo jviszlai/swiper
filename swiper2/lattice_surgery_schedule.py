@@ -20,6 +20,19 @@ class Instruction:
     conditional_completion_dependencies: frozenset[int] = field(default_factory=frozenset)
     merge_faces: frozenset[tuple[tuple[int, int], tuple[int, int]]] = field(default_factory=frozenset)
 
+    def rename(self, new_name) -> 'Instruction':
+        return Instruction(
+            name=new_name,
+            idx=self.idx,
+            patches=self.patches,
+            duration=self.duration,
+            conditioned_on_idx=self.conditioned_on_idx,
+            conditional_dependencies=self.conditional_dependencies,
+            conditioned_on_completion_idx=self.conditioned_on_completion_idx,
+            conditional_completion_dependencies=self.conditional_completion_dependencies,
+            merge_faces=self.merge_faces,
+        )
+
 class LatticeSurgerySchedule:
     """Represents a planned series of lattice surgery operations."""
     def __init__(self):

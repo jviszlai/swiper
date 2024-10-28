@@ -253,6 +253,49 @@ class DeviceManager:
         """Return whether all instructions have been completed."""
         return len(self._active_instructions) == 0 and len(self._completed_instructions) == len(self.schedule.all_instructions)
     
+    def _postprocess_idle_data(self, syndrome_data: list[list[SyndromeRound]]) -> list[list[SyndromeRound]]:
+        """Rename UNWANTED_IDLE syndrome rounds to either DECODE_IDLE (if they
+        happen before a conditional gate, while waiting for a decode) or IDLE
+        (otherwise).
+        """
+        # collect continuous groups of syndrome data for each patch
+        data_by_patch = {patch: [[]] for patch in self._all_patch_coords}
+        for round_idx,round_data in enumerate(syndrome_data):
+            used_patches = set()
+            for i,sr in enumerate(round_data):
+                used_patches.add(sr.patch)
+                data_by_patch[sr.patch][-1].append((sr, round_idx, i))
+            for patch in self._all_patch_coords - used_patches:
+                if len(data_by_patch[patch]) > 0:
+                    data_by_patch[patch].append([])
+
+        for patch, patch_data in data_by_patch.items():
+            for i,continuous_data in enumerate(patch_data):
+                for j,(sr,_,_) in enumerate(continuous_data):
+                    if sr.is_unwanted_idle:
+                        patch_data[i][j][0].instruction = sr.instruction.rename('IDLE')
+
+        for patch, patch_data in data_by_patch.items():
+            for i,continuous_data in enumerate(patch_data):
+                for j,(sr,_,_) in enumerate(continuous_data):
+                    if sr.instruction.conditioned_on_idx:
+                        for jj in range(j-1,-1,-1):
+                            if patch_data[i][jj][0].is_unwanted_idle:
+                                patch_data[i][jj][0].instruction = patch_data[i][jj][0].instruction.rename('DECODE_IDLE')
+                                # data_by_patch[patch][i][jj] = (sr, round_idx, sr_idx, 'DECODE_IDLE')
+                            else:
+                                break
+
+        # reconstruct syndrome data
+        new_syndrome_data = [[None for _ in syndrome_data[i]] for i in range(len(syndrome_data))]
+        for patch, patch_data in data_by_patch.items():
+            for i,continuous_data in enumerate(patch_data):
+                for sr,round_idx,sr_idx in continuous_data:
+                    assert sr.instruction.name != 'UNWANTED_IDLE'
+                    new_syndrome_data[round_idx][sr_idx] = sr
+
+        return new_syndrome_data
+
     def get_data(self):
         """Return all relevant dataregarding device history."""
         patches_initialized_by_round = {round_idx: set() for round_idx in range(self.current_round+2)}
@@ -267,6 +310,6 @@ class DeviceManager:
             all_patch_coords=self._all_patch_coords,
             syndrome_count_by_round=np.array(self._syndrome_count_by_round, int),
             instruction_count_by_round=np.array(self._instruction_count_by_round, int),
-            generated_syndrome_data=self._generated_syndrome_data,
+            generated_syndrome_data=self._postprocess_idle_data(self._generated_syndrome_data),
             patches_initialized_by_round=patches_initialized_by_round,
         )
