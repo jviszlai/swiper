@@ -57,7 +57,8 @@ class LatticeSurgerySchedule:
             routing_qubits: list[tuple[int, int]],
             merge_faces: set[tuple[tuple[int, int]]] | None = None,
             duration: Duration | int = Duration.D,
-        ):
+            return_merge_idx: bool = False,
+        ) -> int | None:
         if not merge_faces:
             merge_faces = set()
             if len(routing_qubits) > 0:
@@ -88,7 +89,10 @@ class LatticeSurgerySchedule:
             merge_faces=frozenset(merge_faces),
         )
         self.all_instructions.append(instruction)
+        merge_idx = len(self.all_instructions) - 1
         self.discard(routing_qubits) 
+        if return_merge_idx:
+            return merge_idx
 
 
     def discard(self, patches: list[tuple[int, int]], conditioned_on_idx: set[int] = set()):

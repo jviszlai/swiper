@@ -191,10 +191,10 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
                             other_cell = [cell for cell in data if cell != inject_cell][0]
                             if inject_type == 'T':
                                 schedule.inject_T([inject_cell])
-                                schedule.merge(data, routing, merge_faces)
+                                merge_idx = schedule.merge(data, routing, merge_faces, return_merge_idx=True)
                                 if other_cell not in t_inject_history:
                                     t_inject_history[other_cell] = [(False, None) for _ in range(len(slice_major_program))]
-                                t_inject_history[other_cell][slice_idx] = (True, len(schedule.all_instructions) - 1)
+                                t_inject_history[other_cell][slice_idx] = (True, merge_idx)
                                 schedule.discard([inject_cell])
                             elif inject_type == 'Y':
                                 if other_cell in t_inject_history:
