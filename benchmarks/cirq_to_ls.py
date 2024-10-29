@@ -11,7 +11,7 @@ import os
 import shutil
 import cirq
 
-from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
+from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 
 class Cell:
 
