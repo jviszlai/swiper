@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Callable
 import numpy as np
 from numpy.typing import NDArray
@@ -13,6 +13,9 @@ class DecoderData:
     parallel_processes_by_round: NDArray[np.int_]
     completed_windows_by_round: NDArray[np.int_]
     window_completion_times: dict[DecodingWindow, int]
+
+    def to_dict(self):
+        return asdict(self)
 
 @dataclass
 class DecoderTask:

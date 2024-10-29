@@ -6,7 +6,7 @@ Ideas for performance optimization (if needed later):
 """
 from abc import ABC, abstractmethod
 import networkx as nx
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import numpy as np
 from numpy.typing import NDArray
 
@@ -22,6 +22,9 @@ class WindowData:
     all_windows: list[DecodingWindow]
     window_dag: nx.DiGraph
     window_count_history: NDArray[np.int_]
+
+    def to_dict(self):
+        return asdict(self)
 
 class WindowManager(ABC):
 

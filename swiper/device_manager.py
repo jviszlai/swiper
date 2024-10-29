@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import networkx as nx
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule, Duration, Instruction
 import matplotlib.pyplot as plt
@@ -34,6 +34,9 @@ class DeviceData:
     instruction_count_by_round: NDArray[np.int_]
     generated_syndrome_data: list[list[SyndromeRound]]
     patches_initialized_by_round: dict[int, set[tuple[int, int]]]
+
+    def to_dict(self):
+        return asdict(self)
 
 class DeviceManager:
     def __init__(self, d_t: int, schedule: LatticeSurgerySchedule, rng: int | np.random.Generator = np.random.default_rng()):
