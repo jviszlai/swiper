@@ -44,20 +44,21 @@ speculation_mode = 'integrated'
 def check_dependencies(window_data: WindowData):
    """Check that DAG is valid and consistent with window buffer overlaps.
    """
-   assert nx.is_directed_acyclic_graph(window_data.window_dag)
-   assert set(window_data.window_dag.nodes) == set(range(len(window_data.all_windows)))
+   window_dag = nx.DiGraph(window_data.window_dag_edges)
+   assert nx.is_directed_acyclic_graph(window_dag)
+   assert set(window_dag.nodes) == set(range(len(window_data.all_windows)))
    covered_edges = set()
    for i,window in enumerate(window_data.all_windows):
       for j,w in enumerate(window_data.all_windows[:i]):
          assert not any(cr.overlaps(w_cr) for cr in window.commit_region for w_cr in w.commit_region) 
          if window.shares_boundary(w):
             assert any([cr.overlaps(buff) for cr in window.commit_region for buff in w.buffer_regions]) or any([cr.overlaps(buff) for cr in w.commit_region for buff in window.buffer_regions])
-            assert (i,j) in window_data.window_dag.edges or (j,i) in window_data.window_dag.edges
-            covered_edges.add((i,j) if (i,j) in window_data.window_dag.edges else (j,i))
+            assert (i,j) in window_dag.edges or (j,i) in window_dag.edges
+            covered_edges.add((i,j) if (i,j) in window_dag.edges else (j,i))
          else:
             assert not any([cr.overlaps(buff) for cr in window.commit_region for buff in w.buffer_regions]) and not any([cr.overlaps(buff) for cr in w.commit_region for buff in window.buffer_regions])
-            assert (i,j) not in window_data.window_dag.edges and (j,i) not in window_data.window_dag.edges
-   assert covered_edges == set(window_data.window_dag.edges)
+            assert (i,j) not in window_dag.edges and (j,i) not in window_dag.edges
+   assert covered_edges == set(window_dag.edges)
 
 class WindowManagerTester(WindowManager):
    def process_round(self, new_rounds):
@@ -138,8 +139,9 @@ def test_parallel_idle():
    layer2_indices = simulator._window_manager.layer_indices[2]
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
    check_dependencies(window_data)
-   assert nx.is_bipartite(window_data.window_dag)
-   assert len(list(nx.topological_generations(window_data.window_dag))) == 2
+   window_dag = nx.DiGraph(window_data.window_dag_edges)
+   assert nx.is_bipartite(window_dag)
+   assert len(list(nx.topological_generations(window_dag))) == 2
    for i,window in enumerate(window_data.all_windows):
       assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       if i < len(window_data.all_windows)-1:
@@ -152,8 +154,8 @@ def test_parallel_idle():
                assert len(window.buffer_regions) == 1
                br = next(iter(window.buffer_regions))
                assert br.round_start == cr.round_start + cr.duration
-               assert set(window_data.window_dag.predecessors(i)) == set()
-               assert set(window_data.window_dag.successors(i)) == {i+1}
+               assert set(window_dag.predecessors(i)) == set()
+               assert set(window_dag.successors(i)) == {i+1}
                assert i+1 in layer2_indices
             else:
                assert len(window.buffer_regions) == 2
@@ -162,8 +164,8 @@ def test_parallel_idle():
                   br_1, br_2 = br_2, br_1
                assert br_1.round_start + br_1.duration == cr.round_start
                assert cr.round_start + cr.duration == br_2.round_start
-               assert set(window_data.window_dag.predecessors(i)) == set()
-               assert set(window_data.window_dag.successors(i)) == {i-1, i+1}
+               assert set(window_dag.predecessors(i)) == set()
+               assert set(window_dag.successors(i)) == {i-1, i+1}
                assert i-1 in layer2_indices and i+1 in layer2_indices
          else:
             # sink
@@ -173,8 +175,8 @@ def test_parallel_idle():
             assert cr_1.round_start + cr_1.duration == cr_2.round_start
             assert cr_2.round_start + cr_2.duration == cr_3.round_start
 
-            assert set(window_data.window_dag.predecessors(i)) == {i-1, i+1}
-            assert set(window_data.window_dag.successors(i)) == set()
+            assert set(window_dag.predecessors(i)) == {i-1, i+1}
+            assert set(window_dag.successors(i)) == set()
             assert i-1 in layer1_indices and i+1 in layer1_indices
       else:
          assert len(window.buffer_regions) == 0 or len(window.commit_region) == 1
@@ -182,15 +184,15 @@ def test_parallel_idle():
             # sink
             assert i in layer2_indices
             assert 1 <= len(window.commit_region) <= 3
-            assert set(window_data.window_dag.predecessors(i)) == {i-1}
-            assert set(window_data.window_dag.successors(i)) == set()
+            assert set(window_dag.predecessors(i)) == {i-1}
+            assert set(window_dag.successors(i)) == set()
             assert i-1 in layer1_indices
          else:
             # source
             assert i in layer1_indices
             assert len(window.commit_region) == 1
-            assert set(window_data.window_dag.predecessors(i)) == set()
-            assert set(window_data.window_dag.successors(i)) == {i-1}
+            assert set(window_dag.predecessors(i)) == set()
+            assert set(window_dag.successors(i)) == {i-1}
             assert i-1 in layer2_indices
       rounds_committed = np.concatenate([range(cr.round_start, cr.round_start + cr.duration) for cr in window.commit_region])
       assert np.all(device_rounds_covered[rounds_committed] == -1)
@@ -222,6 +224,7 @@ def test_sliding_merge():
    assert success
    assert all(window.constructed for window in window_data.all_windows)
    check_dependencies(window_data)
+   window_dag = nx.DiGraph(window_data.window_dag_edges)
    for i,window in enumerate(window_data.all_windows):
       assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) == 1
@@ -234,7 +237,7 @@ def test_sliding_merge():
       if cr.patch not in [(0,0), (0,10)]:
          assert len(merge_instr) == 1
          # Commit region is somewhere in merge ancilla region
-         dag_neighbors = set(window_data.window_dag.successors(i)) | set(window_data.window_dag.predecessors(i))
+         dag_neighbors = set(window_dag.successors(i)) | set(window_dag.predecessors(i))
          assert len(dag_neighbors) == 2
          for neighbor in dag_neighbors:
             cr_n = window_data.all_windows[neighbor].commit_region[0]
@@ -263,7 +266,8 @@ def test_parallel_merge():
    assert success
    assert all(window.constructed for window in window_data.all_windows)
    check_dependencies(window_data)
-   assert len(list(nx.topological_generations(window_data.window_dag))) == 3
+   window_dag = nx.DiGraph(window_data.window_dag_edges)
+   assert len(list(nx.topological_generations(window_dag))) == 3
    
    for i,window in enumerate(window_data.all_windows):
       # TODO: more tests here
@@ -320,7 +324,8 @@ def test_parallel_distillation():
    assert success
    assert all(window.constructed for window in window_data.all_windows)
    check_dependencies(window_data)
-   assert len(list(nx.topological_generations(window_data.window_dag))) == 3
+   window_dag = nx.DiGraph(window_data.window_dag_edges)
+   assert len(list(nx.topological_generations(window_dag))) == 3
    
    for i,window in enumerate(window_data.all_windows):
       # TODO: more tests here
@@ -348,7 +353,8 @@ def test_aligned():
    assert success
    assert all(window.constructed for window in window_data.all_windows)
    check_dependencies(window_data)
-   assert len(list(nx.topological_generations(window_data.window_dag))) == 3
+   window_dag = nx.DiGraph(window_data.window_dag_edges)
+   assert len(list(nx.topological_generations(window_dag))) == 3
    
    for i,window in enumerate(window_data.all_windows):
       # TODO: more tests here
@@ -377,7 +383,8 @@ def test_aligned_distillation():
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    check_dependencies(window_data)
-   assert len(list(nx.topological_generations(window_data.window_dag))) == 4
+   window_dag = nx.DiGraph(window_data.window_dag_edges)
+   assert len(list(nx.topological_generations(window_dag))) == 4
    
    for i,window in enumerate(window_data.all_windows):
       # TODO: more tests here

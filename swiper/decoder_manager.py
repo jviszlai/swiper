@@ -12,7 +12,10 @@ class DecoderData:
     max_parallel_processes: int | None
     parallel_processes_by_round: NDArray[np.int_]
     completed_windows_by_round: NDArray[np.int_]
-    window_completion_times: dict[DecodingWindow, int]
+    window_speculation_start_times: dict[int, int]
+    window_decoding_start_times: dict[int, int]
+    window_decoding_completion_times: dict[int, int]
+    missed_speculation_events: list[tuple[int, list[int]]] # list of (round, list of poisoned window indices) tuples
 
     def to_dict(self):
         return asdict(self)
@@ -66,7 +69,10 @@ class DecoderManager:
         self._parallel_processes_by_round = []
         self._completed_windows_by_round = []
         self._current_round = 0
-        self._window_completion_times: dict[int, int] = {}
+        self._window_speculation_start_times: dict[int, int] = {}
+        self._window_decoding_start_times: dict[int, int] = {}
+        self._window_decoding_completion_times: dict[int, int] = {}
+        self._missed_speculation_events: list[tuple[int, list[int]]] = []
         self._active_speculation_progress: dict[int, int] = {} # maps each speculated window to rounds remaining to complete speculation
         self._active_window_progress: dict[int, int] = {} # maps each active window to rounds remaining to complete decoding
         self._pending_decode_tasks: set[int] = set()
@@ -96,7 +102,7 @@ class DecoderManager:
         for task_idx in completed_windows:
             task = self._get_task(task_idx)
             # print(f'FINISH DECODING w{all_windows.index(window)}')
-            self._window_completion_times[task_idx] = self._current_round
+            self._window_decoding_completion_times[task_idx] = self._current_round
             self._active_window_progress.pop(task_idx)
             task.completed_decoding = True
             self._partially_complete_instructions |= task.window.parent_instr_idx
@@ -127,17 +133,18 @@ class DecoderManager:
         active_windows = set(self._active_window_progress.keys())
         for poisoned_task_idx in poisoned_speculations:
             dependents = self._window_idx_dag.successors(poisoned_task_idx)
+            all_poisoned_indices = [poisoned_task_idx]
             for dependent_idx in dependents:
                 dependent = self._get_task_or_none(dependent_idx)
                 if dependent and (dependent.completed_decoding or dependent_idx in active_windows):
                     assert dependent.used_parent_speculations[poisoned_task_idx]
                     indices_to_reset = [dependent_idx] + list(nx.descendants(self._window_idx_dag, dependent_idx))
-                    # print(f'POISON! RESETTING w{indices_to_reset}')
                     for task_idx in indices_to_reset:
                         task = self._get_task_or_none(task_idx)
                         if task:
+                            all_poisoned_indices.append(task_idx)
                             if task.completed_decoding:
-                                self._window_completion_times.pop(task_idx)
+                                self._window_decoding_completion_times.pop(task_idx)
                                 task.completed_decoding = False
                             elif task_idx in self._active_window_progress:
                                 self._active_window_progress.pop(task_idx)
@@ -145,10 +152,11 @@ class DecoderManager:
                             # TODO: how exactly does a wrong speculation actually
                             # affect descendants? Do we need to completely re-do
                             # decoding of grandchildren?
+            self._missed_speculation_events.append((self._current_round, all_poisoned_indices))
 
         self._current_round += 1
         self._parallel_processes_by_round.append(len(self._active_window_progress))
-        self._completed_windows_by_round.append(len(self._window_completion_times))
+        self._completed_windows_by_round.append(len(self._window_decoding_completion_times))
 
     def update_decoding(self, new_windows: dict[DecodingWindow, int], window_idx_dag: nx.DiGraph) -> None:
         """Update state of processing windows and start any new decoding
@@ -194,6 +202,7 @@ class DecoderManager:
             if task_idx in self._pending_speculate_tasks and self.speculation_mode == 'separate' and not self._completed_decoding(task_idx):
                 assert task_idx not in self._active_speculation_progress
                 self._pending_speculate_tasks.remove(task_idx)
+                self._window_speculation_start_times[task_idx] = self._current_round
                 if self.speculation_time > 0:
                     self._active_speculation_progress[task_idx] = self.speculation_time
                 else:
@@ -211,6 +220,7 @@ class DecoderManager:
                 # begin decoding
                 assert task_idx in self._pending_decode_tasks
                 self._pending_decode_tasks.remove(task_idx)
+                self._window_decoding_start_times[task_idx] = self._current_round
                 self._active_window_progress[task_idx] = self.decoding_time_function(task.window.total_spacetime_volume())
                 task.used_parent_speculations = {}
                 for parent_idx in parents:
@@ -222,6 +232,7 @@ class DecoderManager:
                         task.used_parent_speculations[parent_idx] = True
                 if self.speculation_mode == 'integrated':
                     # begin a speculation along with decoding
+                    self._window_speculation_start_times[task_idx] = self._current_round
                     if self.speculation_time > 0:
                         self._active_speculation_progress[task_idx] = self.speculation_time
                     else:
@@ -273,5 +284,8 @@ class DecoderManager:
             max_parallel_processes=self.max_parallel_processes,
             parallel_processes_by_round=np.array(self._parallel_processes_by_round, int),
             completed_windows_by_round=np.array(self._completed_windows_by_round, int),
-            window_completion_times={self._get_task(idx).window: round for idx, round in self._window_completion_times.items()},
+            window_speculation_start_times=self._window_speculation_start_times.copy(),
+            window_decoding_start_times=self._window_decoding_start_times.copy(),
+            window_decoding_completion_times=self._window_decoding_completion_times.copy(),
+            missed_speculation_events=self._missed_speculation_events.copy(),
         )

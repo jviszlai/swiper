@@ -149,7 +149,7 @@ class DecodingSimulator:
         if self.is_done():
             raise ValueError("Experiment is already done. Run run() to start a new experiment.")
 
-        pending_window_count = len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times)
+        pending_window_count = len(self._window_manager.all_windows) - len(self._decoding_manager._window_decoding_completion_times)
         if pending_window_count_cutoff > 0 and pending_window_count > pending_window_count_cutoff:
             self.failed = True
             return
@@ -165,7 +165,7 @@ class DecodingSimulator:
         self._decoding_manager.update_decoding(newly_constructed_windows, self._window_manager.window_dag)
 
     def is_done(self) -> bool:
-        return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times) == 0)
+        return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_windows) - len(self._decoding_manager._window_decoding_completion_times) == 0)
 
     def get_data(self, lightweight_output: bool = False) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         device_data = self._device_manager.get_data(lightweight_output=lightweight_output)

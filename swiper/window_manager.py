@@ -20,8 +20,8 @@ class WindowData:
     Data structure to hold information about windows
     '''
     all_windows: list[DecodingWindow]
-    window_dag: nx.DiGraph
-    window_count_history: NDArray[np.int_]
+    window_dag_edges: list[tuple[int, int]]
+    window_count_history: list[int]
 
     def to_dict(self):
         return asdict(self)
@@ -285,14 +285,14 @@ class WindowManager(ABC):
         if lightweight_output:
             return WindowData(
                 all_windows=None,
-                window_dag=None,
-                window_count_history=np.array(self._window_count_history, int),
+                window_dag_edges=list(self.window_dag.edges),
+                window_count_history=self._window_count_history,
             )
         else:
             return WindowData(
                 all_windows=self.all_windows,
-                window_dag=self.window_dag,
-                window_count_history=np.array(self._window_count_history, int),
+                window_dag_edges=list(self.window_dag.edges),
+                window_count_history=self._window_count_history,
             )
 
 class SlidingWindowManager(WindowManager):

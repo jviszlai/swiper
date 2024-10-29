@@ -30,8 +30,8 @@ class DeviceData:
     instructions: list[Instruction]
     instruction_start_times: list[int]
     all_patch_coords: set[tuple[int, int]]
-    syndrome_count_by_round: NDArray[np.int_]
-    instruction_count_by_round: NDArray[np.int_]
+    syndrome_count_by_round: list[int]
+    instruction_count_by_round: list[int]
     generated_syndrome_data: list[list[SyndromeRound]]
     patches_initialized_by_round: dict[int, set[tuple[int, int]]]
 
@@ -97,7 +97,7 @@ class DeviceManager:
         schedule_longest_path = nx.dag_longest_path(self.schedule_dag)
         return schedule_longest_path[0]
 
-    def _predict_instruction_start_time(self, instruction_idx: int, first_round: dict[int, int], recur: bool = False) -> dict[int, int]:
+    def _predict_instruction_start_time(self, instruction_idx: int, first_round: dict[int, int], recur: bool = False) -> tuple[dict[int, int], list[int]]:
         """Update first_round with the expected start time of
         instruction_idx."""
         instructions_to_process = []
@@ -282,7 +282,7 @@ class DeviceManager:
         generated_syndrome_rounds.extend([
             SyndromeRound(coords, 
                           self.current_round, 
-                          Instruction('UNWANTED_IDLE', None, frozenset([coords]), 1), 
+                          Instruction('UNWANTED_IDLE', -1, frozenset([coords]), 1), 
                           -1,
                           initialized_patch=False, 
                           is_unwanted_idle=True) 
@@ -393,8 +393,8 @@ class DeviceManager:
                 instructions=None,
                 instruction_start_times=[self._completed_instructions[i] for i in range(len(self.schedule_instructions))],
                 all_patch_coords=self._all_patch_coords,
-                syndrome_count_by_round=np.array(self._syndrome_count_by_round, int),
-                instruction_count_by_round=np.array(self._instruction_count_by_round, int),
+                syndrome_count_by_round=self._syndrome_count_by_round,
+                instruction_count_by_round=self._instruction_count_by_round,
                 generated_syndrome_data=None,
                 patches_initialized_by_round=patches_initialized_by_round,
             )
@@ -405,8 +405,8 @@ class DeviceManager:
                 instructions=copy.deepcopy(self.schedule_instructions),
                 instruction_start_times=[self._completed_instructions[i] for i in range(len(self.schedule_instructions))],
                 all_patch_coords=self._all_patch_coords,
-                syndrome_count_by_round=np.array(self._syndrome_count_by_round, int),
-                instruction_count_by_round=np.array(self._instruction_count_by_round, int),
+                syndrome_count_by_round=self._syndrome_count_by_round,
+                instruction_count_by_round=self._instruction_count_by_round,
                 generated_syndrome_data=self._postprocess_idle_data(self._generated_syndrome_data),
                 patches_initialized_by_round=patches_initialized_by_round,
             )
