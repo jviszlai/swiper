@@ -64,7 +64,7 @@ class WindowManagerTester(WindowManager):
       pass
 
 def test_window_manager():
-   window_manager = WindowManagerTester(WindowBuilder(7, False))
+   window_manager = WindowManagerTester(WindowBuilder(7))
 
 def test_sliding_idle():
    """Test that SlidingWindowManager can correctly handle idle rounds."""
@@ -75,7 +75,7 @@ def test_sliding_idle():
       speculation_accuracy=speculation_accuracy,
       speculation_mode=speculation_mode,
    )
-   simulator.initialize_experiment(idle_schedule, 'sliding', False, rng=0)
+   simulator.initialize_experiment(idle_schedule, 'sliding', rng=0)
    assert simulator._window_manager
 
    # Check windows as they are released
@@ -120,7 +120,7 @@ def test_parallel_idle():
       speculation_accuracy=speculation_accuracy,
       speculation_mode=speculation_mode,
    )
-   simulator.initialize_experiment(idle_schedule, 'parallel', False, rng=0)
+   simulator.initialize_experiment(idle_schedule, 'parallel', rng=0)
    assert isinstance(simulator._window_manager, ParallelWindowManager)
 
    # Check windows as they are released
@@ -209,7 +209,7 @@ def test_sliding_merge():
       speculation_accuracy=speculation_accuracy,
       speculation_mode=speculation_mode,
    )
-   simulator.initialize_experiment(merge_schedule, 'sliding', False, rng=0)
+   simulator.initialize_experiment(merge_schedule, 'sliding', rng=0)
    assert simulator._window_manager
 
    # Check windows as they are released
@@ -251,7 +251,7 @@ def test_parallel_merge():
       speculation_accuracy=speculation_accuracy,
       speculation_mode=speculation_mode,
    )
-   simulator.initialize_experiment(merge_schedule, 'parallel', False, rng=0)
+   simulator.initialize_experiment(merge_schedule, 'parallel', rng=0)
    assert simulator._window_manager
 
    while not simulator.is_done():
@@ -280,7 +280,7 @@ def test_sliding_distillation():
       speculation_accuracy=speculation_accuracy,
       speculation_mode=speculation_mode,
    )
-   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'sliding', False, rng=0)
+   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'sliding', rng=0)
    assert simulator._window_manager
  
    # Check windows as they are released
@@ -308,7 +308,7 @@ def test_parallel_distillation():
       speculation_accuracy=speculation_accuracy,
       speculation_mode=speculation_mode,
    )
-   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'parallel', False, rng=0)
+   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'parallel', rng=0)
    assert simulator._window_manager
 
    while not simulator.is_done():
@@ -336,7 +336,7 @@ def test_aligned():
       speculation_accuracy=speculation_accuracy,
       speculation_mode=speculation_mode,
    )
-   simulator.initialize_experiment(RandomTSchedule(10, 50).schedule, 'aligned', False, rng=0)
+   simulator.initialize_experiment(RandomTSchedule(10, 50).schedule, 'aligned', rng=0)
    assert simulator._window_manager
 
    while not simulator.is_done():
@@ -366,7 +366,7 @@ def test_aligned_distillation():
       speculation_accuracy=speculation_accuracy,
       speculation_mode=speculation_mode,
    )
-   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'aligned', False, rng=0)
+   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'aligned', rng=0)
    assert simulator._window_manager
 
    while not simulator.is_done():

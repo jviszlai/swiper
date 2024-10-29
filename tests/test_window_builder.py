@@ -36,7 +36,7 @@ def test_spatial_adjacency():
     schedule.idle([(0,0)], distance)
     schedule.merge([(0,1), (1,0)], [(1,1)], duration=distance)
 
-    simulator.initialize_experiment(schedule, 'sliding', False, rng=0)
+    simulator.initialize_experiment(schedule, 'sliding', rng=0)
     assert simulator._window_manager
 
     # Check windows as they are released
@@ -70,7 +70,7 @@ def test_spatial_adjacency():
     schedule.merge([(1,0), (1,1)], [], duration=distance)
     schedule.discard([(0,0), (0,1), (1,0), (1,1)])
 
-    simulator.initialize_experiment(schedule, 'sliding', False, rng=0)
+    simulator.initialize_experiment(schedule, 'sliding', rng=0)
     assert simulator._window_manager
 
     # Check windows as they are released

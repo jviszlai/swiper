@@ -23,7 +23,6 @@ def test_sliding_memory():
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=MemorySchedule(d).schedule,
         scheduling_method='sliding',
-        enforce_window_alignment=False,
         max_parallel_processes=None,
     )
     assert device_data.num_rounds == d
@@ -32,7 +31,6 @@ def test_sliding_memory():
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=MemorySchedule(2*d).schedule,
         scheduling_method='sliding',
-        enforce_window_alignment=False,
         max_parallel_processes=None,
     )
     assert device_data.num_rounds == 2*d
@@ -47,7 +45,6 @@ def test_sliding_memory():
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=MemorySchedule(2*d).schedule,
         scheduling_method='sliding',
-        enforce_window_alignment=False,
         max_parallel_processes=None,
     )
     assert device_data.num_rounds == 2*d
@@ -63,7 +60,6 @@ def test_sliding_regular_T():
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=RegularTSchedule(1, 0).schedule,
         scheduling_method='sliding',
-        enforce_window_alignment=False,
         max_parallel_processes=None,
         rng=0,
     )
@@ -91,7 +87,6 @@ def test_poor_predictor_same_as_slow_predictor():
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         scheduling_method='sliding',
-        enforce_window_alignment=False,
         max_parallel_processes=None,
         rng=0,
     )
@@ -110,7 +105,6 @@ def test_poor_predictor_same_as_slow_predictor():
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         scheduling_method='sliding',
-        enforce_window_alignment=False,
         max_parallel_processes=None,
         rng=0,
     )
@@ -137,7 +131,6 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         scheduling_method='sliding',
-        enforce_window_alignment=False,
         max_parallel_processes=None,
         rng=0,
     )
@@ -153,7 +146,6 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         scheduling_method='sliding',
-        enforce_window_alignment=False,
         max_parallel_processes=None,
         rng=0,
     )
