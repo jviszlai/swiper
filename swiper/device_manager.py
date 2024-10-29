@@ -29,11 +29,11 @@ class DeviceData:
     num_rounds: int
     instructions: list[Instruction]
     instruction_start_times: list[int]
-    all_patch_coords: set[tuple[int, int]]
+    all_patch_coords: list[tuple[int, int]]
     syndrome_count_by_round: list[int]
     instruction_count_by_round: list[int]
     generated_syndrome_data: list[list[SyndromeRound]]
-    patches_initialized_by_round: dict[int, set[tuple[int, int]]]
+    patches_initialized_by_round: dict[int, list[tuple[int, int]]]
 
     def to_dict(self):
         return asdict(self)
@@ -392,11 +392,11 @@ class DeviceManager:
                 num_rounds=self.current_round,
                 instructions=None,
                 instruction_start_times=[self._completed_instructions[i] for i in range(len(self.schedule_instructions))],
-                all_patch_coords=self._all_patch_coords,
+                all_patch_coords=list(self._all_patch_coords),
                 syndrome_count_by_round=self._syndrome_count_by_round,
                 instruction_count_by_round=self._instruction_count_by_round,
                 generated_syndrome_data=None,
-                patches_initialized_by_round=patches_initialized_by_round,
+                patches_initialized_by_round={k: list(v) for k,v in patches_initialized_by_round.items()},
             )
         else:
             return DeviceData(
@@ -404,9 +404,9 @@ class DeviceManager:
                 num_rounds=self.current_round,
                 instructions=copy.deepcopy(self.schedule_instructions),
                 instruction_start_times=[self._completed_instructions[i] for i in range(len(self.schedule_instructions))],
-                all_patch_coords=self._all_patch_coords,
+                all_patch_coords=list(self._all_patch_coords),
                 syndrome_count_by_round=self._syndrome_count_by_round,
                 instruction_count_by_round=self._instruction_count_by_round,
                 generated_syndrome_data=self._postprocess_idle_data(self._generated_syndrome_data),
-                patches_initialized_by_round=patches_initialized_by_round,
+                patches_initialized_by_round={k: list(v) for k,v in patches_initialized_by_round.items()},
             )

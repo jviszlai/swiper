@@ -10,8 +10,8 @@ from swiper.lattice_surgery_schedule import Instruction
 class DecoderData:
     num_rounds: int
     max_parallel_processes: int | None
-    parallel_processes_by_round: NDArray[np.int_]
-    completed_windows_by_round: NDArray[np.int_]
+    parallel_processes_by_round: list[int]
+    completed_windows_by_round: list[int]
     window_speculation_start_times: dict[int, int]
     window_decoding_start_times: dict[int, int]
     window_decoding_completion_times: dict[int, int]
@@ -282,8 +282,8 @@ class DecoderManager:
         return DecoderData(
             num_rounds=self._current_round,
             max_parallel_processes=self.max_parallel_processes,
-            parallel_processes_by_round=np.array(self._parallel_processes_by_round, int),
-            completed_windows_by_round=np.array(self._completed_windows_by_round, int),
+            parallel_processes_by_round=self._parallel_processes_by_round,
+            completed_windows_by_round=self._completed_windows_by_round,
             window_speculation_start_times=self._window_speculation_start_times.copy(),
             window_decoding_start_times=self._window_decoding_start_times.copy(),
             window_decoding_completion_times=self._window_decoding_completion_times.copy(),
