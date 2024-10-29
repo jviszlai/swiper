@@ -237,7 +237,7 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
                             other_cell = [cell for cell in data if cell != inject_cell][0]
                             if inject_type == 'T':
                                 schedule.inject_T([inject_cell])
-                                merge_idx = schedule.merge(data, routing, merge_faces, return_merge_idx=True)
+                                merge_idx = schedule.merge(data, routing, merge_faces)
                                 if other_cell not in t_inject_history:
                                     t_inject_history[other_cell] = [(False, None) for _ in range(len(slice_major_program))]
                                 t_inject_history[other_cell][slice_idx] = (True, merge_idx)
@@ -270,7 +270,7 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
     # Discard remaining data qubits
     for r, row in enumerate(cell_major_program):
         for c, cell_history in enumerate(row):
-            if cell_history[-1] and cell_history[-1].patch_type == 'Qubit':
+            if cell_history[-1] and cell_history[-1].patch_type == 'Qubit' and cell_history[-1].activity != 'Measurement':
                 schedule.discard([(r,c)])
 
     shutil.rmtree('../benchmarks/tmp', ignore_errors=True)
