@@ -19,7 +19,7 @@ class MSD15To1Schedule:
 
         schedule.inject_T([(1,0), (1,1), (1,2), (1,3), (1,4), (1,5), (1,6), (3,0), (3,1), (3,2), (3,3), (3,4), (3,5), (3,6), (3,7)])
 
-        idx_1 = len(schedule.all_instructions)
+        idx_1 = len(schedule)
         schedule.merge([(1,0), (0,0)], [], duration=Duration.HALF_D)
         schedule.merge([(1,1), (0,1)], [], duration=Duration.HALF_D)
         schedule.merge([(1,2), (0,2)], [], duration=Duration.HALF_D)
@@ -39,10 +39,10 @@ class MSD15To1Schedule:
 
         schedule.idle([(0,0), (0,1), (0,2), (0,3), (0,4), (0,5), (0,6), (2,0), (2,1), (2,2), (2,3), (2,4), (2,5), (2,6), (2,7)], num_rounds=Duration.HALF_D)
 
-        idx_2 = len(schedule.all_instructions)
+        idx_2 = len(schedule)
         for i,patch in enumerate([(0,0), (0,1), (0,2), (0,3), (0,4), (0,5), (0,6), (2,0), (2,1), (2,2), (2,3), (2,4), (2,5), (2,6), (2,7)]):
             schedule.conditional_S(patch, idx_1 + i)
-        idx_3 = len(schedule.all_instructions)
+        idx_3 = len(schedule)
 
         schedule.discard([(0,0), (0,1), (0,2), (0,3), (0,4), (0,5), (0,6), (2,0), (2,1), (2,2), (2,3), (2,4), (2,5), (2,6), (2,7)])
         schedule.discard([(0,7)], conditioned_on_idx=set(range(idx_2, idx_3)))
@@ -76,7 +76,7 @@ class RegularTSchedule:
             num_Ts: Number of T gates to inject.
             idle_between_Ts: Number of idle rounds between each T gate.
         """
-        schedule = LatticeSurgerySchedule()
+        schedule = LatticeSurgerySchedule(generate_dag_incrementally=True)
         prev_injection_flag = False
         for i in range(num_Ts):
             schedule.idle([(0,0)], idle_between_Ts)
@@ -84,9 +84,10 @@ class RegularTSchedule:
             injection_patch = (0,1) if prev_injection_flag else (1,0)
             schedule.inject_T([injection_patch])
             prev_injection_flag = not prev_injection_flag
+            idx = len(schedule)
             schedule.merge([(0,0), injection_patch], [])
             schedule.discard([injection_patch])
-            schedule.conditional_S((0,0), len(schedule.all_instructions) - 2)
+            schedule.conditional_S((0,0), idx)
             
         schedule.discard([(0,0)])
 
@@ -112,9 +113,10 @@ class RandomTSchedule:
             injection_patch = (0,1) if prev_injection_flag else (1,0)
             schedule.inject_T([injection_patch])
             prev_injection_flag = not prev_injection_flag
+            idx = len(schedule)
             schedule.merge([(0,0), injection_patch], [])
             schedule.discard([injection_patch])
-            schedule.conditional_S((0,0), len(schedule.all_instructions) - 2)
+            schedule.conditional_S((0,0), idx)
 
         schedule.discard([(0,0)])
 

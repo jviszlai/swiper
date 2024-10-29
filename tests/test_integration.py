@@ -5,7 +5,11 @@ import math
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from benchmarks.qrom import QROM_Schedule
+import numpy as np
 
+from swiper2.simulator import DecodingSimulator
+import swiper2.plot as plotter
 from swiper2.schedule_experiments import MemorySchedule, RegularTSchedule, MSD15To1Schedule
 from swiper2.simulator import DecodingSimulator
 
@@ -156,6 +160,22 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
     num_rounds_separate = decoding_data.num_rounds
 
     assert num_rounds_integrated == num_rounds_separate
+
+# def test_qrom():
+#     qrom15 = QROM_Schedule([np.arange(15)], 15, 15)
+#     d=7
+#     decoding_time = 2*d
+#     speculation_time = 0
+#     speculation_accuracy = 0.7
+
+#     simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='integrated')
+    
+#     success, device_data, window_data, decoding_data = simulator.run(
+#         schedule=qrom15.schedule,
+#         scheduling_method='sliding',
+#         enforce_window_alignment=False,
+#         max_parallel_processes=None,
+#     )
 
 if __name__ == '__main__':
     test_sliding_regular_T()

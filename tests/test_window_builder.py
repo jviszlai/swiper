@@ -66,8 +66,8 @@ def test_spatial_adjacency():
 
     assert sum(w.total_spacetime_volume() for w in windows_by_patch.values()) == 6*distance
 
-    schedule.merge([(0,0)], [(0,1)], duration=distance)
-    schedule.merge([(1,0)], [(1,1)], duration=distance)
+    schedule.merge([(0,0), (0,1)], [], duration=distance)
+    schedule.merge([(1,0), (1,1)], [], duration=distance)
     schedule.discard([(0,0), (0,1), (1,0), (1,1)])
 
     simulator.initialize_experiment(schedule, 'sliding', False, rng=0)

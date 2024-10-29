@@ -6,6 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from numpy.typing import NDArray
 import copy
+import random
 
 @dataclass
 class SyndromeRound:
@@ -27,6 +28,7 @@ class DeviceData:
     d: int
     num_rounds: int
     instructions: list[Instruction]
+    instruction_start_times: list[int]
     all_patch_coords: set[tuple[int, int]]
     syndrome_count_by_round: NDArray[np.int_]
     instruction_count_by_round: NDArray[np.int_]
@@ -44,8 +46,9 @@ class DeviceManager:
         """
         self.d_t = d_t
         self.schedule = schedule
-        self.schedule_dag = schedule.to_dag()
-        self._patches_initialized_by_instr = {i: self._get_initialized_patches(i) for i in range(len(self.schedule.all_instructions))}
+        self.schedule_instructions = schedule.full_instructions()
+        self.schedule_dag = schedule.to_dag(self.d_t)
+        self._patches_initialized_by_instr = {i: self._get_initialized_patches(i) for i in range(len(self.schedule_instructions))}
         self.current_round = 0
 
         self._syndrome_count_by_round = []
@@ -62,33 +65,98 @@ class DeviceManager:
         else:
             self.rng = rng
 
-        self._instruction_durations = [self.schedule.get_true_duration(instr.duration, self.d_t) for instr in self.schedule.all_instructions]
+        self._instruction_durations: list[int] = [self.schedule.get_true_duration(instr.duration, self.d_t) for instr in self.schedule_instructions]
         
         # Begin by starting the first instruction
         first_instruction_idx = self._find_first_instruction_idx()
         self._active_instructions[first_instruction_idx] = self._instruction_durations[first_instruction_idx]
+        self._instruction_frontier = set(next(nx.topological_generations(self.schedule_dag))) | set(self.schedule_dag.successors(first_instruction_idx)) - set([first_instruction_idx])
         self._update_active_instructions()
 
     def _get_initialized_patches(self, instruction_idx: int) -> set[tuple[int, int]]:
         """Return the set of patches initialized by an instruction."""
         if instruction_idx == 0:
-            return set(self.schedule.all_instructions[0].patches)
+            return set(self.schedule_instructions[0].patches)
         
         active_patches = set()
         for i in range(instruction_idx):
-            if self.schedule.all_instructions[i].name == 'DISCARD':
-                active_patches -= set(self.schedule.all_instructions[i].patches)
+            if self.schedule_instructions[i].name == 'DISCARD':
+                active_patches -= set(self.schedule_instructions[i].patches)
             else:
-                active_patches.update(self.schedule.all_instructions[i].patches)
-        return set(self.schedule.all_instructions[instruction_idx].patches) - active_patches
+                active_patches.update(self.schedule_instructions[i].patches)
+        return set(self.schedule_instructions[instruction_idx].patches) - active_patches
 
     def _is_startup_instruction(self, instruction_idx: int) -> bool:
         """Return whether an instruction is a startup instruction."""
-        return len(self._patches_initialized_by_instr[instruction_idx]) == len(self.schedule.all_instructions[instruction_idx].patches)
+        return len(self._patches_initialized_by_instr[instruction_idx]) == len(self.schedule_instructions[instruction_idx].patches)
 
     def _find_first_instruction_idx(self) -> int:
-        schedule_longest_path = nx.dag_longest_path(self.schedule.to_dag(d=self.d_t, dummy_final_node=True))
+        schedule_longest_path = nx.dag_longest_path(self.schedule_dag)
         return schedule_longest_path[0]
+
+    def _predict_instruction_start_time(self, instruction_idx: int, first_round: dict[int, int], recur: bool = False) -> dict[int, int]:
+        """Update first_round with the expected start time of
+        instruction_idx."""
+        instructions_to_process = []
+        if instruction_idx in first_round:
+            pass
+        elif instruction_idx in self._active_instructions:
+            start_time = self._active_instructions[instruction_idx] + self.current_round - self._instruction_durations[instruction_idx]
+            first_round[instruction_idx] = start_time
+        elif instruction_idx in self._completed_instructions:
+            start_time = self._completed_instructions[instruction_idx] - self._instruction_durations[instruction_idx] + 1
+            first_round[instruction_idx] = start_time
+        else:
+            valid = True
+            expected_start = None
+            if self._is_startup_instruction(instruction_idx):
+                # startup instruction; schedule ALAP
+                for inst_idx in self.schedule_dag.successors(instruction_idx):
+                    if inst_idx in first_round:
+                        if valid:
+                            start = first_round[inst_idx]
+                            this_start = start - self._instruction_durations[instruction_idx]
+                            if not expected_start or this_start < expected_start:
+                                expected_start = this_start
+                    else:
+                        expected_start = None
+                        valid = False
+                        instructions_to_process.append(inst_idx)
+            else:
+                # standard operation; schedule ASAP
+                for inst_idx in self.schedule_dag.predecessors(instruction_idx):
+                    if inst_idx in first_round:
+                        if valid:
+                            start = first_round[inst_idx]
+                            this_start = start + self._instruction_durations[inst_idx]
+                            if not expected_start or this_start > expected_start:
+                                expected_start = this_start
+                    elif self._is_startup_instruction(inst_idx):
+                        if valid:
+                            if inst_idx in self._completed_instructions:
+                                start = self._completed_instructions[inst_idx]
+                                this_start = start
+                                if not expected_start or this_start > expected_start:
+                                    expected_start = this_start
+                            else:
+                                expected_start = expected_start if expected_start else 0
+                    else:
+                        expected_start = None
+                        valid = False
+                        instructions_to_process.append(inst_idx)
+            if expected_start is not None:
+                expected_start = max(expected_start, self.current_round)
+                # print(instruction_idx, expected_start)
+                first_round[instruction_idx] = expected_start
+            else:
+                instructions_to_process.append(instruction_idx)
+
+        if recur and len(instructions_to_process) > 0:
+            while len(instructions_to_process) > 0:
+                instr = instructions_to_process.pop(0)
+                first_round, new_instructions_to_process = self._predict_instruction_start_time(instr, first_round, recur=True)
+                instructions_to_process.extend([instr for instr in new_instructions_to_process if instr not in instructions_to_process])
+        return first_round, instructions_to_process
 
     def _predict_instruction_start_times(self):
         """For each not-yet-started instruction in the frontier, get number of
@@ -98,41 +166,22 @@ class DeviceManager:
         """
         first_round = dict()
         after_last_round = dict()
-        instruction_queue = list(range(len(self.schedule.all_instructions)))
-        while len(instruction_queue) > 0:
-            instruction_idx = instruction_queue.pop(0)
-            is_startup_instruction = self._is_startup_instruction(instruction_idx)
-            if instruction_idx in self._completed_instructions:
-                # already completed
-                first_round[instruction_idx] = self._completed_instructions[instruction_idx] - self._instruction_durations[instruction_idx] + 1
-                after_last_round[instruction_idx] = self._completed_instructions[instruction_idx] + 1
-            elif instruction_idx in self._active_instructions:
-                # currently active
-                first_round[instruction_idx] = self._active_instructions[instruction_idx] + self.current_round - self._instruction_durations[instruction_idx]
-                after_last_round[instruction_idx] = self._active_instructions[instruction_idx] + self.current_round
-            elif is_startup_instruction and all(inst_idx in first_round for inst_idx in self.schedule_dag.successors(instruction_idx)):
-                # if startup instruction; schedule ALAP (before soonest successor)
-                successor_first_rounds = [first_round[inst_idx] for inst_idx in self.schedule_dag.successors(instruction_idx)]
-                first_round[instruction_idx] = min(successor_first_rounds, default=0) - self._instruction_durations[instruction_idx]
-                first_round[instruction_idx] = max(first_round[instruction_idx], self.current_round)
-                after_last_round[instruction_idx] = first_round[instruction_idx] + self._instruction_durations[instruction_idx]
-            elif not is_startup_instruction and all(inst_idx in after_last_round for inst_idx in self.schedule_dag.predecessors(instruction_idx) if not self._is_startup_instruction(inst_idx)):
-                # standard operation; schedule ASAP (after last predecessor)
-                predecessor_last_rounds = []
-                for inst_idx in self.schedule_dag.predecessors(instruction_idx):
-                    if inst_idx in after_last_round:
-                        predecessor_last_rounds.append(after_last_round[inst_idx])
-                    else:
-                        # end time not specified yet; only ok if it is a startup instruction
-                        assert self._is_startup_instruction(inst_idx)
-                first_round[instruction_idx] = max(predecessor_last_rounds, default=0)
-                first_round[instruction_idx] = max(first_round[instruction_idx], self.current_round)
-                after_last_round[instruction_idx] = first_round[instruction_idx] + self._instruction_durations[instruction_idx]
-            else:
-                # not ready to be processed; push to back
-                instruction_queue = instruction_queue + [instruction_idx]
 
-        return first_round, after_last_round
+        instruction_queue = list(self._instruction_frontier)
+
+        iters = 0
+        while len(instruction_queue) > 0:
+            iters += 1
+            if iters > 10:
+                pass
+            if iters > 1000:
+                raise Exception('Infinite loop in _predict_instruction_start_times', instruction_queue, first_round)
+            instruction_idx = instruction_queue.pop(0)
+            first_round, instructions_to_process = self._predict_instruction_start_time(instruction_idx, first_round, recur=True)
+            assert len(instructions_to_process) == 0
+            instruction_queue.extend([instr for instr in instructions_to_process if instr not in instruction_queue])
+        
+        return first_round
 
     def _update_active_instructions(self, fully_decoded_instructions: set[int] = set()) -> None:
         """Add new instructions to the active set if they are ready to start.
@@ -146,31 +195,62 @@ class DeviceManager:
         """ 
         patches_in_use = set()
         for instruction_idx in self._active_instructions.keys():
-            patches_in_use.update(self.schedule.all_instructions[instruction_idx].patches)
+            patches_in_use.update(self.schedule_instructions[instruction_idx].patches)
 
-        start_times, finish_times = self._predict_instruction_start_times()
-        for instruction_idx, start_time in start_times.items():
-            if instruction_idx not in self._active_instructions and instruction_idx not in self._completed_instructions and start_time <= self.current_round:
-                if set(self.schedule.all_instructions[instruction_idx].patches) & patches_in_use:
+        start_times = self._predict_instruction_start_times()
+        done_with_zero_duration_instructions = False
+        while not done_with_zero_duration_instructions:
+            done_with_zero_duration_instructions = True
+            for instruction_idx in self._instruction_frontier:
+                if instruction_idx not in self._active_instructions and instruction_idx not in self._completed_instructions and start_times[instruction_idx] <= self.current_round:
+                    if set(self.schedule_instructions[instruction_idx].patches) & patches_in_use:
+                        # at least one patch is already in use
+                        pass
+                    elif not self.schedule_instructions[instruction_idx].conditioned_on_idx.issubset(fully_decoded_instructions):
+                        # decoding dependency not yet satisfied
+                        pass
+                    elif not self.schedule_instructions[instruction_idx].conditioned_on_completion_idx.issubset(set(self._completed_instructions.keys())):
+                        # dependency not yet satisfied
+                        pass
+                    elif set(self.schedule_dag.predecessors(instruction_idx)) - set(self._completed_instructions.keys()):
+                        # not all predecessors have been completed
+                        pass
+                    elif self._instruction_durations[instruction_idx] == 0:
+                        done_with_zero_duration_instructions = False
+                        assert instruction_idx in self._instruction_frontier, (instruction_idx, self._instruction_frontier, self._completed_instructions)
+                        self._completed_instructions[instruction_idx] = self.current_round - 1
+                        if self.schedule_instructions[instruction_idx].name == 'DISCARD':
+                            self._active_patches -= set(self.schedule_instructions[instruction_idx].patches)
+                        self._instruction_frontier -= set([instruction_idx])
+                        new_instructions = set(self.schedule_dag.successors(instruction_idx)) - self._instruction_frontier
+                        for instr in new_instructions:
+                            start_times, _ = self._predict_instruction_start_time(instr, start_times, recur=True)
+                        self._instruction_frontier.update(new_instructions)
+                        break
+
+        for instruction_idx in self._instruction_frontier.copy():
+            if instruction_idx not in self._active_instructions and instruction_idx not in self._completed_instructions and start_times[instruction_idx] <= self.current_round:
+                if set(self.schedule_instructions[instruction_idx].patches) & patches_in_use:
                     # at least one patch is already in use
-                    continue
-                elif not self.schedule.all_instructions[instruction_idx].conditioned_on_idx.issubset(fully_decoded_instructions):
+                    pass
+                elif not self.schedule_instructions[instruction_idx].conditioned_on_idx.issubset(fully_decoded_instructions):
                     # decoding dependency not yet satisfied
-                    continue
-                elif not self.schedule.all_instructions[instruction_idx].conditioned_on_completion_idx.issubset(set(self._completed_instructions.keys())):
+                    pass
+                elif not self.schedule_instructions[instruction_idx].conditioned_on_completion_idx.issubset(set(self._completed_instructions.keys())):
                     # dependency not yet satisfied
-                    continue
+                    pass
                 elif set(self.schedule_dag.predecessors(instruction_idx)) - set(self._completed_instructions.keys()):
                     # not all predecessors have been completed
-                    continue
-                elif finish_times[instruction_idx] == self.current_round:
-                    # zero-duration instruction; complete immediately
-                    self._completed_instructions[instruction_idx] = self.current_round
-                    if self.schedule.all_instructions[instruction_idx].name == 'DISCARD':
-                        self._active_patches -= set(self.schedule.all_instructions[instruction_idx].patches)
+                    pass
                 else:
                     self._active_instructions[instruction_idx] = self._instruction_durations[instruction_idx]
-                    patches_in_use.update(self.schedule.all_instructions[instruction_idx].patches)
+                    patches_in_use.update(self.schedule_instructions[instruction_idx].patches)
+                    self._instruction_frontier -= set([instruction_idx])
+                    new_instructions = set(self.schedule_dag.successors(instruction_idx)) - self._instruction_frontier
+                    for instr in new_instructions:
+                        start_times, _ = self._predict_instruction_start_time(instr, start_times, recur=True)
+                    self._instruction_frontier.update(new_instructions)
+            
 
     def _generate_syndrome_round(self) -> tuple[list[SyndromeRound], set[int]]:
         generated_syndrome_rounds = []
@@ -183,13 +263,13 @@ class DeviceManager:
             generated_syndrome_rounds.extend([
                 SyndromeRound(coords, 
                               self.current_round, 
-                              self.schedule.all_instructions[instruction_idx], 
+                              self.schedule_instructions[instruction_idx], 
                               instruction_idx,
                               initialized_patch=(coords not in self._active_patches)) 
-                for coords in self.schedule.all_instructions[instruction_idx].patches
+                for coords in self.schedule_instructions[instruction_idx].patches
                 ])
-            patches_used_this_round.update(self.schedule.all_instructions[instruction_idx].patches)
-            self._active_patches.update(self.schedule.all_instructions[instruction_idx].patches)
+            patches_used_this_round.update(self.schedule_instructions[instruction_idx].patches)
+            self._active_patches.update(self.schedule_instructions[instruction_idx].patches)
             self._active_instructions[instruction_idx] -= 1
             self._instruction_count_by_round[-1] += 1
             if self._active_instructions[instruction_idx] == 0:
@@ -251,7 +331,7 @@ class DeviceManager:
     
     def is_done(self) -> bool:
         """Return whether all instructions have been completed."""
-        return len(self._active_instructions) == 0 and len(self._completed_instructions) == len(self.schedule.all_instructions)
+        return len(self._active_instructions) == 0 and len(self._completed_instructions) == len(self.schedule_instructions)
     
     def _postprocess_idle_data(self, syndrome_data: list[list[SyndromeRound]]) -> list[list[SyndromeRound]]:
         """Rename UNWANTED_IDLE syndrome rounds to either DECODE_IDLE (if they
@@ -299,14 +379,15 @@ class DeviceManager:
     def get_data(self):
         """Return all relevant dataregarding device history."""
         patches_initialized_by_round = {round_idx: set() for round_idx in range(self.current_round+2)}
-        for instr, round_idx in self._predict_instruction_start_times()[0].items():
+        for instr, round_idx in self._predict_instruction_start_times().items():
             if round_idx <= self.current_round:
                 patches_initialized_by_round[round_idx] |= self._patches_initialized_by_instr[instr]
 
         return DeviceData(
             d=self.d_t,
             num_rounds=self.current_round,
-            instructions=copy.deepcopy(self.schedule.all_instructions),
+            instructions=copy.deepcopy(self.schedule_instructions),
+            instruction_start_times=[self._completed_instructions[i] for i in range(len(self.schedule_instructions))],
             all_patch_coords=self._all_patch_coords,
             syndrome_count_by_round=np.array(self._syndrome_count_by_round, int),
             instruction_count_by_round=np.array(self._instruction_count_by_round, int),

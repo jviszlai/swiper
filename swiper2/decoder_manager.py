@@ -69,6 +69,7 @@ class DecoderManager:
         self._pending_decode_tasks: set[int] = set()
         self._pending_speculate_tasks: set[int] = set()
         self._tasks_by_idx: list[DecoderTask | None] = []
+        self._partially_complete_instructions: set[int] = set()
 
         self._window_idx_dag = nx.DiGraph()
 
@@ -95,6 +96,7 @@ class DecoderManager:
             self._window_completion_times[task_idx] = self._current_round
             self._active_window_progress.pop(task_idx)
             task.completed_decoding = True
+            self._partially_complete_instructions |= task.window.parent_instr_idx
 
             # from now on, we can rely on the decoded result, not the faulty
             # speculation
@@ -255,10 +257,7 @@ class DecoderManager:
     def get_finished_instruction_indices(self) -> set[int]:
         """Return the set of instruction idx that have been decoded."""
         # TODO: send unfinished instructions instead
-        decoded_instructions = set()
-        for idx in self._window_completion_times.keys():
-            task = self._get_task(idx)
-            decoded_instructions |= task.window.parent_instr_idx
+        decoded_instructions = self._partially_complete_instructions.copy()
         for idx in set(self._active_window_progress.keys()) | self._pending_decode_tasks:
             task = self._get_task(idx)
             decoded_instructions -= task.window.parent_instr_idx
