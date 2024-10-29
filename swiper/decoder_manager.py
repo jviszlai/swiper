@@ -3,8 +3,8 @@ from typing import Callable
 import numpy as np
 from numpy.typing import NDArray
 import networkx as nx
-from swiper2.window_builder import DecodingWindow, SpacetimeRegion
-from swiper2.lattice_surgery_schedule import Instruction
+from swiper.window_builder import DecodingWindow, SpacetimeRegion
+from swiper.lattice_surgery_schedule import Instruction
 
 @dataclass
 class DecoderData:

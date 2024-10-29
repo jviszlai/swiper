@@ -2,7 +2,7 @@ from qualtran.bloqs.data_loading.qrom import QROM
 import cirq
 import numpy as np
 
-from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
+from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 
 class QROM_Schedule:
 
@@ -22,7 +22,7 @@ class QROM_Schedule:
                 data_qbit = (1, qbit_idx[op.qubits[0]])
                 schedule.inject_T([ancilla_qbit])
                 schedule.merge([ancilla_qbit, data_qbit], [])
-                schedule.conditional_S(data_qbit, len(schedule.all_instructions) - 1)
+                schedule.conditional_S(data_qbit, len(schedule) - 1)
                 schedule.discard([ancilla_qbit])
             elif isinstance(op.gate, cirq.CXPowGate):
                 # CNOT Gates

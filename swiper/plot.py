@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 
-from swiper2.device_manager import DeviceData
-from swiper2.window_builder import DecodingWindow
+from swiper.device_manager import DeviceData
+from swiper.window_builder import DecodingWindow
 
 def plot_device_schedule_trace(
         data: DeviceData,
@@ -146,13 +146,12 @@ def plot_device_schedule_trace(
     ax.set_yticks([])
     if hide_z_ticks:
         ax.set_zticks([])
-    # flip both x and y axes to match the orientation of the device
-    # ax.invert_xaxis()
-    # ax.invert_yaxis()
-    
-
 
     return ax
+
+################################################################################
+# TODO: redo with plot_cube_at? Should be much faster
+################################################################################
 
 def cuboid_data(pos, size=(1,1,1)):
     # code taken from
@@ -181,96 +180,3 @@ def plot_cube_at(ax, pos, size=(1,1,1), color: str | tuple = 'b', alpha=1.0):
     # adapted from https://stackoverflow.com/a/42611693
     X, Y, Z = cuboid_data(pos, size=size)
     ax.plot_surface(X, Y, Z, color=color, rstride=1, cstride=1, alpha=alpha)
-
-def plot_windows(
-        windows: list[DecodingWindow] = [],
-        window_schedule_layers: list[int] = [],
-        discrete_window_colors: list[str] = [
-            'green', 'gold', 'firebrick', 'navy', 'pink',
-        ],
-        window_cmap: str = 'viridis',
-        space_multiplier: int = 1,
-        window_buffers_to_highlight: list[int] = [],
-        buffer_offset: float = 0.1,
-    ):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    use_cmap = (len(np.unique(window_schedule_layers)) > len(discrete_window_colors))
-
-    def get_color(window_idx):
-        if use_cmap:
-            return plt.cm.get_cmap(window_cmap)(window_schedule_layers[window_idx] / (len(np.unique(window_schedule_layers))-1))
-        else:
-            return discrete_window_colors[window_schedule_layers[window_idx]]
-
-    for window_idx, window in enumerate(windows):
-        for space_coords in window.commit_region.space_footprint:
-            plot_coords = tuple([coord * space_multiplier for coord in space_coords])
-            plot_cube_at(ax, space_coords + (window.commit_region.round_start,), size=(1,1,window.commit_region.duration), color=get_color(window_idx), alpha=0.5)
-        avg_commit_spatial_position_x = np.mean([coords[0] for coords in window.commit_region.space_footprint])
-        avg_commit_spatial_position_y = np.mean([coords[1] for coords in window.commit_region.space_footprint])
-        avg_commit_coords = (avg_commit_spatial_position_x, avg_commit_spatial_position_y, window.commit_region.round_start + window.commit_region.duration/2)
-
-        for window_idx_2, window_2 in enumerate(windows):
-            if window_idx_2 in window_buffers_to_highlight:
-                for buffer_region in window_2.buffer_regions:
-                    for space_coords in buffer_region.space_footprint:
-                        plot_coords = tuple([coord * space_multiplier for coord in space_coords])
-                        plot_cube_at(ax, space_coords + (buffer_region.round_start,), size=(1,1,buffer_region.duration), color='black', alpha=0.5)
-
-        # for buffer_region in window.buffer_regions:
-        #     for space_coords in buffer_region.space_footprint:
-        #         avg_z = buffer_region.round_start + buffer_region.duration/2
-        #         x_y_or_z = -1
-        #         sign = 0
-        #         extent = 0
-        #         if np.isclose(avg_commit_coords[0], space_coords[0]) and np.isclose(avg_commit_coords[1], space_coords[1]):
-        #             x_y_or_z = 2
-        #             if avg_z < avg_commit_coords[2]:
-        #                 sign = -1
-        #             else:
-        #                 sign = 1
-        #             extent = buffer_region.duration
-        #         elif np.isclose(avg_commit_coords[0], space_coords[0]):
-        #             assert np.isclose(avg_commit_coords[2], avg_z)
-        #             x_y_or_z = 1
-        #             if space_coords[1] < avg_commit_coords[1]:
-        #                 sign = -1
-        #             else:
-        #                 sign = 1
-        #             extent = 1
-        #         else:
-        #             assert np.isclose(avg_commit_coords[1], space_coords[1])
-        #             assert np.isclose(avg_commit_coords[2], avg_z)
-        #             x_y_or_z = 0
-        #             if space_coords[0] < avg_commit_coords[0]:
-        #                 sign = -1
-        #             else:
-        #                 sign = 1
-        #             extent = 1
-
-        #         if sign > 0:
-        #             # window_mask = [-0.55, -0.3, 0.3, 0.55]
-        #             # step = 0.1
-        #             window_mask = np.linspace(-0.55, 0.55, 20)
-        #             step = (window_mask[1] - window_mask[0]) / 4
-        #             # window_mask = window_mask[np.arange(len(window_mask)) % 4 == 0]
-        #         else:
-        #             # window_mask = [-0.55, -0.3, 0.3, 0.55]
-        #             # step = 0.1
-        #             window_mask = np.linspace(-0.55, 0.55, 20)
-        #             step = (window_mask[1] - window_mask[0]) / 4
-        #             # window_mask = window_mask[np.arange(len(window_mask)) % 4 == 2]
-
-        #         # plot skinny rectangles around this cube
-        #         offsets = np.linspace(-0.5, 0.5, 10)
-        #         width = 0.01
-        #         if x_y_or_z == 2:
-        #             # do four vertical faces; each rectangle is long in z
-        #             # direction
-        #             for offset in offsets:
-        #                 plot_cube_at(ax, (space_coords[0] + offset, space_coords[1]+0.8+width/2, avg_z), size=(width, width, extent), color=color)
-        #                 plot_cube_at(ax, (space_coords[0] + offset, space_coords[1]-0.8+width/2, avg_z), size=(width, width, extent), color=color)
-        #                 plot_cube_at(ax, (space_coords[0] + 0.8+width/2, space_coords[1] + offset, avg_z), size=(width, width, extent), color=color)
-        #                 plot_cube_at(ax, (space_coords[0] - 0.8+width/2, space_coords[1] + offset, avg_z), size=(width, width, extent), color=color)

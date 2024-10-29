@@ -10,9 +10,9 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from swiper2.window_builder import WindowBuilder, DecodingWindow, SpacetimeRegion
-from swiper2.device_manager import SyndromeRound
-from swiper2.lattice_surgery_schedule import Instruction
+from swiper.window_builder import WindowBuilder, DecodingWindow, SpacetimeRegion
+from swiper.device_manager import SyndromeRound
+from swiper.lattice_surgery_schedule import Instruction
 
 @dataclass
 class WindowData:

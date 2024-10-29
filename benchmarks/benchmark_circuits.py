@@ -19,7 +19,7 @@ from pyLIQTR.utils.printing                 import openqasm
 
 from pyLIQTR.pest_interface.pest_python import pw_to_dpw_cutoff
 
-from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
+from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 from benchmarks.cirq_to_ls import cirq_to_ls
 
 def _decompose_circuit(circuit) -> cirq.Circuit:

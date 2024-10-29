@@ -6,11 +6,11 @@ test:
 """
 import numpy as np
 import networkx as nx
-from swiper2.simulator import DecodingSimulator
-from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule
-from swiper2.window_builder import WindowBuilder, DecodingWindow
-from swiper2.window_manager import WindowManager, WindowData, SlidingWindowManager, ParallelWindowManager, TAlignedWindowManager
-from swiper2.schedule_experiments import MSD15To1Schedule, RandomTSchedule
+from swiper.simulator import DecodingSimulator
+from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
+from swiper.window_builder import WindowBuilder, DecodingWindow
+from swiper.window_manager import WindowManager, WindowData, SlidingWindowManager, ParallelWindowManager, TAlignedWindowManager
+from swiper.schedule_experiments import MSD15To1Schedule, RandomTSchedule
 
 distance = 7
 decoding_latency = 8

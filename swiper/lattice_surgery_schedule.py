@@ -88,8 +88,24 @@ class LatticeSurgerySchedule:
             routing_qubits: list[tuple[int, int]] = [],
             merge_faces: set[tuple[tuple[int, int]]] | None = None,
             duration: Duration | int = Duration.D,
-            return_merge_idx: bool = False,
-        ) -> int | None:
+        ) -> int:
+        """Lattice surgery merge-and-split operation involving two or more
+        logical qubits.
+        
+        Args:
+            active_qubits: List of logical qubits (patch coords) to merge.
+            routing_qubits: List of routing patches that connect the active
+                qubits. Must not already be active patches.
+            merge_faces: If provided, a set of tuples of tuples, where each
+                tuple contains two patch coordinates that share a merged
+                boundary. If not provided, the merge faces are inferred from
+                the active and routing qubits.
+            duration: Duration of the merge operation. After the merge, the
+                routing patches are discarded.
+        
+        Returns:
+            The index of the merge instruction in the schedule.
+        """
         if len(routing_qubits) == 0 and len(active_qubits) != 2:
             raise ValueError(f'No routing patches provided for merge instruction {len(self._all_instructions)}, but more than two active patches {active_qubits}.')
         if len(routing_qubits) == 0 and np.linalg.norm(np.array(active_qubits[0]) - np.array(active_qubits[1])) != 1:
@@ -127,10 +143,9 @@ class LatticeSurgerySchedule:
             merge_faces=frozenset(merge_faces),
         )
         self._add_instruction(instruction)
-        merge_idx = len(self._all_instructions) - 1
+        idx = len(self._all_instructions) - 1
         self.discard(routing_qubits) 
-        if return_merge_idx:
-            return merge_idx
+        return idx
 
     def discard(self, patches: list[tuple[int, int]], conditioned_on_idx: set[int] = set()):
         if len(patches) == 0:
@@ -166,6 +181,18 @@ class LatticeSurgerySchedule:
         """Generate a DAG representations of the instruction indices, with
         'duration' attributes on the nodes. Each edge weight is set to the
         duration of the source instruction of the edge.
+
+        Args:
+            d: Temporal code distance. If given, instruction durations will be
+                converted from abstract Duration values to actual integer
+                durations.
+
+        Returns:
+            A directed acyclic graph representing the schedule. Each node
+            corresponds to an instruction index and has a 'duration' attribute.
+            Each edge corresponds to a dependency between instructions and has
+            a 'weight' attribute corresponding to the duration of the source
+            instruction.
         """
         if self.generate_dag_incrementally:
             dag = self._generated_dag.copy()
@@ -193,10 +220,21 @@ class LatticeSurgerySchedule:
         return dag
     
     def total_duration(self, distance: int):
+        """Calculate the duration of the longest path in the schedule DAG."""
         dag = self.to_dag(d=distance)
         return nx.dag_longest_path_length(dag)
     
     def get_true_duration(self, duration: Duration | int, distance: int | None = None):
+        """Convert abstract Duration values to actual integer durations.
+
+        Args:
+            duration: Abstract Duration value or integer duration.
+            distance: Temporal code distance. If given, abstract Duration values
+                will be converted to actual integer durations.
+        
+        Returns:
+            Converted duration, or input duration if distance is not given.
+        """
         if distance is None:
             return duration
         if isinstance(duration, Duration):

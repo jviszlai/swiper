@@ -1,5 +1,5 @@
 import numpy as np
-from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule, Duration
+from swiper.lattice_surgery_schedule import LatticeSurgerySchedule, Duration
 
 class MSD15To1Schedule:
     """Magic state distillation, according to arXiv:1808.06709v4. Uses a total

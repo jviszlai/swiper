@@ -1,93 +1,173 @@
-from swiper.dep_graph import di_dependency_graph
+from typing import Callable
 import networkx as nx
+import tqdm
+import matplotlib.pyplot as plt
 import numpy as np
+from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
+from swiper.device_manager import DeviceData, DeviceManager
+from swiper.decoder_manager import DecoderData, DecoderManager
+from swiper.window_manager import WindowData, SlidingWindowManager, ParallelWindowManager, TAlignedWindowManager
+from swiper.window_builder import WindowBuilder
+import swiper.plot as plotter
 
-class DecodingSim():
-
-    def __init__(self, t_w: int, pred_acc: int) -> None:
-        self.t_w = t_w
-        self.pred_acc = pred_acc
-    
-    def run(self, di_dep_graph: di_dependency_graph, pred: bool=True, blocking_cycles: list[int]=[]) -> dict:
+class DecodingSimulator:
+    def __init__(
+            self,
+            distance: int,
+            decoding_latency_fn: Callable[[int], int],
+            speculation_latency: int,
+            speculation_accuracy: float,
+            speculation_mode: str,
+        ):
+        """Initialize the decoding simulator.
         
-        def gen_sched(graph):
-            cycle_sched = {}
-            for node in graph.di_dep_graph.nodes:
-                if node[2] not in cycle_sched:
-                    cycle_sched[node[2]] = []
-                cycle_sched[node[2]].append(node)
-            return cycle_sched
+        Args:
+            distance: The distance of the surface code (which also specifies the
+                number of QEC rounds for each lattice surgery operation).
+            decoding_latency_fn: A function that returns a (possibly
+                randomly-sampled) decoding latency given the spacetime volume of
+                the decoding problem, in units of rounds*d^2 (e.g. dxdx2d =>
+                volume 2d). Returned latency is in units of rounds of QEC.
+            speculation_latency: The latency of a speculative prediction, in
+                units of rounds of QEC.
+            speculation_accuracy: The probability that a speculative prediction
+                is correct.
+            speculation_mode: 'integrated' or 'separate'. If 'integrated', the
+                speculation time is included in the decoding time of a window,
+                and speculation can only be performed once the decoder starts
+                processing the window. If 'separate', the speculation time is
+                not included in the decoding, time of a window, and speculation
+                can be run independently of decoding. In this case, speculation
+                uses a parallel process and counts towards
+                max_parallel_processes.
+        """
+        self.distance = distance
+        self.decoding_latency_fn = decoding_latency_fn
+        self.speculation_latency = speculation_latency
+        self.speculation_accuracy = speculation_accuracy
+        assert speculation_mode in ['integrated', 'separate']
+        self.speculation_mode = speculation_mode
 
-        cycle_sched = gen_sched(di_dep_graph)
+        self._device_manager: DeviceManager | None = None
+        self._window_manager: SlidingWindowManager | ParallelWindowManager | TAlignedWindowManager | None = None
+        self._decoding_manager: DecoderManager | None = None
+
+    def run(
+            self,
+            schedule: LatticeSurgerySchedule,
+            scheduling_method: str,
+            max_parallel_processes: int | None = None,
+            progress_bar: bool = False,
+            pending_window_count_cutoff: int = 0,
+            save_animation_frames: bool = False,
+            rng: int | np.random.Generator = np.random.default_rng(),
+        ) -> tuple[bool, DeviceData, WindowData, DecoderData]:
+        """TODO
+        
+        Args:
+            schedule: LatticeSurgerySchedule encoding operations to be
+                performed.
+            scheduling_method: Window scheduling method. 'sliding', 'parallel', 
+                or 'aligned'.
+            max_parallel_processes: Maximum number of parallel decoding
+                processes to run. If None, run as many as possible.
+            progress_bar: If True, display a progress bar for the simulation.
+            pending_window_count_cutoff: If the number of pending windows
+                exceeds this value, the simulation is considered to have failed
+                and will return early.
+            save_animation_frames: If using in Jupyter notebook, use %%capture
+                TODO: broken
+            rng: Random number generator.
+        """
+        self.initialize_experiment(
+            schedule=schedule,
+            scheduling_method=scheduling_method,
+            max_parallel_processes=max_parallel_processes,
+            rng=rng,
+        )
+
+        if progress_bar:
+            pbar_r = tqdm.tqdm(desc='Surface code rounds')
+            # pbar_i = tqdm.tqdm(total=len(schedule.all_instructions), desc='Scheduled instructions complete')
+
+        if save_animation_frames:
+            fig = plt.figure()
+            self.frame_data = []
+
+        while not self.is_done():
+            self.step_experiment(pending_window_count_cutoff=pending_window_count_cutoff)
+            if progress_bar and self._decoding_manager._current_round % 100 == 0:
+                pbar_r.update(100)
+                # pbar_i.update(len(fully_decoded_instructions) - pbar_i.n)
+                # pbar_i.refresh()
+            if save_animation_frames:
+                ax = plotter.plot_device_schedule_trace(self._device_manager.get_data(), spacing=1, default_fig=fig)
+                ax.set_zticks([])
+                self.frame_data.append(ax)
             
-        waiting_nodes = []
-        waiting_trace = []
-        decoded_sched = {i: [] for i in range(self.t_w)}
-        decoded_trace = {}
-        uncommitted_nodes = list(di_dep_graph.di_dep_graph.nodes)
-        committed_nodes = []
+        if progress_bar:
+            pbar_r.update(self._decoding_manager._current_round - pbar_r.n)
+            # pbar_i.update(pbar_i.total - pbar_i.n)
+            pbar_r.close()
+            # pbar_i.close()
 
-        predicted_nodes = []
-        next_blocking_cycle = blocking_cycles.pop(0)
-        cycle = 0
-        while len(uncommitted_nodes) > 0:
-            if cycle in cycle_sched:
-                waiting_nodes.extend(cycle_sched[cycle])
-                predicted_nodes.extend(cycle_sched[cycle])
-            decoded_sched[cycle + self.t_w] = []
+        return self.get_data()
+    
+    def initialize_experiment(
+            self,
+            schedule: LatticeSurgerySchedule,
+            scheduling_method: str,
+            max_parallel_processes: int | None = None,
+            rng: int | np.random.Generator = np.random.default_rng(),
+        ) -> None:
+        self.failed = False
+        self._device_manager = DeviceManager(self.distance, schedule, rng=rng)
+        if scheduling_method == 'sliding':
+            self._window_manager = SlidingWindowManager(WindowBuilder(self.distance))
+        elif scheduling_method == 'parallel':
+            self._window_manager = ParallelWindowManager(WindowBuilder(self.distance))
+        elif scheduling_method == 'aligned':
+            self._window_manager = TAlignedWindowManager(WindowBuilder(self.distance))
+        else:
+            raise ValueError(f"Unknown scheduling method: {scheduling_method}")
+        self._decoding_manager = DecoderManager(
+            decoding_time_function=self.decoding_latency_fn,
+            speculation_time=self.speculation_latency,
+            speculation_accuracy=self.speculation_accuracy,
+            max_parallel_processes=max_parallel_processes,
+            speculation_mode=self.speculation_mode,
+        )
 
-            for node in decoded_sched[cycle].copy():
-                if node in waiting_nodes:
-                    continue
-                uncommitted_nodes.remove(node)
-                committed_nodes.append(node)
-                if pred:
-                    pred_success = np.random.randint(0, 100_000) < self.pred_acc
-                    if not pred_success:
-                        poisoned_nodes = [node for node in nx.descendants(di_dep_graph.di_dep_graph, node)]
-                        for poisoned_node in poisoned_nodes:
-                            if poisoned_node in predicted_nodes:
-                                if poisoned_node not in waiting_nodes:
-                                    waiting_nodes.append(poisoned_node)
-                                if poisoned_node not in uncommitted_nodes:
-                                    uncommitted_nodes.append(poisoned_node)
-                                    committed_nodes.remove(poisoned_node)
-                                for i in decoded_sched:
-                                    if poisoned_node in decoded_sched[i]:
-                                        decoded_sched[i].remove(poisoned_node)
-            for node in waiting_nodes.copy():
-                deps = True
-                for edge in di_dep_graph.di_dep_graph.in_edges(node):
-                    if pred and edge[0] not in predicted_nodes:
-                        deps = False
-                        break
-                    elif not pred and edge[0] in uncommitted_nodes:
-                        deps = False
-                        break
-                if deps:
-                    decoded_sched[cycle + self.t_w].append(node)
-                    waiting_nodes.remove(node)
+    def step_experiment(self, pending_window_count_cutoff: int = 0) -> None:
+        if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
+            raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
 
-            if cycle >= next_blocking_cycle:
-                add_stall = False
-                for node in uncommitted_nodes:
-                    if node[2] <= next_blocking_cycle:
-                        add_stall = True
-                if add_stall:
-                    blocking_cycles = [c + 1 for c in blocking_cycles]
-                    di_dep_graph.add_stall(cycle)
-                    uncommitted_nodes = list(di_dep_graph.di_dep_graph.nodes)
-                    for node in committed_nodes:
-                        uncommitted_nodes.remove(node)
-                    cycle_sched = gen_sched(di_dep_graph)
-                else:
-                    if len(blocking_cycles) > 0:
-                        next_blocking_cycle = blocking_cycles.pop(0)
-                    
-            waiting_trace.append(len(waiting_nodes))
-            decoded_trace[cycle] = len(committed_nodes)
-            cycle += 1
+        if self.is_done():
+            raise ValueError("Experiment is already done. Run run() to start a new experiment.")
 
-        
-        return waiting_trace, decoded_trace
-                
+        pending_window_count = len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times)
+        if pending_window_count_cutoff > 0 and pending_window_count > pending_window_count_cutoff:
+            self.failed = True
+            return
+
+        # step device forward
+        self._decoding_manager.step()
+        fully_decoded_instructions = self._decoding_manager.get_finished_instruction_indices() - self._window_manager.pending_instruction_indices()
+
+        syndrome_rounds, discarded_patches = self._device_manager.get_next_round(fully_decoded_instructions)
+
+        # process new round
+        newly_constructed_windows = self._window_manager.process_round(syndrome_rounds)
+        self._decoding_manager.update_decoding(newly_constructed_windows, self._window_manager.window_dag)
+
+    def is_done(self) -> bool:
+        return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times) == 0)
+
+    def get_data(self) -> tuple[bool, DeviceData, WindowData, DecoderData]:
+        device_data = self._device_manager.get_data()
+        window_data = self._window_manager.get_data()
+        decoding_data = self._decoding_manager.get_data()
+        return not self.failed, device_data, window_data, decoding_data
+    
+    def get_frame_data(self) -> list[plt.Axes]:
+        return self.frame_data

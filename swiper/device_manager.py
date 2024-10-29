@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import networkx as nx
-from swiper2.lattice_surgery_schedule import LatticeSurgerySchedule, Duration, Instruction
+from swiper.lattice_surgery_schedule import LatticeSurgerySchedule, Duration, Instruction
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
@@ -156,6 +156,7 @@ class DeviceManager:
                 instr = instructions_to_process.pop(0)
                 first_round, new_instructions_to_process = self._predict_instruction_start_time(instr, first_round, recur=True)
                 instructions_to_process.extend([instr for instr in new_instructions_to_process if instr not in instructions_to_process])
+        assert not recur or len(instructions_to_process) == 0
         return first_round, instructions_to_process
 
     def _predict_instruction_start_times(self):
@@ -250,7 +251,6 @@ class DeviceManager:
                     for instr in new_instructions:
                         start_times, _ = self._predict_instruction_start_time(instr, start_times, recur=True)
                     self._instruction_frontier.update(new_instructions)
-            
 
     def _generate_syndrome_round(self) -> tuple[list[SyndromeRound], set[int]]:
         generated_syndrome_rounds = []
@@ -377,7 +377,7 @@ class DeviceManager:
         return new_syndrome_data
 
     def get_data(self):
-        """Return all relevant dataregarding device history."""
+        """Return all relevant data regarding device history."""
         patches_initialized_by_round = {round_idx: set() for round_idx in range(self.current_round+2)}
         for instr, round_idx in self._predict_instruction_start_times().items():
             if round_idx <= self.current_round:

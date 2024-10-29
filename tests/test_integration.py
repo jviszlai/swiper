@@ -8,10 +8,10 @@ import matplotlib.animation as animation
 from benchmarks.qrom import QROM_Schedule
 import numpy as np
 
-from swiper2.simulator import DecodingSimulator
-import swiper2.plot as plotter
-from swiper2.schedule_experiments import MemorySchedule, RegularTSchedule, MSD15To1Schedule
-from swiper2.simulator import DecodingSimulator
+from swiper.simulator import DecodingSimulator
+import swiper.plot as plotter
+from swiper.schedule_experiments import MemorySchedule, RegularTSchedule, MSD15To1Schedule
+from swiper.simulator import DecodingSimulator
 
 def test_sliding_memory():
     d=7
