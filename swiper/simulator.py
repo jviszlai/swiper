@@ -60,6 +60,7 @@ class DecodingSimulator:
             progress_bar: bool = False,
             pending_window_count_cutoff: int = 0,
             save_animation_frames: bool = False,
+            lightweight_output: bool = False,
             rng: int | np.random.Generator = np.random.default_rng(),
         ) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         """TODO
@@ -77,6 +78,9 @@ class DecodingSimulator:
                 and will return early.
             save_animation_frames: If using in Jupyter notebook, use %%capture
                 TODO: broken
+            lightweight_output: If True, avoid returning certain large data
+                structures (e.g. window_dag, window_completion_times) in
+                outputs. Useful for large-scale simulations.
             rng: Random number generator.
         """
         self.initialize_experiment(
@@ -111,7 +115,7 @@ class DecodingSimulator:
             pbar_r.close()
             # pbar_i.close()
 
-        return self.get_data()
+        return self.get_data(lightweight_output=lightweight_output)
     
     def initialize_experiment(
             self,
@@ -154,7 +158,7 @@ class DecodingSimulator:
         self._decoding_manager.step()
         fully_decoded_instructions = self._decoding_manager.get_finished_instruction_indices() - self._window_manager.pending_instruction_indices()
 
-        syndrome_rounds, discarded_patches = self._device_manager.get_next_round(fully_decoded_instructions)
+        syndrome_rounds = self._device_manager.get_next_round(fully_decoded_instructions)
 
         # process new round
         newly_constructed_windows = self._window_manager.process_round(syndrome_rounds)
@@ -163,10 +167,10 @@ class DecodingSimulator:
     def is_done(self) -> bool:
         return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_windows) - len(self._decoding_manager._window_completion_times) == 0)
 
-    def get_data(self) -> tuple[bool, DeviceData, WindowData, DecoderData]:
-        device_data = self._device_manager.get_data()
-        window_data = self._window_manager.get_data()
-        decoding_data = self._decoding_manager.get_data()
+    def get_data(self, lightweight_output: bool = False) -> tuple[bool, DeviceData, WindowData, DecoderData]:
+        device_data = self._device_manager.get_data(lightweight_output=lightweight_output)
+        window_data = self._window_manager.get_data(lightweight_output=lightweight_output)
+        decoding_data = self._decoding_manager.get_data(lightweight_output=lightweight_output)
         return not self.failed, device_data, window_data, decoding_data
     
     def get_frame_data(self) -> list[plt.Axes]:

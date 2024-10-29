@@ -296,7 +296,7 @@ class DeviceManager:
             self._completed_instructions[instruction_idx] = self.current_round
             self._active_instructions.pop(instruction_idx)
 
-    def get_next_round(self, fully_decoded_instructions: set[int]) -> tuple[list[SyndromeRound], set[tuple[int, int]]]:
+    def get_next_round(self, fully_decoded_instructions: set[int]) -> list[SyndromeRound]:
         """Return another round of syndrome measurements, starting new
         instructions if possible.
 
@@ -311,7 +311,7 @@ class DeviceManager:
                 current round.
         """
         if self.is_done():
-            return [], set()
+            return []
 
         # self._update_active_instructions(fully_decoded_instructions)
         init_active_patches = copy.deepcopy(self._active_patches)
@@ -327,7 +327,7 @@ class DeviceManager:
             syndrome_round = [sr for sr in generated_syndrome_rounds if sr.patch == dp][0]
             syndrome_round.discard_after = True
     
-        return generated_syndrome_rounds, discarded_patches
+        return generated_syndrome_rounds
     
     def is_done(self) -> bool:
         """Return whether all instructions have been completed."""
@@ -376,21 +376,34 @@ class DeviceManager:
 
         return new_syndrome_data
 
-    def get_data(self):
+    def get_data(self, lightweight_output: bool = False):
         """Return all relevant data regarding device history."""
         patches_initialized_by_round = {round_idx: set() for round_idx in range(self.current_round+2)}
         for instr, round_idx in self._predict_instruction_start_times().items():
             if round_idx <= self.current_round:
                 patches_initialized_by_round[round_idx] |= self._patches_initialized_by_instr[instr]
 
-        return DeviceData(
-            d=self.d_t,
-            num_rounds=self.current_round,
-            instructions=copy.deepcopy(self.schedule_instructions),
-            instruction_start_times=[self._completed_instructions[i] for i in range(len(self.schedule_instructions))],
-            all_patch_coords=self._all_patch_coords,
-            syndrome_count_by_round=np.array(self._syndrome_count_by_round, int),
-            instruction_count_by_round=np.array(self._instruction_count_by_round, int),
-            generated_syndrome_data=self._postprocess_idle_data(self._generated_syndrome_data),
-            patches_initialized_by_round=patches_initialized_by_round,
-        )
+        if lightweight_output:
+            return DeviceData(
+                d=self.d_t,
+                num_rounds=self.current_round,
+                instructions=None,
+                instruction_start_times=[self._completed_instructions[i] for i in range(len(self.schedule_instructions))],
+                all_patch_coords=self._all_patch_coords,
+                syndrome_count_by_round=np.array(self._syndrome_count_by_round, int),
+                instruction_count_by_round=np.array(self._instruction_count_by_round, int),
+                generated_syndrome_data=None,
+                patches_initialized_by_round=patches_initialized_by_round,
+            )
+        else:
+            return DeviceData(
+                d=self.d_t,
+                num_rounds=self.current_round,
+                instructions=copy.deepcopy(self.schedule_instructions),
+                instruction_start_times=[self._completed_instructions[i] for i in range(len(self.schedule_instructions))],
+                all_patch_coords=self._all_patch_coords,
+                syndrome_count_by_round=np.array(self._syndrome_count_by_round, int),
+                instruction_count_by_round=np.array(self._instruction_count_by_round, int),
+                generated_syndrome_data=self._postprocess_idle_data(self._generated_syndrome_data),
+                patches_initialized_by_round=patches_initialized_by_round,
+            )

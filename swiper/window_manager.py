@@ -278,12 +278,19 @@ class WindowManager(ABC):
             assert not window.constructed
             self._mark_constructed(window_idx, inplace=True)
 
-    def get_data(self) -> WindowData:
-        return WindowData(
-            all_windows=self.all_windows,
-            window_dag=self.window_dag,
-            window_count_history=np.array(self._window_count_history, int),
-        )
+    def get_data(self, lightweight_output: bool = False) -> WindowData:
+        if lightweight_output:
+            return WindowData(
+                all_windows=None,
+                window_dag=None,
+                window_count_history=np.array(self._window_count_history, int),
+            )
+        else:
+            return WindowData(
+                all_windows=self.all_windows,
+                window_dag=self.window_dag,
+                window_count_history=np.array(self._window_count_history, int),
+            )
 
 class SlidingWindowManager(WindowManager):
     # TODO: find performance bottleneck when number of existing windows is large

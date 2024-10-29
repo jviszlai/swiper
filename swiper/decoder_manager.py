@@ -264,7 +264,7 @@ class DecoderManager:
         decoded_instructions -= {-1}
         return decoded_instructions
 
-    def get_data(self) -> DecoderData:
+    def get_data(self, lightweight_output: bool = False) -> DecoderData:
         return DecoderData(
             num_rounds=self._current_round,
             max_parallel_processes=self.max_parallel_processes,
