@@ -20,8 +20,9 @@ if __name__ == '__main__':
     # Can make a chosen smaller list of these instead
     benchmark_files = []
     for file in os.listdir('benchmarks/cached_schedules/'):
-        path = os.path.join('benchmarks/cached_schedules/', file)
-        benchmark_files.append(path)
+        if file.endswith('.lss'):
+            path = os.path.join('benchmarks/cached_schedules/', file)
+            benchmark_files.append(path)
 
     sweep_params = {
         'distance':[15],
