@@ -3,6 +3,7 @@ import json
 import pickle
 
 from swiper.simulator import DecodingSimulator
+from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 
 if __name__ == '__main__':
     args = sys.argv
@@ -24,8 +25,8 @@ if __name__ == '__main__':
     benchmark_file = params['benchmark_file']
     rng = params['rng']
 
-    with open(benchmark_file, 'rb') as f:
-        benchmark_schedule = pickle.load(f)
+    with open(benchmark_file, 'r') as f:
+        benchmark_schedule = LatticeSurgerySchedule.from_str(f.read(), generate_dag_incrementally=True)
 
     simulator = DecodingSimulator(
         distance=distance,
@@ -43,12 +44,12 @@ if __name__ == '__main__':
         rng=rng,
     )
 
-    with open(os.path.join(output_dir, f'config_{config_idx}_d{distance}_p{max_parallel_processes}_{scheduling_method}_acc{speculation_accuracy}_spec{speculation_time}_{speculation_mode}_{benchmark_file.split("/")[-1]}_{rng}.txt'), 'w') as f:
+    with open(os.path.join(output_dir, f'config_{config_idx}_d{distance}_p{max_parallel_processes}_{scheduling_method}_acc{speculation_accuracy}_spec{speculation_latency}_{speculation_mode}_{benchmark_file.split("/")[-1]}_{rng}.txt'), 'w') as f:
         json.dump({
                 'success':success,
-                'device_data':device_data.asdict(),
-                'window_data':window_data.asdict(),
-                'decoding_data':decoding_data.asdict(),
+                'device_data':device_data.to_dict(),
+                'window_data':window_data.to_dict(),
+                'decoding_data':decoding_data.to_dict(),
             },
             f
         )
