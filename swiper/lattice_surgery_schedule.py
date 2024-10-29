@@ -8,6 +8,27 @@ class Duration(Enum):
     HALF_D = 2
     HALF_D_PLUS_2 = 3
 
+    def __str__(self):
+        if self == Duration.D:
+            return 'D'
+        elif self == Duration.HALF_D:
+            return 'HALF_D'
+        elif self == Duration.HALF_D_PLUS_2:
+            return 'HALF_D_PLUS_2'
+        
+    @classmethod
+    def from_str(cls, s):
+        if s == 'D':
+            return cls.D
+        elif s == 'HALF_D':
+            return cls.HALF_D
+        elif s == 'HALF_D_PLUS_2':
+            return cls.HALF_D_PLUS_2
+        elif s.isdigit():
+            return int(s)
+        else:
+            raise ValueError(f'Invalid duration string: {s}')
+
 @dataclass(frozen=True)
 class Instruction:
     name: str
@@ -32,6 +53,24 @@ class Instruction:
             conditional_completion_dependencies=self.conditional_completion_dependencies,
             merge_faces=self.merge_faces,
         )
+    
+    def __str__(self):
+        return f'{self.name} {self.idx} {str(list(self.patches)).replace(" ", "")} {self.duration} {str(list(self.conditioned_on_idx)).replace(" ", "")} {str(list(self.conditional_dependencies)).replace(" ", "")} {str(list(self.conditioned_on_completion_idx)).replace(" ", "")} {str(list(self.conditional_completion_dependencies)).replace(" ", "")} {str(list(self.merge_faces)).replace(" ", "")}'
+
+    @classmethod
+    def from_str(cls, s):
+        s = s.split()
+        return Instruction(
+            name=s[0],
+            idx=int(s[1]),
+            patches=frozenset(eval(s[2])),
+            duration=Duration.from_str(s[3]),
+            conditioned_on_idx=frozenset(eval(s[4])),
+            conditional_dependencies=frozenset(eval(s[5])),
+            conditioned_on_completion_idx=frozenset(eval(s[6])),
+            conditional_completion_dependencies=frozenset(eval(s[7])),
+            merge_faces=frozenset(eval(s[8])),
+        )
 
 class LatticeSurgerySchedule:
     """Represents a planned series of lattice surgery operations."""
@@ -46,6 +85,19 @@ class LatticeSurgerySchedule:
 
     def __len__(self):
         return len(self._all_instructions)
+    
+    def __str__(self):
+        return '\n'.join(str(instr) for instr in self.full_instructions())
+    
+    def __eq__(self, other):
+        return self.full_instructions() == other.full_instructions()
+    
+    @classmethod
+    def from_str(cls, s, generate_dag_incrementally: bool = False):
+        instance = cls(generate_dag_incrementally=generate_dag_incrementally)
+        for line in s.split('\n'):
+            instance._add_instruction(Instruction.from_str(line))
+        return instance
 
     def full_instructions(self):
         """Return a list of all instructions, with all the necessary DISCARDS
