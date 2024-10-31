@@ -99,6 +99,7 @@ class DecodingWindow:
     buffer_regions: frozenset[SpacetimeRegion]
     merge_instr: frozenset[Instruction]
     parent_instr_idx: frozenset[int]
+    window_idx: int
     constructed: bool
 
     def total_spacetime_volume(self) -> int:
@@ -173,8 +174,13 @@ class DecodingWindow:
 
 class WindowBuilder():
     def __init__(self, d: int) -> None:
-        self._waiting_rounds = []
-        self._inject_t_rounds = []
+        self._patch_groups = {}
+        self._all_rounds = []
+        self._waiting_rounds = set()
+        self._inject_t_rounds = set()
+        self._inject_t_rounds_dict = dict()
+        self._total_rounds_processed = 0
+        self._created_window_count = 0
         self.d = d
 
     def build_windows(
@@ -197,20 +203,22 @@ class WindowBuilder():
         else:
             curr_round = new_rounds[0].round
             assert all([round.round == curr_round for round in new_rounds])
-        
-            self._waiting_rounds.extend([round 
-                                        for round in new_rounds
+
+            new_round_start = len(self._all_rounds)
+            self._all_rounds.extend(new_rounds)
+            self._waiting_rounds.update([i+new_round_start
+                                        for i,round in enumerate(new_rounds)
                                         if round.instruction.name != 'INJECT_T']) # T injection is not decoded 
-            self._inject_t_rounds.extend([round 
-                                        for round in new_rounds
-                                        if round.instruction.name == 'INJECT_T'])
+            for i,round in enumerate(new_rounds):
+                if round.instruction.name != 'INJECT_T':
+                    self._patch_groups.setdefault(round.patch, []).append(i+new_round_start)
+                else:
+                    self._inject_t_rounds_dict.setdefault(round.patch, []).append(i+new_round_start)
+
         new_windows = []
 
-        patch_groups = {}
-        for round in self._waiting_rounds:
-            patch_groups.setdefault(round.patch, []).append(round)
-        
-        for patch, rounds in patch_groups.items():
+        for patch, round_indices in list(self._patch_groups.items()):
+            rounds = [self._all_rounds[round_idx] for round_idx in round_indices]
             min_round = min(rounds, key=lambda x: x.round)
             max_round = max(rounds, key=lambda x: x.round)
             duration = self.d
@@ -220,11 +228,13 @@ class WindowBuilder():
             elif min_round.instruction.name != 'MERGE' and max_round.instruction.name == 'MERGE':
                 # Aligning windows with merges is non-negotiable due to the need for spatial buffers
                 junk_round_end = max(rounds, key=lambda x: x.round * (0 if x.instruction.name == 'MERGE' else 1))
-                rounds = [round for round in rounds if round.round <= junk_round_end.round]
+                round_indices = [round_idx for round_idx in round_indices if self._all_rounds[round_idx].round <= junk_round_end.round]
+                rounds = [self._all_rounds[round_idx] for round_idx in round_indices]
                 duration = junk_round_end.round - min_round.round + 1
             elif min_round.instruction.name == 'MERGE' and max_round.instruction.name != 'MERGE':
                 junk_round_end = max(rounds, key=lambda x: x.round * (1 if x.instruction.name == 'MERGE' else 0))
-                rounds = [round for round in rounds if round.round <= junk_round_end.round]
+                round_indices = [round_idx for round_idx in round_indices if self._all_rounds[round_idx].round <= junk_round_end.round]
+                rounds = [self._all_rounds[round_idx] for round_idx in round_indices]
                 duration = junk_round_end.round - min_round.round + 1
             elif (max_round.round - min_round.round) + 1 < duration:
                 # Not enough rounds to create a window
@@ -232,10 +242,13 @@ class WindowBuilder():
             max_round = max(rounds, key=lambda x: x.round)
             num_spatial_boundaries = 4 - sum(patch in face for face in min_round.instruction.merge_faces)
             prior_t = False
-            if not min_round.initialized_patch:
-                for t_round in self._inject_t_rounds:
-                    if t_round.patch == patch and t_round.round == min_round.round-1:
+            if not min_round.initialized_patch and patch in self._inject_t_rounds_dict:
+                for idx in reversed(self._inject_t_rounds_dict[patch]):
+                    t_round = self._all_rounds[idx]
+                    if t_round.round == min_round.round-1:
                         prior_t = True
+                        break
+                    elif t_round.round < min_round.round-1:
                         break
             parent_instr_idx = frozenset([round.instruction_idx for round in rounds])
             commit_region = SpacetimeRegion(
@@ -253,10 +266,17 @@ class WindowBuilder():
                 buffer_regions=frozenset(),
                 merge_instr=frozenset() if min_round.instruction.name != 'MERGE' else frozenset([min_round.instruction]),
                 parent_instr_idx=parent_instr_idx,
+                window_idx=self._created_window_count,
                 constructed=False,
             ))
-            for round in rounds:
-                self._waiting_rounds.remove(round)
+            self._created_window_count += 1
+
+            self._patch_groups[patch] = [round_idx for round_idx in self._patch_groups[patch] if round_idx not in round_indices]
+            if not self._patch_groups[patch]:
+                self._patch_groups.pop(patch)
+            self._waiting_rounds -= set(round_indices)
+
+        self._total_rounds_processed += len(new_rounds)
 
         return new_windows
 
@@ -265,10 +285,8 @@ class WindowBuilder():
         than the usual size.
         """
         new_windows = []
-        patch_groups = {}
-        for round in self._waiting_rounds:
-            patch_groups.setdefault(round.patch, []).append(round)
-        for patch, rounds in patch_groups.items():
+        for patch, round_indices in list(self._patch_groups.items()):
+            rounds = [self._all_rounds[round_idx] for round_idx in round_indices]
             min_round = min(rounds, key=lambda x: x.round)
             max_round = max(rounds, key=lambda x: x.round)
             duration = max_round.round - min_round.round + 1
@@ -288,10 +306,12 @@ class WindowBuilder():
                 buffer_regions=frozenset(),
                 merge_instr=frozenset() if min_round.instruction.name != 'MERGE' else frozenset([min_round.instruction]),
                 parent_instr_idx=parent_instr_idx,
+                window_idx=self._created_window_count,
                 constructed=False,
             ))
-            for round in rounds:
-                self._waiting_rounds.remove(round)
+            self._created_window_count += 1
+            self._patch_groups.pop(patch)
+            self._waiting_rounds -= set(round_indices)
 
         assert len(self._waiting_rounds) == 0
         return new_windows

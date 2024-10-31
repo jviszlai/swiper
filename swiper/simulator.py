@@ -52,6 +52,8 @@ class DecodingSimulator:
         self._window_manager: SlidingWindowManager | ParallelWindowManager | TAlignedWindowManager | None = None
         self._decoding_manager: DecoderManager | None = None
 
+        self.sent_windows = []
+
     def run(
             self,
             schedule: LatticeSurgerySchedule,
@@ -89,6 +91,9 @@ class DecodingSimulator:
             max_parallel_processes=max_parallel_processes,
             rng=rng,
         )
+        assert self._device_manager is not None
+        assert self._window_manager is not None
+        assert self._decoding_manager is not None
 
         if progress_bar:
             pbar_r = tqdm.tqdm(desc='Surface code rounds')
@@ -140,6 +145,7 @@ class DecodingSimulator:
             speculation_accuracy=self.speculation_accuracy,
             max_parallel_processes=max_parallel_processes,
             speculation_mode=self.speculation_mode,
+            rng=rng,
         )
 
     def step_experiment(self, pending_window_count_cutoff: int = 0) -> None:
@@ -162,12 +168,17 @@ class DecodingSimulator:
 
         # process new round
         newly_constructed_windows = self._window_manager.process_round(syndrome_rounds)
+        self.sent_windows.extend(w.window_idx for w in newly_constructed_windows)
         self._decoding_manager.update_decoding(newly_constructed_windows, self._window_manager.window_dag)
 
     def is_done(self) -> bool:
-        return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_windows) - len(self._decoding_manager._window_decoding_completion_times) == 0)
+        if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
+            raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
+        return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_constructed_windows) - len(self._decoding_manager._window_decoding_completion_times) == 0)
 
     def get_data(self, lightweight_output: bool = False) -> tuple[bool, DeviceData, WindowData, DecoderData]:
+        if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
+            raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
         device_data = self._device_manager.get_data(lightweight_output=lightweight_output)
         window_data = self._window_manager.get_data(lightweight_output=lightweight_output)
         decoding_data = self._decoding_manager.get_data(lightweight_output=lightweight_output)

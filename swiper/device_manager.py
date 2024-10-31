@@ -51,43 +51,46 @@ class DeviceManager:
         self.schedule = schedule
         self.schedule_instructions = schedule.full_instructions()
         self.schedule_dag = schedule.to_dag(self.d_t)
-        self._patches_initialized_by_instr = {i: self._get_initialized_patches(i) for i in range(len(self.schedule_instructions))}
+        self._patches_initialized_by_instr = self._get_initialized_patches()
         self.current_round = 0
 
         self._syndrome_count_by_round = []
         self._instruction_count_by_round = []
         self._all_patch_coords = set()
         self._generated_syndrome_data = []
+        self._conditional_S_locations = []
 
         self._completed_instructions = dict()
         self._active_instructions = dict()
         self._active_patches = set()
 
         if isinstance(rng, int):
-            self.rng = np.random.default_rng(rng)
-        else:
-            self.rng = rng
+            rng = np.random.default_rng(rng)
 
         self._instruction_durations: list[int] = [self.schedule.get_true_duration(instr.duration, self.d_t) for instr in self.schedule_instructions]
-        
+        for i,instr in enumerate(self.schedule_instructions):
+            if instr.name == 'CONDITIONAL_S' and rng.random() < 0.5:
+                self._instruction_durations[i] = 0
+
         # Begin by starting the first instruction
         first_instruction_idx = self._find_first_instruction_idx()
         self._active_instructions[first_instruction_idx] = self._instruction_durations[first_instruction_idx]
-        self._instruction_frontier = set(next(nx.topological_generations(self.schedule_dag))) | set(self.schedule_dag.successors(first_instruction_idx)) - set([first_instruction_idx])
+        self._instruction_frontier = (set(next(nx.topological_generations(self.schedule_dag))) | set(self.schedule_dag.successors(first_instruction_idx))) - set([first_instruction_idx])
         self._update_active_instructions()
 
-    def _get_initialized_patches(self, instruction_idx: int) -> set[tuple[int, int]]:
-        """Return the set of patches initialized by an instruction."""
-        if instruction_idx == 0:
-            return set(self.schedule_instructions[0].patches)
-        
+    def _get_initialized_patches(self) -> list[set[tuple[int, int]]]:
+        """Return the set of patches initialized by each instruction."""
+        patches_initialized_by_instr = []
         active_patches = set()
-        for i in range(instruction_idx):
-            if self.schedule_instructions[i].name == 'DISCARD':
-                active_patches -= set(self.schedule_instructions[i].patches)
+        for i,instr in enumerate(self.schedule_instructions):
+            patches = set(instr.patches)
+            if instr.name == 'DISCARD':
+                active_patches -= patches
+                patches_initialized_by_instr.append(set())
             else:
-                active_patches.update(self.schedule_instructions[i].patches)
-        return set(self.schedule_instructions[instruction_idx].patches) - active_patches
+                patches_initialized_by_instr.append(patches - active_patches)
+                active_patches |= patches
+        return patches_initialized_by_instr
 
     def _is_startup_instruction(self, instruction_idx: int) -> bool:
         """Return whether an instruction is a startup instruction."""
@@ -149,16 +152,15 @@ class DeviceManager:
                         instructions_to_process.append(inst_idx)
             if expected_start is not None:
                 expected_start = max(expected_start, self.current_round)
-                # print(instruction_idx, expected_start)
                 first_round[instruction_idx] = expected_start
             else:
                 instructions_to_process.append(instruction_idx)
 
-        if recur and len(instructions_to_process) > 0:
-            while len(instructions_to_process) > 0:
-                instr = instructions_to_process.pop(0)
-                first_round, new_instructions_to_process = self._predict_instruction_start_time(instr, first_round, recur=True)
-                instructions_to_process.extend([instr for instr in new_instructions_to_process if instr not in instructions_to_process])
+            if recur and len(instructions_to_process) > 0:
+                while len(instructions_to_process) > 0:
+                    instr = instructions_to_process.pop(0)
+                    first_round, new_instructions_to_process = self._predict_instruction_start_time(instr, first_round, recur=True)
+                    instructions_to_process.extend([instr for instr in new_instructions_to_process if instr not in instructions_to_process])
         assert not recur or len(instructions_to_process) == 0
         return first_round, instructions_to_process
 
@@ -176,8 +178,6 @@ class DeviceManager:
         iters = 0
         while len(instruction_queue) > 0:
             iters += 1
-            if iters > 10:
-                pass
             if iters > 1000:
                 raise Exception('Infinite loop in _predict_instruction_start_times', instruction_queue, first_round)
             instruction_idx = instruction_queue.pop(0)
@@ -225,6 +225,8 @@ class DeviceManager:
                         self._completed_instructions[instruction_idx] = self.current_round - 1
                         if self.schedule_instructions[instruction_idx].name == 'DISCARD':
                             self._active_patches -= set(self.schedule_instructions[instruction_idx].patches)
+                        if self.schedule_instructions[instruction_idx].name == 'CONDITIONAL_S':
+                            self._conditional_S_locations.append((list(self.schedule_instructions[instruction_idx].patches)[0], self.current_round-1))
                         self._instruction_frontier -= set([instruction_idx])
                         new_instructions = set(self.schedule_dag.successors(instruction_idx)) - self._instruction_frontier
                         for instr in new_instructions:
@@ -247,8 +249,11 @@ class DeviceManager:
                     # not all predecessors have been completed
                     pass
                 else:
+                    assert self._instruction_durations[instruction_idx] > 0
                     self._active_instructions[instruction_idx] = self._instruction_durations[instruction_idx]
                     patches_in_use.update(self.schedule_instructions[instruction_idx].patches)
+                    if self.schedule_instructions[instruction_idx].name == 'CONDITIONAL_S':
+                        self._conditional_S_locations.append((list(self.schedule_instructions[instruction_idx].patches)[0], self.current_round-1))
                     self._instruction_frontier -= set([instruction_idx])
                     new_instructions = set(self.schedule_dag.successors(instruction_idx)) - self._instruction_frontier
                     for instr in new_instructions:
@@ -334,7 +339,7 @@ class DeviceManager:
     
     def is_done(self) -> bool:
         """Return whether all instructions have been completed."""
-        return len(self._active_instructions) == 0 and len(self._completed_instructions) == len(self.schedule_instructions)
+        return len(self._instruction_frontier) == 0 and len(self._active_instructions) == 0 and len(self._completed_instructions) == len(self.schedule_instructions)
     
     def _postprocess_idle_data(self, syndrome_data: list[list[SyndromeRound]]) -> list[list[SyndromeRound]]:
         """Rename UNWANTED_IDLE syndrome rounds to either DECODE_IDLE (if they
@@ -361,8 +366,8 @@ class DeviceManager:
         for patch, patch_data in data_by_patch.items():
             for i,continuous_data in enumerate(patch_data):
                 for j,(sr,_,_) in enumerate(continuous_data):
-                    if sr.instruction.conditioned_on_idx:
-                        for jj in range(j-1,-1,-1):
+                    if (sr.patch, sr.round) in self._conditional_S_locations:
+                        for jj in range(j,-1,-1):
                             if patch_data[i][jj][0].is_unwanted_idle:
                                 patch_data[i][jj][0].instruction = patch_data[i][jj][0].instruction.rename('DECODE_IDLE')
                                 # data_by_patch[patch][i][jj] = (sr, round_idx, sr_idx, 'DECODE_IDLE')
@@ -380,7 +385,7 @@ class DeviceManager:
         return new_syndrome_data
 
     def get_data(self, lightweight_output: bool = False):
-        """Return all relevant data regarding device history."""
+        """Return all relevant data regarding device history."""        
         patches_initialized_by_round = {round_idx: set() for round_idx in range(self.current_round+2)}
         for instr, round_idx in self._predict_instruction_start_times().items():
             if round_idx <= self.current_round:
@@ -391,7 +396,7 @@ class DeviceManager:
                 d=self.d_t,
                 num_rounds=self.current_round,
                 instructions=None,
-                instruction_start_times=[self._completed_instructions[i]-self._instruction_durations[i]+1 for i in range(len(self.schedule_instructions))],
+                instruction_start_times=[(self._completed_instructions[i]-self._instruction_durations[i]+1 if i in self._completed_instructions else None) for i in range(len(self.schedule_instructions))],
                 all_patch_coords=list(self._all_patch_coords),
                 syndrome_count_by_round=self._syndrome_count_by_round,
                 instruction_count_by_round=self._instruction_count_by_round,
@@ -403,7 +408,7 @@ class DeviceManager:
                 d=self.d_t,
                 num_rounds=self.current_round,
                 instructions=copy.deepcopy(self.schedule_instructions),
-                instruction_start_times=[self._completed_instructions[i]-self._instruction_durations[i]+1 for i in range(len(self.schedule_instructions))],
+                instruction_start_times=[(self._completed_instructions[i]-self._instruction_durations[i]+1 if i in self._completed_instructions else None) for i in range(len(self.schedule_instructions))],
                 all_patch_coords=list(self._all_patch_coords),
                 syndrome_count_by_round=self._syndrome_count_by_round,
                 instruction_count_by_round=self._instruction_count_by_round,
