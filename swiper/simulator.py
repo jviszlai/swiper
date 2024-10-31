@@ -1,5 +1,4 @@
 from typing import Callable
-import networkx as nx
 import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -162,9 +161,9 @@ class DecodingSimulator:
 
         # step device forward
         self._decoding_manager.step()
-        fully_decoded_instructions = self._decoding_manager.get_finished_instruction_indices() - self._window_manager.pending_instruction_indices()
+        incomplete_instructions = set(self._device_manager._active_instructions.keys()) | self._window_manager.window_builder.get_incomplete_instructions() | self._window_manager.pending_instruction_indices() | self._decoding_manager.get_incomplete_instruction_indices()
 
-        syndrome_rounds = self._device_manager.get_next_round(fully_decoded_instructions)
+        syndrome_rounds = self._device_manager.get_next_round(incomplete_instructions)
 
         # process new round
         newly_constructed_windows = self._window_manager.process_round(syndrome_rounds)

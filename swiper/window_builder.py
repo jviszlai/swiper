@@ -174,14 +174,14 @@ class DecodingWindow:
 
 class WindowBuilder():
     def __init__(self, d: int) -> None:
-        self._patch_groups = {}
-        self._all_rounds = []
-        self._waiting_rounds = set()
-        self._inject_t_rounds = set()
-        self._inject_t_rounds_dict = dict()
-        self._total_rounds_processed = 0
-        self._created_window_count = 0
-        self.d = d
+        self._patch_groups: dict[tuple[int, int], list[int]] = {}
+        self._all_rounds: list[SyndromeRound] = []
+        self._waiting_rounds: set[int] = set()
+        self._inject_t_rounds: set[int] = set()
+        self._inject_t_rounds_dict: dict[tuple[int, int], list[int]] = dict()
+        self._total_rounds_processed: int = 0
+        self._created_window_count: int = 0
+        self.d: int = d
 
     def build_windows(
             self, 
@@ -315,3 +315,6 @@ class WindowBuilder():
 
         assert len(self._waiting_rounds) == 0
         return new_windows
+    
+    def get_incomplete_instructions(self):
+        return {self._all_rounds[round].instruction_idx for round in self._waiting_rounds}

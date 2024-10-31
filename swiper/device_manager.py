@@ -76,7 +76,7 @@ class DeviceManager:
         first_instruction_idx = self._find_first_instruction_idx()
         self._active_instructions[first_instruction_idx] = self._instruction_durations[first_instruction_idx]
         self._instruction_frontier = (set(next(nx.topological_generations(self.schedule_dag))) | set(self.schedule_dag.successors(first_instruction_idx))) - set([first_instruction_idx])
-        self._update_active_instructions()
+        self._update_active_instructions(set())
 
     def _get_initialized_patches(self) -> list[set[tuple[int, int]]]:
         """Return the set of patches initialized by each instruction."""
@@ -171,23 +171,26 @@ class DeviceManager:
         assigned round 0.
         """
         first_round = dict()
-        after_last_round = dict()
 
         instruction_queue = list(self._instruction_frontier)
 
+        prev_queue_len = len(instruction_queue)
         iters = 0
         while len(instruction_queue) > 0:
             iters += 1
-            if iters > 1000:
-                raise Exception('Infinite loop in _predict_instruction_start_times', instruction_queue, first_round)
+            if iters % 1000 == 0 or iters > 10000:
+                if prev_queue_len - len(instruction_queue) < 10:
+                    raise Exception('Infinite loop in _predict_instruction_start_times', instruction_queue, first_round)
+                else:
+                    prev_queue_len = len(instruction_queue)
+                
             instruction_idx = instruction_queue.pop(0)
             first_round, instructions_to_process = self._predict_instruction_start_time(instruction_idx, first_round, recur=True)
             assert len(instructions_to_process) == 0
-            instruction_queue.extend([instr for instr in instructions_to_process if instr not in instruction_queue])
         
         return first_round
 
-    def _update_active_instructions(self, fully_decoded_instructions: set[int] = set()) -> None:
+    def _update_active_instructions(self, incomplete_instructions: set[int]) -> None:
         """Add new instructions to the active set if they are ready to start.
         Immediately complete any instructions with duration 0. Instructions with
         conditional dependencies cannot be started if any of the instructions
@@ -210,7 +213,7 @@ class DeviceManager:
                     if set(self.schedule_instructions[instruction_idx].patches) & patches_in_use:
                         # at least one patch is already in use
                         pass
-                    elif not self.schedule_instructions[instruction_idx].conditioned_on_idx.issubset(fully_decoded_instructions):
+                    elif self.schedule_instructions[instruction_idx].conditioned_on_idx & incomplete_instructions:
                         # decoding dependency not yet satisfied
                         pass
                     elif not self.schedule_instructions[instruction_idx].conditioned_on_completion_idx.issubset(set(self._completed_instructions.keys())):
@@ -239,7 +242,7 @@ class DeviceManager:
                 if set(self.schedule_instructions[instruction_idx].patches) & patches_in_use:
                     # at least one patch is already in use
                     pass
-                elif not self.schedule_instructions[instruction_idx].conditioned_on_idx.issubset(fully_decoded_instructions):
+                elif self.schedule_instructions[instruction_idx].conditioned_on_idx & incomplete_instructions:
                     # decoding dependency not yet satisfied
                     pass
                 elif not self.schedule_instructions[instruction_idx].conditioned_on_completion_idx.issubset(set(self._completed_instructions.keys())):
@@ -304,13 +307,13 @@ class DeviceManager:
             self._completed_instructions[instruction_idx] = self.current_round
             self._active_instructions.pop(instruction_idx)
 
-    def get_next_round(self, fully_decoded_instructions: set[int]) -> list[SyndromeRound]:
+    def get_next_round(self, incomplete_instructions: set[int]) -> list[SyndromeRound]:
         """Return another round of syndrome measurements, starting new
         instructions if possible.
 
         Args:
-            fully_decoded_instructions: Set of instruction indices whose data
-                has been fully decoded.
+            incomplete_instructions: Set of instruction indices whose data has
+                not yet been fully decoded.
         
         Returns:
             generated_syndrome_rounds: List of SyndromeRound objects for the
@@ -321,7 +324,6 @@ class DeviceManager:
         if self.is_done():
             return []
 
-        # self._update_active_instructions(fully_decoded_instructions)
         init_active_patches = copy.deepcopy(self._active_patches)
         generated_syndrome_rounds, completed_instructions = self._generate_syndrome_round()
         self._clean_completed_instructions(completed_instructions)
@@ -329,7 +331,7 @@ class DeviceManager:
         if not self.is_done():
             self.current_round += 1
 
-        self._update_active_instructions(fully_decoded_instructions)
+        self._update_active_instructions(incomplete_instructions)
         discarded_patches = init_active_patches - self._active_patches
         for dp in discarded_patches:
             syndrome_round = [sr for sr in generated_syndrome_rounds if sr.patch == dp][0]

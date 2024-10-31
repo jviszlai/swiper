@@ -1,10 +1,9 @@
 from dataclasses import dataclass, field, asdict
 from typing import Callable
 import numpy as np
-from numpy.typing import NDArray
 import networkx as nx
-from swiper.window_builder import DecodingWindow, SpacetimeRegion
-from swiper.lattice_surgery_schedule import Instruction
+import itertools
+from swiper.window_builder import DecodingWindow
 
 @dataclass
 class DecoderData:
@@ -285,11 +284,16 @@ class DecoderManager:
         """Return the set of instruction idx that have been decoded."""
         # TODO: send unfinished instructions instead
         decoded_instructions = self._partially_complete_instructions.copy()
-        for idx in set(self._active_window_progress.keys()) | self._pending_decode_tasks:
-            task = self._get_task(idx)
-            decoded_instructions -= task.window.parent_instr_idx
+        not_ready_instructions = set(itertools.chain.from_iterable(self._get_task(idx).window.parent_instr_idx for idx in itertools.chain.from_iterable(nx.descendants(self._window_idx_dag, idx) for idx in set(self._active_window_progress.keys()) | self._pending_decode_tasks) if idx < len(self._tasks_by_idx) and self._tasks_by_idx[idx]))
+        decoded_instructions -= not_ready_instructions
         decoded_instructions -= {-1}
         return decoded_instructions
+    
+    def get_incomplete_instruction_indices(self) -> set[int]:
+        """Return the set of instruction idx that have not been decoded."""
+        incomplete_task_instructions = set(itertools.chain.from_iterable(self._get_task(idx).window.parent_instr_idx for idx in set(self._active_window_progress.keys()) | self._pending_decode_tasks))
+        incomplete_descendant_instructions = set(itertools.chain.from_iterable(self._get_task(idx).window.parent_instr_idx for idx in itertools.chain.from_iterable(nx.descendants(self._window_idx_dag, task_idx) for task_idx in set(self._active_window_progress.keys()) | self._pending_decode_tasks) if idx < len(self._tasks_by_idx) and self._tasks_by_idx[idx]))
+        return incomplete_task_instructions | incomplete_descendant_instructions
 
     def get_data(self, lightweight_output: bool = False) -> DecoderData:
         return DecoderData(
