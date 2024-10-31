@@ -1,4 +1,5 @@
 import os, sys
+import shutil
 import json
 import math
 import subprocess
@@ -13,19 +14,24 @@ if __name__ == '__main__':
     sbatch_filename = f'{data_dir}/submit.sbatch'
     output_dir = f'{data_dir}/output'
     log_dir = f'{data_dir}/logs'
+    benchmark_dir = f'{data_dir}/benchmarks'
     metadata_filename = f'{data_dir}/metadata.txt'
     os.makedirs(output_dir)
     os.makedirs(log_dir)
+    os.makedirs(benchmark_dir)
 
     # Can make a chosen smaller list of these instead
     benchmark_files = []
     for file in os.listdir('benchmarks/cached_schedules/'):
         if file.endswith('.lss'):
             path = os.path.join('benchmarks/cached_schedules/', file)
-            benchmark_files.append(path)
+            newpath = os.path.join(benchmark_dir, file)
+            shutil.copyfile(path, newpath)
+            benchmark_files.append(newpath)
 
     sweep_params = {
         'distance':[15],
+        'decode_latency': [20],
         'speculation_latency':[2],
         'speculation_accuracy':[0.99],
         'speculation_mode':['integrated'],
@@ -55,20 +61,16 @@ if __name__ == '__main__':
     with open(config_filename, 'w') as f:
         json.dump(configs, f)
 
-    num_nodes = math.ceil(total_num_configs / 48)
-    tasks_per_node = math.ceil(total_num_configs / num_nodes)
-
     with open(sbatch_filename, 'w') as f:
         f.write(f'''#!/bin/bash
 #SBATCH --job-name={time.strftime("%Y%m%d_%H%M%S")}
 #SBATCH --output={log_dir}/%a.out
-#SBATCH --error={log_dir}/%a.err
+#SBATCH --error={log_dir}/%a.out
 #SBATCH --account=pi-ftchong
 #SBATCH --partition=caslake
 #SBATCH --array=0-{total_num_configs-1}
-#SBATCH --time=00:01:00
-#SBATCH --nodes={num_nodes}
-#SBATCH --ntasks-per-node={tasks_per_node}
+#SBATCH --time=12:00:00
+#SBATCH --ntasks=1
 
 module load python
 eval "$(conda shell.bash hook)"
@@ -88,8 +90,6 @@ python slurm/run_simulation.py "{config_filename}" "{output_dir}"'''
         f.write(f'Time: {time.strftime("%Y-%m-%d %H:%M:%S")}\n')
         f.write(f'Job ID: {job_id}\n')
         f.write(f'Total num. tasks: {total_num_configs}\n')
-        f.write(f'Nodes: {num_nodes}\n')
-        f.write(f'Tasks per node: {tasks_per_node}\n')
         f.write(f'Params:\n')
         for name,params in sweep_params.items():
             f.write(f'    {name}: {params}\n')

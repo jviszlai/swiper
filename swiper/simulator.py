@@ -1,8 +1,10 @@
+import sys
 from typing import Callable
 import networkx as nx
 import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
+import datetime as dt
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper.device_manager import DeviceData, DeviceManager
 from swiper.decoder_manager import DecoderData, DecoderManager
@@ -58,6 +60,7 @@ class DecodingSimulator:
             scheduling_method: str,
             max_parallel_processes: int | None = None,
             progress_bar: bool = False,
+            print_interval: dt.timedelta | None = None,
             pending_window_count_cutoff: int = 0,
             save_animation_frames: bool = False,
             lightweight_output: bool = False,
@@ -83,6 +86,10 @@ class DecodingSimulator:
                 outputs. Useful for large-scale simulations.
             rng: Random number generator.
         """
+        if print_interval is not None:
+            print(f'{dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Starting simulation')
+            sys.stdout.flush()
+
         self.initialize_experiment(
             schedule=schedule,
             scheduling_method=scheduling_method,
@@ -99,7 +106,7 @@ class DecodingSimulator:
             self.frame_data = []
 
         while not self.is_done():
-            self.step_experiment(pending_window_count_cutoff=pending_window_count_cutoff)
+            self.step_experiment(pending_window_count_cutoff=pending_window_count_cutoff, print_interval=print_interval)
             if progress_bar and self._decoding_manager._current_round % 100 == 0:
                 pbar_r.update(100)
                 # pbar_i.update(len(fully_decoded_instructions) - pbar_i.n)
@@ -108,6 +115,10 @@ class DecodingSimulator:
                 ax = plotter.plot_device_schedule_trace(self._device_manager.get_data(), spacing=1, default_fig=fig)
                 ax.set_zticks([])
                 self.frame_data.append(ax)
+        
+        if print_interval is not None:
+            print(f'{dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Finished simulation')
+            sys.stdout.flush()
             
         if progress_bar:
             pbar_r.update(self._decoding_manager._current_round - pbar_r.n)
@@ -142,7 +153,10 @@ class DecodingSimulator:
             speculation_mode=self.speculation_mode,
         )
 
-    def step_experiment(self, pending_window_count_cutoff: int = 0) -> None:
+        self.start_time = dt.datetime.now()
+        self.last_print_time = dt.datetime.now() - dt.timedelta(days=1)
+
+    def step_experiment(self, pending_window_count_cutoff: int = 0, print_interval: dt.timedelta | None = None) -> None:
         if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
             raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
 
@@ -159,7 +173,14 @@ class DecodingSimulator:
         fully_decoded_instructions = self._decoding_manager.get_finished_instruction_indices() - self._window_manager.pending_instruction_indices()
 
         syndrome_rounds = self._device_manager.get_next_round(fully_decoded_instructions)
-
+        
+        cur_time = dt.datetime.now()
+        if print_interval is not None and cur_time - self.last_print_time >= print_interval:
+            num_complete_instructions = len(self._device_manager._completed_instructions)
+            print(f'{cur_time.strftime("%Y-%m-%d %H:%M:%S")} | Simulation update: decoder round {self._decoding_manager._current_round}, completed instructions: {num_complete_instructions}/{len(self._device_manager.schedule)}, decoded instructions: {len(fully_decoded_instructions)}/{len(self._device_manager.schedule)}, waiting windows: {pending_window_count}/{len(self._window_manager.all_windows)}')
+            sys.stdout.flush()
+            self.last_print_time = cur_time
+            
         # process new round
         newly_constructed_windows = self._window_manager.process_round(syndrome_rounds)
         self._decoding_manager.update_decoding(newly_constructed_windows, self._window_manager.window_dag)
