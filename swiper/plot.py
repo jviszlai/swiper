@@ -4,6 +4,8 @@ import numpy as np
 
 from swiper.device_manager import DeviceData
 from swiper.window_builder import DecodingWindow
+from swiper.window_manager import WindowData
+from swiper.decoder_manager import DecoderData
 
 def plot_device_schedule_trace(
         data: DeviceData,
@@ -148,6 +150,25 @@ def plot_device_schedule_trace(
         ax.set_zticks([])
 
     return ax
+
+def plot_windows(
+        device_data: DeviceData,
+        window_data: WindowData,
+        decoder_data: DecoderData,
+        window_buffers_to_highlight: list[int] = [],
+        selected_window_colors: list[str] = [
+            'firebrick', 'pink', 'orange',
+        ],
+        **kwargs,
+    ):
+    return plot_device_schedule_trace(
+        data=device_data,
+        windows=[window_data.get_window(w_idx) for w_idx in window_data.all_constructed_windows], 
+        window_schedule_times=[decoder_data.window_decoding_completion_times[w_idx] for w_idx in window_data.all_constructed_windows],
+        window_buffers_to_highlight=window_buffers_to_highlight,
+        selected_window_colors=selected_window_colors,
+        **kwargs,
+    )
 
 ################################################################################
 # TODO: redo with plot_cube_at? Should be much faster

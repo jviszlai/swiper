@@ -36,6 +36,7 @@ class DecoderManager:
             speculation_accuracy: float,
             max_parallel_processes: int | None = None,
             speculation_mode: str = 'integrated',
+            rng: int | np.random.Generator = np.random.default_rng(),
         ) -> None:
         """Initialize the decoder manager.
         
@@ -58,12 +59,16 @@ class DecoderManager:
                 can be run independently of decoding. In this case, speculation
                 uses a parallel process and counts towards
                 max_parallel_processes.
+            rng: Random number generator, or integer seed.
         """
         self.decoding_time_function = decoding_time_function
         self.speculation_time = speculation_time
         self.speculation_accuracy = speculation_accuracy
         self.speculation_mode = speculation_mode
         assert self.speculation_mode in ['integrated', 'separate']
+        if isinstance(rng, int):
+            rng = np.random.default_rng(rng)
+        self.rng = rng
 
         self.max_parallel_processes = max_parallel_processes
         self._parallel_processes_by_round = []
@@ -94,7 +99,7 @@ class DecoderManager:
         for task_idx, time_remaining in self._active_window_progress.items():
             if time_remaining <= 0:
                 completed_windows.append(task_idx)
-                if np.random.random() > self.speculation_accuracy:
+                if self.rng.random() > self.speculation_accuracy:
                     # Mis-speculation
                     # TODO: missed speculations should happen per-buffer-region, not per-window
                     poisoned_speculations.append(task_idx)
@@ -130,35 +135,41 @@ class DecoderManager:
         # Update poisoned windows
         # For each poisoned window, reset any descendants that used the poisoned
         # speculation.
-        active_windows = set(self._active_window_progress.keys())
+        # active_windows = set(self._active_window_progress.keys())
         for poisoned_task_idx in poisoned_speculations:
             dependents = self._window_idx_dag.successors(poisoned_task_idx)
             all_poisoned_indices = [poisoned_task_idx]
             for dependent_idx in dependents:
                 dependent = self._get_task_or_none(dependent_idx)
-                if dependent and (dependent.completed_decoding or dependent_idx in active_windows):
-                    assert dependent.used_parent_speculations[poisoned_task_idx]
-                    indices_to_reset = [dependent_idx] + list(nx.descendants(self._window_idx_dag, dependent_idx))
-                    for task_idx in indices_to_reset:
-                        task = self._get_task_or_none(task_idx)
-                        if task:
-                            all_poisoned_indices.append(task_idx)
-                            if task.completed_decoding:
-                                self._window_decoding_completion_times.pop(task_idx)
-                                task.completed_decoding = False
-                            elif task_idx in self._active_window_progress:
-                                self._active_window_progress.pop(task_idx)
-                            self._pending_decode_tasks.add(task_idx)
-                            # TODO: how exactly does a wrong speculation actually
-                            # affect descendants? Do we need to completely re-do
-                            # decoding of grandchildren?
+                if dependent and dependent_idx in self._window_decoding_start_times:
+                    if dependent.completed_decoding:
+                        self._window_decoding_start_times.pop(dependent_idx)
+                        self._window_decoding_completion_times.pop(dependent_idx)
+                        dependent.completed_decoding = False
+                    elif dependent_idx in self._active_window_progress:
+                        self._active_window_progress.pop(dependent_idx)
+                        self._window_decoding_start_times.pop(dependent_idx)
+                    self._pending_decode_tasks.add(dependent_idx)
+                    all_poisoned_indices.append(dependent_idx)
+                    # assert dependent.used_parent_speculations[poisoned_task_idx]
+                    # indices_to_reset = [dependent_idx] + list(nx.descendants(self._window_idx_dag, dependent_idx))
+                    # for task_idx in indices_to_reset:
+                    #     task = self._get_task_or_none(task_idx)
+                    #     if task:
+                    #         all_poisoned_indices.append(task_idx)
+                    #         if task.completed_decoding:
+                    #             self._window_decoding_completion_times.pop(task_idx)
+                    #             task.completed_decoding = False
+                    #         elif task_idx in self._active_window_progress:
+                    #             self._active_window_progress.pop(task_idx)
+                    #         self._pending_decode_tasks.add(task_idx)
             self._missed_speculation_events.append((self._current_round, all_poisoned_indices))
 
         self._current_round += 1
         self._parallel_processes_by_round.append(len(self._active_window_progress))
         self._completed_windows_by_round.append(len(self._window_decoding_completion_times))
 
-    def update_decoding(self, new_windows: dict[DecodingWindow, int], window_idx_dag: nx.DiGraph) -> None:
+    def update_decoding(self, new_windows: list[DecodingWindow], window_idx_dag: nx.DiGraph) -> None:
         """Update state of processing windows and start any new decoding
         processes, if possible.
 
@@ -176,10 +187,10 @@ class DecoderManager:
         # completed_windows = set(self._window_completion_times.keys())
         # unprocessed_windows = set(all_windows) - completed_windows
         self._window_idx_dag = window_idx_dag
-        new_task_indices = set(new_windows.values())
-        new_tasks = [DecoderTask(window=window, window_idx=window_idx) for window, window_idx in new_windows.items()]
-        self._pending_decode_tasks |= set(new_task_indices)
-        self._pending_speculate_tasks |= set(new_task_indices)
+        new_task_indices = set(w.window_idx for w in new_windows)
+        new_tasks = [DecoderTask(window=window, window_idx=window.window_idx) for window in new_windows]
+        self._pending_decode_tasks |= new_task_indices
+        self._pending_speculate_tasks |= new_task_indices
         
         new_task_len = max(len(self._tasks_by_idx), max((task.window_idx for task in new_tasks), default=0) + 1)
         if len(self._tasks_by_idx) < new_task_len:
@@ -212,13 +223,13 @@ class DecoderManager:
             if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
                 break
 
-            if not self._completed_decoding(task_idx) and task_idx not in self._active_window_progress:
+            if task_idx in self._pending_decode_tasks:
                 # window has not been processed yet
                 parents = list(self._window_idx_dag.predecessors(task.window_idx))
                 if any(not (self._completed_decoding(parent_idx) or self._completed_speculation(parent_idx)) for parent_idx in parents):
                     continue
                 # begin decoding
-                assert task_idx in self._pending_decode_tasks
+                assert not self._completed_decoding(task_idx) and task_idx not in self._active_window_progress
                 self._pending_decode_tasks.remove(task_idx)
                 self._window_decoding_start_times[task_idx] = self._current_round
                 self._active_window_progress[task_idx] = self.decoding_time_function(task.window.total_spacetime_volume())
@@ -230,8 +241,10 @@ class DecoderManager:
                     else:
                         assert parent.completed_speculation
                         task.used_parent_speculations[parent_idx] = True
-                if self.speculation_mode == 'integrated':
+                if self.speculation_mode == 'integrated' and task_idx in self._pending_speculate_tasks:
                     # begin a speculation along with decoding
+                    assert task_idx not in self._active_speculation_progress
+                    self._pending_speculate_tasks.remove(task_idx)
                     self._window_speculation_start_times[task_idx] = self._current_round
                     if self.speculation_time > 0:
                         self._active_speculation_progress[task_idx] = self.speculation_time

@@ -45,9 +45,10 @@ def test_spatial_adjacency():
 
     success, device_data, window_data, decoding_data = simulator.get_data()
 
-    assert len(window_data.all_windows) == 4
+    assert len(window_data.all_constructed_windows) == 4
     windows_by_patch: dict[tuple[int, int], DecodingWindow] = {}
-    for window in window_data.all_windows:
+    for window_idx in window_data.all_constructed_windows:
+        window = window_data.get_window(window_idx)
         assert len(window.commit_region) == 1
         windows_by_patch[window.commit_region[0].patch] = window
     
@@ -79,13 +80,22 @@ def test_spatial_adjacency():
 
     success, device_data, window_data, decoding_data = simulator.get_data()
 
-    def get_window(patch, round_start):
-        for window in window_data.all_windows:
+    def get_window(patch, round_start) -> DecodingWindow:
+        for window_idx in window_data.all_constructed_windows:
+            window = window_data.get_window(window_idx)
             if window.commit_region[0].patch == patch and window.commit_region[0].round_start == round_start:
                 return window
-            
-    for window_1 in window_data.all_windows:
-        for window_2 in window_data.all_windows:
+    
+    all_syndrome_rounds = [sr for sublist in device_data.generated_syndrome_data for sr in sublist]
+    all_commit_regions = [cr for window_idx in window_data.all_constructed_windows for cr in window_data.get_window(window_idx).commit_region]
+
+    for syndrome_round in all_syndrome_rounds:
+        assert any(cr.contains_syndrome_round(syndrome_round=syndrome_round) for cr in all_commit_regions)
+
+    for window_idx_1 in window_data.all_constructed_windows:
+        window_1 = window_data.get_window(window_idx_1)
+        for window_idx_2 in window_data.all_constructed_windows:
+            window_2 = window_data.get_window(window_idx_2)
             if window_1 is window_2:
                 continue
             if window_1.shares_spacelike_boundary(window_2):
@@ -97,7 +107,7 @@ def test_spatial_adjacency():
             if window_1.shares_boundary(window_2):
                 assert window_1.overlaps(window_2)
 
-    assert len(window_data.all_windows) == 8
+    assert len(window_data.all_constructed_windows) == 8
     assert get_window((0,0), 0).shares_timelike_boundary(get_window((0,0), distance))
     assert not any(get_window((0,0), 0).shares_spacelike_boundary(get_window(p, 0)) for p in [(0,1), (1,0), (1,1)])
     assert get_window((0,1), 0).shares_timelike_boundary(get_window((0,1), distance))
