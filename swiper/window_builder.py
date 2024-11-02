@@ -173,7 +173,7 @@ class DecodingWindow:
         return f'Window({self.commit_region}, {self.buffer_regions}, {self.parent_instr_idx}, {self.constructed})'
 
 class WindowBuilder():
-    def __init__(self, d: int) -> None:
+    def __init__(self, d: int, lightweight_output: bool = False) -> None:
         self._patch_groups: dict[tuple[int, int], list[int]] = {}
         self._all_rounds: list[SyndromeRound] = []
         self._waiting_rounds: set[int] = set()
@@ -182,6 +182,7 @@ class WindowBuilder():
         self._total_rounds_processed: int = 0
         self._created_window_count: int = 0
         self.d: int = d
+        self.lightweight_output = lightweight_output
 
     def build_windows(
             self, 
@@ -275,6 +276,9 @@ class WindowBuilder():
             if not self._patch_groups[patch]:
                 self._patch_groups.pop(patch)
             self._waiting_rounds -= set(round_indices)
+            if self.lightweight_output:
+                for round_idx in round_indices:
+                    self._all_rounds[round_idx] = None
 
         self._total_rounds_processed += len(new_rounds)
 

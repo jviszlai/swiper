@@ -39,7 +39,7 @@ class DeviceData:
         return asdict(self)
 
 class DeviceManager:
-    def __init__(self, d_t: int, schedule: LatticeSurgerySchedule, rng: int | np.random.Generator = np.random.default_rng()):
+    def __init__(self, d_t: int, schedule: LatticeSurgerySchedule, lightweight_output: bool = False, rng: int | np.random.Generator = np.random.default_rng()):
         """TODO
 
         Args:
@@ -53,6 +53,7 @@ class DeviceManager:
         self.schedule_dag = schedule.to_dag(self.d_t)
         self._patches_initialized_by_instr = self._get_initialized_patches()
         self.current_round = 0
+        self.lightweight_output = lightweight_output
 
         self._syndrome_count_by_round = []
         self._instruction_count_by_round = []
@@ -298,7 +299,8 @@ class DeviceManager:
             ])
         self._instruction_count_by_round[-1] += len(self._active_patches - patches_used_this_round)
         self._syndrome_count_by_round.append(len(generated_syndrome_rounds))
-        self._generated_syndrome_data.append(generated_syndrome_rounds)
+        if not self.lightweight_output:
+            self._generated_syndrome_data.append(generated_syndrome_rounds)
 
         return generated_syndrome_rounds, completed_instructions
     
@@ -386,14 +388,14 @@ class DeviceManager:
 
         return new_syndrome_data
 
-    def get_data(self, lightweight_output: bool = False):
+    def get_data(self):
         """Return all relevant data regarding device history."""        
         patches_initialized_by_round = {round_idx: set() for round_idx in range(self.current_round+2)}
         for instr, round_idx in self._predict_instruction_start_times().items():
             if round_idx <= self.current_round:
                 patches_initialized_by_round[round_idx] |= self._patches_initialized_by_instr[instr]
 
-        if lightweight_output:
+        if self.lightweight_output:
             return DeviceData(
                 d=self.d_t,
                 num_rounds=self.current_round,

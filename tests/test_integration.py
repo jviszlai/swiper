@@ -53,6 +53,21 @@ def test_sliding_memory():
 def test_sliding_regular_T():
     d=7
     decoding_time = 14
+    speculation_time = 100
+    speculation_accuracy = 0
+    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=RegularTSchedule(1, 0).schedule,
+        scheduling_method='sliding',
+        max_parallel_processes=None,
+        rng=0,
+    )
+    assert device_data.num_rounds == 2*d + 2*decoding_time + d//2+2
+    assert decoding_data.num_rounds == 2*d + 2*decoding_time + math.ceil((2*decoding_time + d//2+2) / d) * decoding_time
+
+    d=7
+    decoding_time = 14
     speculation_time = 0
     speculation_accuracy = 0
     simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
@@ -65,6 +80,21 @@ def test_sliding_regular_T():
     )
     assert device_data.num_rounds == 2*d + 2*decoding_time + d//2+2
     assert decoding_data.num_rounds == 2*d + 2*decoding_time + math.ceil((2*decoding_time + d//2+2) / d) * decoding_time
+
+    d=7
+    decoding_time = 14
+    speculation_time = 0
+    speculation_accuracy = 1
+    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=RegularTSchedule(1, 0).schedule,
+        scheduling_method='sliding',
+        max_parallel_processes=None,
+        rng=0,
+    )
+    assert device_data.num_rounds == 2*d + d + decoding_time + d//2+2
+    assert decoding_data.num_rounds == device_data.num_rounds + decoding_time
 
 def test_poor_predictor_same_as_slow_predictor():
     """Test that a poor predictor (always gives the wrong answer) gives the same

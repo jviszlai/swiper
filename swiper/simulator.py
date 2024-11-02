@@ -88,6 +88,7 @@ class DecodingSimulator:
             schedule=schedule,
             scheduling_method=scheduling_method,
             max_parallel_processes=max_parallel_processes,
+            lightweight_output=lightweight_output,
             rng=rng,
         )
         assert self._device_manager is not None
@@ -119,23 +120,24 @@ class DecodingSimulator:
             pbar_r.close()
             # pbar_i.close()
 
-        return self.get_data(lightweight_output=lightweight_output)
+        return self.get_data()
     
     def initialize_experiment(
             self,
             schedule: LatticeSurgerySchedule,
             scheduling_method: str,
             max_parallel_processes: int | None = None,
+            lightweight_output: bool = False,
             rng: int | np.random.Generator = np.random.default_rng(),
         ) -> None:
         self.failed = False
-        self._device_manager = DeviceManager(self.distance, schedule, rng=rng)
+        self._device_manager = DeviceManager(self.distance, schedule, lightweight_output=lightweight_output, rng=rng)
         if scheduling_method == 'sliding':
-            self._window_manager = SlidingWindowManager(WindowBuilder(self.distance))
+            self._window_manager = SlidingWindowManager(WindowBuilder(self.distance), lightweight_output=lightweight_output)
         elif scheduling_method == 'parallel':
-            self._window_manager = ParallelWindowManager(WindowBuilder(self.distance))
+            self._window_manager = ParallelWindowManager(WindowBuilder(self.distance), lightweight_output=lightweight_output)
         elif scheduling_method == 'aligned':
-            self._window_manager = TAlignedWindowManager(WindowBuilder(self.distance))
+            self._window_manager = TAlignedWindowManager(WindowBuilder(self.distance), lightweight_output=lightweight_output)
         else:
             raise ValueError(f"Unknown scheduling method: {scheduling_method}")
         self._decoding_manager = DecoderManager(
@@ -144,6 +146,7 @@ class DecodingSimulator:
             speculation_accuracy=self.speculation_accuracy,
             max_parallel_processes=max_parallel_processes,
             speculation_mode=self.speculation_mode,
+            lightweight_output=lightweight_output,
             rng=rng,
         )
 
@@ -175,12 +178,12 @@ class DecodingSimulator:
             raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
         return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_constructed_windows) - len(self._decoding_manager._window_decoding_completion_times) == 0)
 
-    def get_data(self, lightweight_output: bool = False) -> tuple[bool, DeviceData, WindowData, DecoderData]:
+    def get_data(self) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
             raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
-        device_data = self._device_manager.get_data(lightweight_output=lightweight_output)
-        window_data = self._window_manager.get_data(lightweight_output=lightweight_output)
-        decoding_data = self._decoding_manager.get_data(lightweight_output=lightweight_output)
+        device_data = self._device_manager.get_data()
+        window_data = self._window_manager.get_data()
+        decoding_data = self._decoding_manager.get_data()
         return not self.failed, device_data, window_data, decoding_data
     
     def get_frame_data(self) -> list[plt.Axes]:
