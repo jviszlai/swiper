@@ -223,7 +223,7 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
     
     # Ok, data processing done. Convert all instructions 
     schedule = LatticeSurgerySchedule()
-    t_inject_history = {}
+    pending_t_inject = {}
     for slice_idx, slice in enumerate(slice_major_program):
         processed_cells = []
         for r, row in enumerate(slice):
@@ -238,21 +238,18 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
                             if inject_type == 'T':
                                 schedule.inject_T([inject_cell])
                                 merge_idx = schedule.merge(data, routing, merge_faces)
-                                if other_cell not in t_inject_history:
-                                    t_inject_history[other_cell] = [(False, None) for _ in range(len(slice_major_program))]
-                                t_inject_history[other_cell][slice_idx] = (True, merge_idx)
+                                if other_cell in pending_t_inject and pending_t_inject[other_cell][0]:
+                                    raise Exception("Can't inject T before S gate applied")
+                                pending_t_inject[other_cell] = (True, merge_idx)
                                 schedule.discard([inject_cell])
                             elif inject_type == 'Y':
-                                if other_cell in t_inject_history:
-                                    # TODO: Assume conditional for now....
-                                    i = 1
-                                    while slice_idx - i > 0 and not t_inject_history[other_cell][slice_idx - i][0]:
-                                        i += 1
-                                    conditional, instr_idx = t_inject_history[other_cell][slice_idx - i]
-                                    if conditional:
-                                        schedule.conditional_S(other_cell, instr_idx)
-                                    else:
-                                        pass # TODO: Non-conditional S gates
+                                if other_cell in pending_t_inject and pending_t_inject[other_cell][0]:
+                                    # Conditional S after T injection
+                                    schedule.conditional_S(other_cell, pending_t_inject[other_cell][1])
+                                    pending_t_inject[other_cell] = (False, None)
+                                else:
+                                    # Non-conditional S gate
+                                    schedule.conditional_S(other_cell)
                         else:
                             schedule.merge(data, routing, merge_faces)
                             for data_coords in data:
@@ -264,8 +261,7 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
                     elif cell.activity == 'Measurement':
                         schedule.discard([cell])
                         processed_cells.append(cell)
-                    elif cell.activity == 'Unitary':
-                        pass # TODO: Need to handle Y state prep
+
 
     # Discard remaining data qubits
     for r, row in enumerate(cell_major_program):

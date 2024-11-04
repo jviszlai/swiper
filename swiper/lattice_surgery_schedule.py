@@ -117,7 +117,11 @@ class LatticeSurgerySchedule:
             instruction = Instruction('INJECT_T', len(self._all_instructions), frozenset([patch]), Duration.D)
             self._add_instruction(instruction)
 
-    def conditional_S(self, patch_coords: tuple[int, int], conditioned_on_idx: int):
+    def conditional_S(self, patch_coords: tuple[int, int], conditioned_on_idx: int=None):
+        if not conditioned_on_idx:
+            instruction = Instruction('CONDITIONAL_S', len(self._all_instructions), frozenset([patch_coords]), Duration.HALF_D_PLUS_2)
+            self._add_instruction(instruction)
+            return
         instruction = Instruction('CONDITIONAL_S', len(self._all_instructions), frozenset([patch_coords]), Duration.HALF_D_PLUS_2, frozenset([conditioned_on_idx]))
         self._add_instruction(instruction)
         
