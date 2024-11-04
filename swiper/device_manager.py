@@ -145,6 +145,10 @@ class DeviceManager:
                                 this_start = start
                                 if not expected_start or this_start > expected_start:
                                     expected_start = this_start
+                            elif inst_idx in self._active_instructions:
+                                this_start = self._active_instructions[inst_idx] + self.current_round
+                                if not expected_start or this_start > expected_start:
+                                    expected_start = this_start
                             else:
                                 expected_start = expected_start if expected_start else 0
                     else:
