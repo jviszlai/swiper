@@ -63,7 +63,7 @@ def _get_gridsynth_sequence(op: cirq.Operation, rads: float, precision: float = 
     assert len(op.qubits) == 1
     # pi / x = rz_angle => x = pi / rz_angle
     angle_str = f'{rads}' if rads >= 0 else f'({rads})'
-    command = ["../benchmarks/gridsynth", angle_str, f'--epsilon={precision}']
+    command = ["benchmarks/gridsynth", angle_str, f'--epsilon={precision}']
     output = subprocess.check_output(command)
     
     ss = str(output)[2:-3].strip('W')[::-1]
@@ -187,13 +187,13 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
 
     circ = circ.map_operations(decomp).map_operations(map_approx_rz).map_operations(make_qasm_compat)
 
-    os.makedirs('../benchmarks/tmp')
-    circ.save_qasm('../benchmarks/tmp/prog.qasm')
-    #subprocess.call(['../benchmarks/lsqecc_slicer', '-q', '-i', '../benchmarks/tmp/prog.qasm', '-L', 'edpc', '--disttime', '1', '--nostagger', '-P', 'wave', '--printlli', 'sliced', '-o', '../benchmarks/tmp/lli.txt'])
-    subprocess.call(['../benchmarks/lsqecc_slicer', '-q', '-i', '../benchmarks/tmp/prog.qasm', '-L', 'edpc', '--disttime', '1', '--nostagger', '-P', 'wave', '-o', '../benchmarks/tmp/compiled.json'])
+    os.makedirs('benchmarks/tmp')
+    circ.save_qasm('benchmarks/tmp/prog.qasm')
+    #subprocess.call(['benchmarks/lsqecc_slicer', '-q', '-i', 'benchmarks/tmp/prog.qasm', '-L', 'edpc', '--disttime', '1', '--nostagger', '-P', 'wave', '--printlli', 'sliced', '-o', 'benchmarks/tmp/lli.txt'])
+    subprocess.call(['benchmarks/lsqecc_slicer', '-q', '-i', 'benchmarks/tmp/prog.qasm', '-L', 'edpc', '--disttime', '1', '--nostagger', '-P', 'wave', '-o', 'benchmarks/tmp/compiled.json'])
 
-    prog_data = json.load(open('../benchmarks/tmp/compiled.json', 'rb'))
-    #prog_instrs = open('../benchmarks/tmp/lli.txt', 'r').readlines()
+    prog_data = json.load(open('benchmarks/tmp/compiled.json', 'rb'))
+    #prog_instrs = open('benchmarks/tmp/lli.txt', 'r').readlines()
 
     # lli_program = []
     # for slice_idx, slice_data in enumerate(prog_instrs):
@@ -273,7 +273,7 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
             if cell_history[-1] and cell_history[-1].patch_type == 'Qubit' and cell_history[-1].activity != 'Measurement':
                 schedule.discard([(r,c)])
 
-    shutil.rmtree('../benchmarks/tmp', ignore_errors=True)
+    shutil.rmtree('benchmarks/tmp', ignore_errors=True)
 
     return schedule
                         

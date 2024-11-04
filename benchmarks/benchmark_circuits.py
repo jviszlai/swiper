@@ -5,8 +5,9 @@ import os
 from abc import ABC, abstractmethod
 from qualtran._infra.gate_with_registers import get_named_qubits
 from qualtran import Register, Signature, QAny, DecomposeTypeError, DecomposeNotImplementedError
-from qualtran.bloqs.data_loading.qrom import QROM
-
+from qualtran.bloqs.data_loading.qrom import QROM as QROM_bloq
+from    pyLIQTR.clam.lattice_definitions                      import   CubicLattice, SquareLattice, TriangularLattice
+from    pyLIQTR.BlockEncodings.getEncoding                    import   getEncoding, VALID_ENCODINGS
 from pyLIQTR.BlockEncodings.CarlemanLinearization   import Carleman_Linearization
 from pyLIQTR.ProblemInstances.NonlinearODE          import FOperators
 from pyLIQTR.utils.circuit_decomposition  import keep, generator_decompose
@@ -20,6 +21,7 @@ from pyLIQTR.utils.printing                 import openqasm
 from pyLIQTR.pest_interface.pest_python import pw_to_dpw_cutoff
 
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
+from swiper.schedule_experiments import RegularTSchedule, MSD15To1Schedule, MemorySchedule
 from benchmarks.cirq_to_ls import cirq_to_ls
 
 def _decompose_circuit(circuit) -> cirq.Circuit:
@@ -33,13 +35,20 @@ class Benchmark(ABC):
     @abstractmethod
     def get_schedule(self) -> LatticeSurgerySchedule:
         raise NotImplementedError
+    
+    @abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError
 
-class QROM_15(Benchmark):
+class QROM(Benchmark):
 
     def __init__(self, data: list[int] | None = None, select_bitsize: int = 15, target_bitsize: int = 15) -> None:
+        self.select_bitsize = select_bitsize
+        self.target_bitsize = target_bitsize
+        print(select_bitsize, target_bitsize)
         if data is None:
             data = [2 ** np.arange(select_bitsize)]
-        qrom_bloq = QROM(data, selection_bitsizes=(select_bitsize,), target_bitsizes=(target_bitsize,))
+        qrom_bloq = QROM_bloq(data, selection_bitsizes=(select_bitsize,), target_bitsizes=(target_bitsize,))
         def is_atomic(binst):
             try: 
                 binst.bloq.decompose_bloq()
@@ -52,13 +61,16 @@ class QROM_15(Benchmark):
 
     def get_schedule(self) -> LatticeSurgerySchedule:
         return self.schedule
+    
+    def name(self) -> str:
+        return f"qrom_{self.select_bitsize}_{self.target_bitsize}"
 
 class CarlemanEncoding(Benchmark):
 
-    def __init__(self) -> None:
+    def __init__(self, n: int = 2, K: int = 4) -> None:
         # Source: pyLIQTR/Examples/Applications/NonLinearODE/Carleman_encoding_details.ipynb
-        n = 2
-        K = 4
+        self.n = n
+        self.K = K
 
         a0_in = n
         a1 = n
@@ -82,6 +94,9 @@ class CarlemanEncoding(Benchmark):
 
     def get_schedule(self) -> LatticeSurgerySchedule:
         return self.schedule
+    
+    def name(self) -> str:
+        return f"carleman_encoding_{self.n}_{self.K}"
 
 class ElectronicStructure(Benchmark):
 
@@ -102,3 +117,83 @@ class ElectronicStructure(Benchmark):
     
     def get_schedule(self) -> LatticeSurgerySchedule:
         return self.schedule
+    
+    def name(self) -> str:
+        return "electronic_structure"
+    
+class FermiHubbardEncoding(Benchmark):
+
+    def __init__(self, shape: tuple[int, int] = (2,2)) -> None:
+        # recommended shapes: (2,2), (3,3), (4,4)?
+        self.shape = shape
+        model  =  getInstance('FermiHubbard',shape=shape, J=-1.0, U=4.0,cell=SquareLattice)
+        block_encoding = getEncoding(VALID_ENCODINGS.PauliLCU)(model)
+
+        registers = get_named_qubits(block_encoding.signature)
+        circuit = cirq.Circuit(block_encoding.on_registers(**registers))
+        self.schedule = cirq_to_ls(_decompose_circuit(circuit))
+
+    def get_schedule(self) -> LatticeSurgerySchedule:
+        return self.schedule
+    
+    def name(self) -> str:
+        return f"fermi_hubbard_{self.shape[0]}_{self.shape[1]}"
+    
+class HeisenbergEncoding(Benchmark):
+
+    def __init__(self, N: int = 3) -> None:
+        self.N = N
+        J_x  =  J_y  =  -0.5;              J_z = -1.0
+        h_x  =  1.0;      h_y = 0.0;       h_z = 0.5
+        model  =  getInstance( "Heisenberg", 
+                            shape=(N,N), 
+                            J=(J_x,J_y,J_z), 
+                            h=(h_x,h_y,h_z), 
+                            cell=SquareLattice)
+        block_encoding    =  getEncoding(VALID_ENCODINGS.PauliLCU)(model)
+
+        registers = get_named_qubits(block_encoding.signature)
+        circuit = cirq.Circuit(block_encoding.on_registers(**registers))
+        self.schedule = cirq_to_ls(_decompose_circuit(circuit))
+
+    def get_schedule(self) -> LatticeSurgerySchedule:
+        return self.schedule
+    
+    def name(self) -> str:
+        return f"heisenberg_{self.N}"
+
+class RegularT(Benchmark):
+
+    def __init__(self, num_ts: int = 100, idle_between_ts: int = 0) -> None:
+        self.num_ts = num_ts
+        self.idle_between_ts = idle_between_ts
+        self.schedule = RegularTSchedule(num_ts, idle_between_ts).schedule
+
+    def get_schedule(self) -> LatticeSurgerySchedule:
+        return self.schedule
+    
+    def name(self) -> str:
+        return f"regular_t_{self.num_ts}_{self.idle_between_ts}"
+    
+class Memory(Benchmark):
+    
+        def __init__(self, rounds: int = 10000) -> None:
+            self.rounds = rounds
+            self.schedule = MemorySchedule(rounds).schedule
+    
+        def get_schedule(self) -> LatticeSurgerySchedule:
+            return self.schedule
+        
+        def name(self) -> str:
+            return f"memory_{self.rounds}"
+        
+class MSD15To1(Benchmark):
+    
+    def __init__(self) -> None:
+        self.schedule = MSD15To1Schedule().schedule
+    
+    def get_schedule(self) -> LatticeSurgerySchedule:
+        return self.schedule
+    
+    def name(self) -> str:
+        return "msd_15to1"
