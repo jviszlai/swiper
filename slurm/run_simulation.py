@@ -19,6 +19,10 @@ if __name__ == '__main__':
     with open(config_filename, 'r') as f:
         params = json.load(f)[config_idx]
 
+    print(f'CONFIG {config_idx}')
+    for key,val in params.items():
+        print(f'{key}: {val}')
+
     assert len(params) == 9, 'Params list changed. Update this file!'
     distance = params['distance']
     max_parallel_processes = params['max_parallel_processes']
@@ -60,10 +64,11 @@ if __name__ == '__main__':
         max_parallel_processes=max_parallel_processes,
         print_interval=dt.timedelta(seconds=10),
         lightweight_output=True,
+        device_rounds_cutoff=500_000,
         rng=rng,
     )
 
-    with open(os.path.join(output_dir, f'config_{config_idx}_d{distance}_{scheduling_method}_acc{speculation_accuracy}_spec{speculation_latency}_{speculation_mode}_p{max_parallel_processes}_{benchmark_file.split("/")[-1].split('.')[0]}_{rng}.txt'), 'w') as f:
+    with open(os.path.join(output_dir, f'config{config_idx}_d{distance}_{scheduling_method}_{speculation_mode}_{benchmark_file.split("/")[-1].split('.')[0]}_{rng}.json'), 'w') as f:
         json.dump({
                 'success':success,
                 'device_data':device_data.to_dict(),
