@@ -33,20 +33,20 @@ class DecodingSimulator:
                 units of rounds of QEC.
             speculation_accuracy: The probability that a speculative prediction
                 is correct.
-            speculation_mode: 'integrated' or 'separate'. If 'integrated', the
+            speculation_mode: 'integrated', 'separate', or None. If 'integrated', the
                 speculation time is included in the decoding time of a window,
                 and speculation can only be performed once the decoder starts
                 processing the window. If 'separate', the speculation time is
                 not included in the decoding, time of a window, and speculation
                 can be run independently of decoding. In this case, speculation
                 uses a parallel process and counts towards
-                max_parallel_processes.
+                max_parallel_processes. If None, no speculation is performed.
         """
         self.distance = distance
         self.decoding_latency_fn = decoding_latency_fn
         self.speculation_latency = speculation_latency
         self.speculation_accuracy = speculation_accuracy
-        assert speculation_mode in ['integrated', 'separate']
+        assert speculation_mode in ['integrated', 'separate', None]
         self.speculation_mode = speculation_mode
 
         self._device_manager: DeviceManager | None = None

@@ -52,21 +52,21 @@ class DecoderManager:
             max_parallel_processes: Maximum number of parallel decoding processes
                 to run. If None, run as many as possible and keep track of
                 the maximum number that were run.
-            speculation_mode: 'integrated' or 'separate'. If 'integrated', the
+            speculation_mode: 'integrated', 'separate', or None. If 'integrated', the
                 speculation time is included in the decoding time of a window,
                 and speculation can only be performed once the decoder starts
                 processing the window. If 'separate', the speculation time is
                 not included in the decoding, time of a window, and speculation
                 can be run independently of decoding. In this case, speculation
                 uses a parallel process and counts towards
-                max_parallel_processes.
+                max_parallel_processes. If None, no speculation is performed.
             rng: Random number generator, or integer seed.
         """
         self.decoding_time_function = decoding_time_function
         self.speculation_time = speculation_time
         self.speculation_accuracy = speculation_accuracy
         self.speculation_mode = speculation_mode
-        assert self.speculation_mode in ['integrated', 'separate']
+        assert self.speculation_mode in ['integrated', 'separate', None]
         self.lightweight_output = lightweight_output
         # self.delete_old_windows_after = delete_old_windows_after
         self.delete_old_windows_after = 1000 if lightweight_output else None
@@ -103,7 +103,7 @@ class DecoderManager:
         for task_idx, time_remaining in self._active_window_progress.items():
             if time_remaining <= 0:
                 completed_windows.append(task_idx)
-                if self.rng.random() > self.speculation_accuracy:
+                if self.speculation_mode and self.rng.random() > self.speculation_accuracy:
                     # Mis-speculation
                     # TODO: missed speculations should happen per-buffer-region, not per-window
                     poisoned_speculations.append(task_idx)
@@ -121,32 +121,33 @@ class DecoderManager:
             self._partially_complete_instructions |= task.window.parent_instr_idx
 
         # Step speculation forward
-        for task_idx in self._active_speculation_progress:
-            self._active_speculation_progress[task_idx] -= 1
-        speculated_windows = []
-        for task_idx, time_remaining in self._active_speculation_progress.items():
-            if time_remaining <= 0:
-                speculated_windows.append(task_idx)
-        for task_idx in speculated_windows:
-            task = self._get_task(task_idx)
-            task.completed_speculation = True
-            self._active_speculation_progress.pop(task_idx)
+        if self.speculation_mode:
+            for task_idx in self._active_speculation_progress:
+                self._active_speculation_progress[task_idx] -= 1
+            speculated_windows = []
+            for task_idx, time_remaining in self._active_speculation_progress.items():
+                if time_remaining <= 0:
+                    speculated_windows.append(task_idx)
+            for task_idx in speculated_windows:
+                task = self._get_task(task_idx)
+                task.completed_speculation = True
+                self._active_speculation_progress.pop(task_idx)
 
-        # Update poisoned windows
-        # For each poisoned window, reset any descendants that used the poisoned
-        # speculation.
-        for poisoned_task_idx in poisoned_speculations:
-            dependents = self._window_idx_dag.successors(poisoned_task_idx)
-            all_poisoned_indices = [poisoned_task_idx]
-            for dependent_idx in dependents:
-                dependent = self._get_task_or_none(dependent_idx)
-                if dependent and dependent_idx in self._window_decoding_start_times:
-                    assert dependent.used_parent_speculations[poisoned_task_idx]
-                    if dependent.completed_decoding:
-                        all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(dependent_idx)
-                    self._reset_decode_task(dependent_idx)
-                    all_poisoned_indices.append(dependent_idx)
-            self._missed_speculation_events.append((self._current_round, all_poisoned_indices))
+            # Update poisoned windows
+            # For each poisoned window, reset any descendants that used the poisoned
+            # speculation.
+            for poisoned_task_idx in poisoned_speculations:
+                dependents = self._window_idx_dag.successors(poisoned_task_idx)
+                all_poisoned_indices = [poisoned_task_idx]
+                for dependent_idx in dependents:
+                    dependent = self._get_task_or_none(dependent_idx)
+                    if dependent and dependent_idx in self._window_decoding_start_times:
+                        assert dependent.used_parent_speculations[poisoned_task_idx]
+                        if dependent.completed_decoding:
+                            all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(dependent_idx)
+                        self._reset_decode_task(dependent_idx)
+                        all_poisoned_indices.append(dependent_idx)
+                self._missed_speculation_events.append((self._current_round, all_poisoned_indices))
 
         self._current_round += 1
         self._parallel_processes_by_round.append(len(self._active_window_progress))
@@ -199,7 +200,8 @@ class DecoderManager:
         new_task_indices = set(w.window_idx for w in new_windows)
         new_tasks = [DecoderTask(window=window, window_idx=window.window_idx) for window in new_windows]
         self._pending_decode_tasks |= new_task_indices
-        self._pending_speculate_tasks |= new_task_indices
+        if self.speculation_mode:
+            self._pending_speculate_tasks |= new_task_indices
         
         new_task_len = max(len(self._tasks_by_idx), max((task.window_idx for task in new_tasks), default=0) + 1)
         if len(self._tasks_by_idx) < new_task_len:
