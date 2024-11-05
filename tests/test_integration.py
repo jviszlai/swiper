@@ -282,5 +282,30 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
 #         max_parallel_processes=None,
 #     )
 
+def test_lightweight_output():
+    d=7
+    decoding_time = 14
+    speculation_time = 1
+    speculation_accuracy = 0.99
+    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+    schedule = RegularTSchedule(10, 0).schedule
+
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=schedule,
+        scheduling_method='sliding',
+        max_parallel_processes=None,
+        rng=0,
+    )
+
+    success, device_data_light, window_data_light, decoding_data_light = simulator.run(
+        schedule=schedule,
+        scheduling_method='sliding',
+        max_parallel_processes=None,
+        rng=0,
+        lightweight_output=True,
+    )
+    assert device_data.num_rounds == device_data_light.num_rounds
+    assert decoding_data.num_rounds == decoding_data_light.num_rounds
+
 if __name__ == '__main__':
     test_poor_predictor_same_as_slow_predictor()

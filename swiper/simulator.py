@@ -148,11 +148,11 @@ class DecodingSimulator:
         self.failed = False
         self._device_manager = DeviceManager(self.distance, schedule, lightweight_output=lightweight_output, rng=rng)
         if scheduling_method == 'sliding':
-            self._window_manager = SlidingWindowManager(WindowBuilder(self.distance), lightweight_output=lightweight_output)
+            self._window_manager = SlidingWindowManager(WindowBuilder(self.distance, lightweight_output=lightweight_output), lightweight_output=lightweight_output)
         elif scheduling_method == 'parallel':
-            self._window_manager = ParallelWindowManager(WindowBuilder(self.distance), lightweight_output=lightweight_output)
+            self._window_manager = ParallelWindowManager(WindowBuilder(self.distance, lightweight_output=lightweight_output), lightweight_output=lightweight_output)
         elif scheduling_method == 'aligned':
-            self._window_manager = TAlignedWindowManager(WindowBuilder(self.distance), lightweight_output=lightweight_output)
+            self._window_manager = TAlignedWindowManager(WindowBuilder(self.distance, lightweight_output=lightweight_output), lightweight_output=lightweight_output)
         else:
             raise ValueError(f"Unknown scheduling method: {scheduling_method}")
         self._decoding_manager = DecoderManager(
@@ -184,7 +184,8 @@ class DecodingSimulator:
             return
 
         # step device forward
-        self._decoding_manager.step()
+        deleted_indices = self._decoding_manager.step()
+        self._window_manager.purge_windows([])
         incomplete_instructions = set(self._device_manager._active_instructions.keys()) | self._window_manager.window_builder.get_incomplete_instructions() | self._window_manager.pending_instruction_indices() | self._decoding_manager.get_incomplete_instruction_indices()
 
         syndrome_rounds = self._device_manager.get_next_round(incomplete_instructions)

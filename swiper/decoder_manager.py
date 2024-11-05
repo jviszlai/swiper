@@ -91,7 +91,7 @@ class DecoderManager:
 
         self._window_idx_dag = nx.DiGraph()
 
-    def step(self) -> None:
+    def step(self) -> list[int]:
         """Step decoding and speculation forward by one round (without creating
         any new processes)."""
         # Step decoders forward; check if any windows have completed
@@ -99,6 +99,7 @@ class DecoderManager:
             self._active_window_progress[task_idx] -= 1
         completed_windows = []
         poisoned_speculations = []
+        deleted_task_indices = []
 
         for task_idx, time_remaining in self._active_window_progress.items():
             if time_remaining <= 0:
@@ -111,7 +112,8 @@ class DecoderManager:
                     for parent_idx in self._window_idx_dag.predecessors(task_idx):
                         parent = self._get_task_or_none(parent_idx)
                         if parent and all(self._get_task(sibling_idx).completed_decoding for sibling_idx in self._window_idx_dag.successors(parent_idx) if self._get_task_or_none(sibling_idx)):
-                            self._tasks_by_idx[parent_idx] = 'deleted'
+                            self._tasks_by_idx[parent_idx] = None
+                            deleted_task_indices.append(parent_idx)
 
         for task_idx in completed_windows:
             task = self._get_task(task_idx)
@@ -152,6 +154,8 @@ class DecoderManager:
         self._current_round += 1
         self._parallel_processes_by_round.append(len(self._active_window_progress))
         self._completed_windows_by_round.append(len(self._window_decoding_completion_times))
+
+        return deleted_task_indices
 
     def _reset_decode_task(self, task_idx):
         task = self._get_task(task_idx)
@@ -280,9 +284,7 @@ class DecoderManager:
             raise RuntimeError(f'Invalid task index: {task_idx}')
         task = self._tasks_by_idx[task_idx]
         if task is None:
-            raise RuntimeError(f'Invalid task index: {task_idx}')
-        elif task == 'deleted':
-            raise RuntimeError(f'Task {task_idx} was deleted')
+            raise RuntimeError(f'Invalid or deleted task index: {task_idx}')
         else:
             return task
     
@@ -290,13 +292,13 @@ class DecoderManager:
         if task_idx >= len(self._tasks_by_idx):
             return None
         task = self._tasks_by_idx[task_idx]
-        if task is None or task == 'deleted':
+        if task is None:
             return None
         return task
 
     def _purge_old_windows(self) -> None:
         if self.delete_old_windows_after is not None:
-            self._tasks_by_idx = [(task if task is None or i >= len(self._tasks_by_idx) - self.delete_old_windows_after else 'deleted') for i, task in enumerate(self._tasks_by_idx)]
+            self._tasks_by_idx = [(task if task is None or i >= len(self._tasks_by_idx) - self.delete_old_windows_after else None) for i, task in enumerate(self._tasks_by_idx)]
 
     def get_finished_instruction_indices(self) -> set[int]:
         """Return the set of instruction idx that have been decoded."""

@@ -224,6 +224,18 @@ class WindowManager(ABC):
         del window
         return new_window
     
+    def purge_windows(self, window_indices) -> None:
+        for window_idx in window_indices:
+            window = self.all_windows[window_idx]
+            if window:
+                for cr in window.commit_region:
+                    if (cr.patch, cr.round_start + cr.duration) in self.window_end_lookup:
+                        if self.window_end_lookup[(cr.patch, cr.round_start + cr.duration)][0] == window_idx:
+                            self.window_end_lookup.pop((cr.patch, cr.round_start + cr.duration))
+                self.all_windows[window_idx] = None
+                self.window_dag.remove_node(window_idx)
+                pass
+    
     def count_covered_faces(self, window_idx, cr_idx):
         # Need to make sure every face of every commit region either touches
         # another commit region, has an outgoing buffer, has an incoming
