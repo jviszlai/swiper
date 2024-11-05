@@ -152,7 +152,7 @@ def _get_merge(cell_program, endpoint: Cell):
 
 
 
-def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
+def cirq_to_ls(circ: cirq.Circuit, eps=1e-10) -> LatticeSurgerySchedule:
     qbit_mapping = {q: f'q_{i}' for i, q in enumerate(circ.all_qubits())}
     bad_ops = []
     for i, moment in enumerate(circ.moments):
@@ -180,7 +180,7 @@ def cirq_to_ls(circ: cirq.Circuit) -> LatticeSurgerySchedule:
         return cirq.decompose(op, keep=lambda op: len(op.qubits) <= 2)
     def map_approx_rz(op: cirq.Operation) -> cirq.OP_TREE:
         if isinstance(op.gate, cirq.Rz):
-            return _get_gridsynth_sequence(op, op.gate._rads)
+            return _get_gridsynth_sequence(op, op.gate._rads, precision=eps)
         return op
     def make_qasm_compat(op: cirq.Operation) -> cirq.OP_TREE:
         return op.without_classical_controls()

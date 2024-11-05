@@ -48,13 +48,13 @@ class Benchmark(ABC):
 
 class QASMBenchmark(Benchmark):
 
-    def __init__(self, qasm_file: str) -> None:
+    def __init__(self, qasm_file: str, eps=1e-10) -> None:
         with open(qasm_file) as f_in:
             qasm_str = f_in.read()
         qiskit_circ = qiskit.QuantumCircuit.from_qasm_str(qasm_str)
         cirq_circ = circuit_from_qasm(dumps(qiskit.transpile(RemoveBarriers()(qiskit_circ), basis_gates=['cx', 'u3'])))
         # cirq.to_json(cirq_circ, f'benchmarks/data/mqt/{file[:-5]}.json')
-        self.schedule = cirq_to_ls(_decompose_circuit(cirq_circ))
+        self.schedule = cirq_to_ls(_decompose_circuit(cirq_circ), eps=eps)
         self._name = qasm_file.split("/")[-1].split(".")[0]
 
     def get_schedule(self) -> LatticeSurgerySchedule:
