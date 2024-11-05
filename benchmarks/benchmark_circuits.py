@@ -1,6 +1,11 @@
 import math
 import numpy as np
 import cirq
+import qiskit
+from qiskit.qasm2 import dumps
+from qiskit.transpiler.passes import RemoveBarriers, Decompose
+import cirq
+from cirq.contrib.qasm_import import circuit_from_qasm
 import os
 from abc import ABC, abstractmethod
 from qualtran._infra.gate_with_registers import get_named_qubits
@@ -39,6 +44,23 @@ class Benchmark(ABC):
     @abstractmethod
     def name(self) -> str:
         raise NotImplementedError
+
+class QASMBenchmark(Benchmark):
+
+    def __init__(self, qasm_file: str) -> None:
+        with open(qasm_file) as f_in:
+            qasm_str = f_in.read()
+        qiskit_circ = qiskit.QuantumCircuit.from_qasm_str(qasm_str)
+        cirq_circ = circuit_from_qasm(dumps(qiskit.transpile(RemoveBarriers()(qiskit_circ), basis_gates=['cx', 'u3'])))
+        # cirq.to_json(cirq_circ, f'benchmarks/data/mqt/{file[:-5]}.json')
+        self.schedule = cirq_to_ls(_decompose_circuit(cirq_circ))
+        self._name = qasm_file.split("/")[-1].split(".")[0]
+
+    def get_schedule(self) -> LatticeSurgerySchedule:
+        return self.schedule
+    
+    def name(self) -> str:
+        return self._name
 
 class QROM(Benchmark):
 
@@ -161,6 +183,25 @@ class HeisenbergEncoding(Benchmark):
     
     def name(self) -> str:
         return f"heisenberg_{self.N}"
+    
+class ChemicalHamiltonianEncoding(Benchmark):
+    
+    def __init__(self, index):
+        assert index in [112, 140, 146]
+        mol = get_hdf5(index, filename='benchmarks/data/chemistry_instances.csv')
+        self.molecule = mol.name.split('_')[0]
+        mol_instance    =   getInstance("ChemicalHamiltonian",mol_ham=mol.get_molecular_hamiltonian())
+        walk_operator  =  QubitizedWalkOperator(getEncoding(instance=mol_instance, \
+                                                    encoding=VALID_ENCODINGS.PauliLCU,instantiate=False))
+        registers = get_named_qubits(walk_operator.signature)
+        circuit = cirq.Circuit(walk_operator.on_registers(**registers))
+        self.schedule = cirq_to_ls(_decompose_circuit(circuit))
+    
+    def get_schedule(self) -> LatticeSurgerySchedule:
+        return self.schedule
+    
+    def name(self) -> str:
+        return self.molecule
 
 class RegularT(Benchmark):
 
