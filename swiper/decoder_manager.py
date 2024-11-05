@@ -309,7 +309,6 @@ class DecoderManager:
         return incomplete_task_instructions | incomplete_descendant_instructions
 
     def get_data(self) -> DecoderData:
-        print(len([t for t in self._tasks_by_idx if t and t != 'deleted']), len(self._tasks_by_idx))
         return DecoderData(
             num_rounds=self._current_round,
             max_parallel_processes=self.max_parallel_processes,
