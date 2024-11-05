@@ -381,7 +381,7 @@ def test_parallel_distillation():
    for i in window_data.all_constructed_windows:
       window = window_data.get_window(i)
       assert simulator._window_manager._all_regions_touching(list(window.commit_region))
-      assert len(window.commit_region) <= 6
+      assert len(window.commit_region) <= 3
 
 def test_aligned_randomT():
    """Test that TAlignedWindowManager can correctly handle a RandomT schedule."""
@@ -408,7 +408,7 @@ def test_aligned_randomT():
    for i in window_data.all_constructed_windows:
       window = window_data.get_window(i)
       if window.merge_instr:
-         assert simulator._window_manager._get_layer_idx(i) == 2
+         assert simulator._window_manager._get_layer_idx(i) in [2,3]
       assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) <= 3
 
@@ -437,9 +437,9 @@ def test_aligned_distillation():
    for i in window_data.all_constructed_windows:
       window = window_data.get_window(i)
       if any(instr.conditional_dependencies for instr in window.merge_instr):
-         assert simulator._window_manager._get_layer_idx(i) == 2
+         assert simulator._window_manager._get_layer_idx(i) in [2, 3]
       assert simulator._window_manager._all_regions_touching(list(window.commit_region))
-      assert len(window.commit_region) <= 6
+      assert len(window.commit_region) <= 3
 
 # def test_parallel_regularT():
 #    """Test that ParallelWindowManager can correctly handle a merge schedule."""

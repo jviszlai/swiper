@@ -533,7 +533,15 @@ class ParallelWindowManager(WindowManager):
                     self.window_dag.add_edge(prev_window_idx, window_idx)
             else:
                 # No previous window to merge with; this will be a source
-                if any(idx in self.layer_indices[1] for idx in self._get_touching_unconstructed_window_indices(window)):
+                # Decide layer based on size of touching windows
+                total_layer0_size = 0
+                total_layer1_size = 0
+                for idx in self._get_touching_unconstructed_window_indices(window):
+                    if idx in self.layer_indices[0]:
+                        total_layer0_size += self._get_window(idx).total_spacetime_volume()
+                    elif idx in self.layer_indices[1]:
+                        total_layer1_size += self._get_window(idx).total_spacetime_volume()
+                if total_layer0_size < total_layer1_size:
                     self.layer_indices[0].add(window_idx)
                 else:
                     self.layer_indices[1].add(window_idx)
@@ -621,19 +629,19 @@ class TAlignedWindowManager(ParallelWindowManager):
     windows. This is to ensure that the blocking operation can be decoded
     ASAP.
 
-    We do this by adding a new layer option to the window manager which will only
-    be used for these special windows. The new layer is interleaved with the
+    We do this by adding two new layer options to the window manager which will only
+    be used for these special windows. The new layers are interleaved with the
     typical layers in ParallelWindowManager. In ParallelWindowManager, the
     layers are 0 (alternate source), 1 (main source), and 2 (sink). In this
     version, the layers are 0 (alternate source), 1 (main source), 2 (blocking
-    window) and 3 (sink). After a blocking window, we always begin a sink. This
+    window 1), 3 (blocking window 2), and 4 (sink). After a blocking window, we always begin a sink. This
     ensures that the blocking window never has any dependencies on future
     windows.
 
     """
     def __init__(self, window_builder: WindowBuilder, lightweight_output: bool = False):
         super().__init__(window_builder, lightweight_output=lightweight_output)
-        self.layer_indices = [set(), set(), set(), set()]
+        self.layer_indices = [set(), set(), set(), set(), set()]
 
     def _is_blocking_window(self, window: DecodingWindow) -> bool:
         """Check if a window is blocking another window from being decoded.
@@ -661,7 +669,7 @@ class TAlignedWindowManager(ParallelWindowManager):
                         self.layer_indices[0].add(window_idx)
                     else:
                         self.layer_indices[1].add(window_idx)
-                elif prev_window_idx in self.layer_indices[3]:
+                elif prev_window_idx in self.layer_indices[4]:
                     if self._is_blocking_window(window):
                         self.layer_indices[2].add(window_idx)
                         assert not prev_window.constructed
@@ -670,7 +678,7 @@ class TAlignedWindowManager(ParallelWindowManager):
                     elif len(prev_window.commit_region) < 3:
                         # Merge with prev sink and remove from all_windows
                         assert not prev_window.constructed
-                        self.layer_indices[3].add(window_idx)
+                        self.layer_indices[4].add(window_idx)
                         self._merge_windows(prev_window, window)
                     else:
                         # Sink is full; this will be a source. Add prev sink
@@ -691,14 +699,32 @@ class TAlignedWindowManager(ParallelWindowManager):
                         self.window_dag.add_edge(prev_window_idx, window_idx)
                     else:
                         assert self._get_layer_idx(prev_window_idx) in [0,1,2]
-                        self.layer_indices[3].add(window_idx)
+                        self.layer_indices[4].add(window_idx)
                         prev_window = self._append_to_buffers(prev_window, window.commit_region[0])
                         self.window_dag.add_edge(prev_window_idx, window_idx)
             else:
                 # No previous window to merge with; this will be a source
                 if self._is_blocking_window(window):
-                    self.layer_indices[2].add(window_idx)
-                elif any(idx in self.layer_indices[1] for idx in self._get_touching_unconstructed_window_indices(window)):
-                    self.layer_indices[0].add(window_idx)
+                    total_layer2_size = 0
+                    total_layer3_size = 0
+                    for idx in self._get_touching_unconstructed_window_indices(window):
+                        if idx in self.layer_indices[2]:
+                            total_layer2_size += self._get_window(idx).total_spacetime_volume()
+                        elif idx in self.layer_indices[3]:
+                            total_layer3_size += self._get_window(idx).total_spacetime_volume()
+                    if (total_layer3_size == 0 and total_layer2_size < 2) or (total_layer2_size < total_layer3_size):
+                        self.layer_indices[2].add(window_idx)
+                    else:
+                        self.layer_indices[3].add(window_idx)
                 else:
-                    self.layer_indices[1].add(window_idx)
+                    total_layer0_size = 0
+                    total_layer1_size = 0
+                    for idx in self._get_touching_unconstructed_window_indices(window):
+                        if idx in self.layer_indices[0]:
+                            total_layer0_size += self._get_window(idx).total_spacetime_volume()
+                        elif idx in self.layer_indices[1]:
+                            total_layer1_size += self._get_window(idx).total_spacetime_volume()
+                    if total_layer0_size < total_layer1_size:
+                        self.layer_indices[0].add(window_idx)
+                    else:
+                        self.layer_indices[1].add(window_idx)
