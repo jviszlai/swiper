@@ -141,7 +141,25 @@ def test_poor_predictor_same_as_slow_predictor_idle():
     )
     num_rounds_slow_speculation = decoding_data.num_rounds
 
-    assert num_rounds_bad_speculation == num_rounds_slow_speculation
+    # No speculation
+    speculation_time = 0
+    speculation_accuracy = 1
+    simulator = DecodingSimulator(
+        distance=d,
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
+        speculation_mode=None,
+    )
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=regular_t_schedule.schedule,
+        scheduling_method='sliding',
+        max_parallel_processes=None,
+        rng=0,
+    )
+    num_rounds_no_speculation = decoding_data.num_rounds
+
+    assert num_rounds_bad_speculation == num_rounds_slow_speculation == num_rounds_no_speculation
 
 def test_poor_predictor_same_as_slow_predictor_t():
     """Test that a poor predictor (always gives the wrong answer) gives the same
@@ -187,7 +205,25 @@ def test_poor_predictor_same_as_slow_predictor_t():
     )
     num_rounds_slow_speculation = decoding_data.num_rounds
 
-    assert num_rounds_bad_speculation == num_rounds_slow_speculation
+    # No speculation
+    speculation_time = 0
+    speculation_accuracy = 1
+    simulator = DecodingSimulator(
+        distance=d,
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
+        speculation_mode=None,
+    )
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=regular_t_schedule.schedule,
+        scheduling_method='sliding',
+        max_parallel_processes=None,
+        rng=0,
+    )
+    num_rounds_no_speculation = decoding_data.num_rounds
+
+    assert num_rounds_bad_speculation == num_rounds_slow_speculation == num_rounds_no_speculation
 
 def test_integrated_and_separate_consistency_with_bad_predictions():
     """Test that the integrated and separate speculation modes give the same
