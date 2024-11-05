@@ -96,13 +96,60 @@ def test_sliding_regular_T():
     assert device_data.num_rounds == 2*d + d + decoding_time + d//2+2
     assert decoding_data.num_rounds == device_data.num_rounds + decoding_time
 
-def test_poor_predictor_same_as_slow_predictor():
+
+def test_poor_predictor_same_as_slow_predictor_idle():
     """Test that a poor predictor (always gives the wrong answer) gives the same
     total runtime as a slow predictor (takes much longer than decoding).
     """
     d=7
-    decoding_time = 3
-    regular_t_schedule = RegularTSchedule(10, 2*d)
+    decoding_time = 10
+    regular_t_schedule = MemorySchedule(100)
+    
+    # Poor predictor
+    speculation_time = 1
+    speculation_accuracy = 0
+    simulator = DecodingSimulator(
+        distance=d,
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
+        speculation_mode='integrated',
+    )
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=regular_t_schedule.schedule,
+        scheduling_method='sliding',
+        max_parallel_processes=None,
+        rng=0,
+    )
+    num_rounds_bad_speculation = decoding_data.num_rounds
+
+    # Slow predictor
+    speculation_time = 100*d
+    speculation_accuracy = 1
+    simulator = DecodingSimulator(
+        distance=d,
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
+        speculation_mode='integrated',
+    )
+    success, device_data, window_data, decoding_data = simulator.run(
+        schedule=regular_t_schedule.schedule,
+        scheduling_method='sliding',
+        max_parallel_processes=None,
+        rng=0,
+    )
+    num_rounds_slow_speculation = decoding_data.num_rounds
+
+    assert num_rounds_bad_speculation == num_rounds_slow_speculation
+
+def test_poor_predictor_same_as_slow_predictor_t():
+    """Test that a poor predictor (always gives the wrong answer) gives the same
+    total runtime as a slow predictor (takes much longer than decoding).
+    """
+    d=7
+    decoding_time = 10
+    regular_t_schedule = RegularTSchedule(2, 0)
     
     # Poor predictor
     speculation_time = 1
@@ -200,4 +247,4 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
 #     )
 
 if __name__ == '__main__':
-    test_sliding_regular_T()
+    test_poor_predictor_same_as_slow_predictor()

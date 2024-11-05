@@ -140,40 +140,43 @@ class DecoderManager:
             all_poisoned_indices = [poisoned_task_idx]
             for dependent_idx in dependents:
                 dependent = self._get_task_or_none(dependent_idx)
-                if dependent and dependent_idx in self._window_decoding_start_times and dependent.used_parent_speculations[poisoned_task_idx]:
+                if dependent and dependent_idx in self._window_decoding_start_times:
+                    assert dependent.used_parent_speculations[poisoned_task_idx]
                     if dependent.completed_decoding:
-                        self._window_decoding_start_times.pop(dependent_idx)
-                        self._window_decoding_completion_times.pop(dependent_idx)
-                        dependent.completed_decoding = False
-                    elif dependent_idx in self._active_window_progress:
-                        self._active_window_progress.pop(dependent_idx)
-                        self._window_decoding_start_times.pop(dependent_idx)
-                    assert dependent_idx not in self._active_window_progress and dependent_idx not in self._window_decoding_start_times and dependent_idx not in self._window_decoding_completion_times and not dependent.completed_decoding
-                    self._pending_decode_tasks.add(dependent_idx)
+                        all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(dependent_idx)
+                    self._reset_decode_task(dependent_idx)
                     all_poisoned_indices.append(dependent_idx)
-                    # indices_to_reset = [dependent_idx] + list(nx.descendants(self._window_idx_dag, dependent_idx))
-                    # for task_idx in indices_to_reset:
-                    #     task = self._get_task_or_none(task_idx)
-                    #     if task:
-                    #         all_poisoned_indices.append(task_idx)
-                    #         if task.completed_decoding:
-                    #             self._window_decoding_start_times.pop(task_idx)
-                    #             self._window_decoding_completion_times.pop(task_idx)
-                    #             task.completed_decoding = False
-                    #         elif task_idx in self._active_window_progress:
-                    #             self._window_decoding_start_times.pop(task_idx)
-                    #             self._active_window_progress.pop(task_idx)
-                    #         self._pending_decode_tasks.add(task_idx)
-                    #         all_poisoned_indices.append(task_idx)
-                    #         assert task_idx not in self._active_window_progress and task_idx not in self._window_decoding_start_times and task_idx not in self._window_decoding_completion_times and not task.completed_decoding
             self._missed_speculation_events.append((self._current_round, all_poisoned_indices))
 
         self._current_round += 1
         self._parallel_processes_by_round.append(len(self._active_window_progress))
         self._completed_windows_by_round.append(len(self._window_decoding_completion_times))
 
-        # if self.delete_old_windows_after and self._current_round % self.delete_old_windows_after == 0:
-        #     self._purge_old_windows()
+    def _reset_decode_task(self, task_idx):
+        task = self._get_task(task_idx)
+        self._window_decoding_start_times.pop(task_idx)
+        if task_idx in self._active_window_progress:
+            self._active_window_progress.pop(task_idx)
+        else:
+            self._window_decoding_completion_times.pop(task_idx)
+            task.completed_decoding = False
+        task.used_parent_speculations = {}
+        self._pending_decode_tasks.add(task_idx)
+        assert task_idx not in self._active_window_progress and task_idx not in self._window_decoding_start_times and task_idx not in self._window_decoding_completion_times and not task.completed_decoding
+        return task_idx
+
+    def _poisoned_task_reset_children_that_used_decoding(self, task_idx):
+        """Recursively reset children of a completed-and-then-poisoned task (if
+        children used the completed decoding result).
+        """
+        poisoned_indices = []
+        for child_idx in self._window_idx_dag.successors(task_idx):
+            child = self._get_task_or_none(child_idx)
+            if child and child_idx in self._window_decoding_start_times and not child.used_parent_speculations[task_idx]:
+                if child.completed_decoding:
+                    poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(child_idx)
+                self._reset_decode_task(child_idx)
+        return poisoned_indices
 
     def update_decoding(self, new_windows: list[DecodingWindow], window_idx_dag: nx.DiGraph) -> None:
         """Update state of processing windows and start any new decoding

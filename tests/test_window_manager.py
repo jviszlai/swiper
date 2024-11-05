@@ -89,6 +89,10 @@ def do_final_checks(device_data: DeviceData, window_data: WindowData, decoder_da
    for i,syndrome_round in enumerate(all_syndrome_rounds):
       assert syndrome_round.instruction.name == 'INJECT_T' or any(cr.contains_syndrome_round(syndrome_round=syndrome_round) for cr in all_commit_regions), f"Syndrome round {i+1}/{len(all_syndrome_rounds)} not contained in any commit region"
 
+   for window_idx in window_data.all_constructed_windows:
+      window = window_data.get_window(window_idx)
+      assert window.total_spacetime_volume() / distance <= 7
+
    dependencies_check(window_data)
 
 def dependencies_check(window_data: WindowData):
