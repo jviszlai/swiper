@@ -15,6 +15,7 @@ if __name__ == '__main__':
     output_dir = f'{data_dir}/output'
     log_dir = f'{data_dir}/logs'
     benchmark_dir = f'{data_dir}/benchmarks'
+    decoder_dist_filename = f'{data_dir}/decoder_dists.json'
     metadata_filename = f'{data_dir}/metadata.txt'
     os.makedirs(output_dir)
     os.makedirs(log_dir)
@@ -28,16 +29,18 @@ if __name__ == '__main__':
             newpath = os.path.join(benchmark_dir, file)
             shutil.copyfile(path, newpath)
             benchmark_files.append(newpath)
+    
+    shutil.copyfile('benchmarks/data/decoder_dists.json', decoder_dist_filename)
 
     sweep_params = {
-        'distance':[15],
-        'decode_latency': [20],
-        'speculation_latency':[2],
-        'speculation_accuracy':[0.99],
-        'speculation_mode':['integrated'],
+        'distance':[21],
+        'speculation_latency':[1],
+        'speculation_accuracy':[0, 0.99],
+        'speculation_mode':['separate'],
         'scheduling_method':['sliding', 'parallel', 'aligned'],
         'max_parallel_processes':[None],
         'benchmark_file':benchmark_files,
+        'decoder_dist_filename':[decoder_dist_filename],
         'rng':[0],
     }
     ordered_param_names = list(sorted(sweep_params.keys()))
