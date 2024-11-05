@@ -63,6 +63,7 @@ class DecodingSimulator:
             progress_bar: bool = False,
             print_interval: dt.timedelta | None = None,
             pending_window_count_cutoff: int = 0,
+            device_rounds_cutoff: int = 0,
             save_animation_frames: bool = False,
             lightweight_output: bool = False,
             rng: int | np.random.Generator = np.random.default_rng(),
@@ -80,6 +81,9 @@ class DecodingSimulator:
             pending_window_count_cutoff: If the number of pending windows
                 exceeds this value, the simulation is considered to have failed
                 and will return early.
+            device_rounds_cutoff: If the number of device rounds exceeds this
+                value, the simulation is considered to have failed and will
+                return early.
             save_animation_frames: If using in Jupyter notebook, use %%capture
                 TODO: broken
             lightweight_output: If True, avoid returning certain large data
@@ -111,7 +115,7 @@ class DecodingSimulator:
             self.frame_data = []
 
         while not self.is_done():
-            self.step_experiment(pending_window_count_cutoff=pending_window_count_cutoff, print_interval=print_interval)
+            self.step_experiment(pending_window_count_cutoff=pending_window_count_cutoff, device_rounds_cutoff=device_rounds_cutoff, print_interval=print_interval)
             if progress_bar and self._decoding_manager._current_round % 100 == 0:
                 pbar_r.update(100)
                 # pbar_i.update(len(fully_decoded_instructions) - pbar_i.n)
@@ -164,7 +168,7 @@ class DecodingSimulator:
         self.start_time = dt.datetime.now()
         self.last_print_time = dt.datetime.now() - dt.timedelta(days=1)
 
-    def step_experiment(self, pending_window_count_cutoff: int = 0, print_interval: dt.timedelta | None = None) -> None:
+    def step_experiment(self, pending_window_count_cutoff: int = 0, device_rounds_cutoff: int = 0, print_interval: dt.timedelta | None = None) -> None:
         if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
             raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
 
@@ -173,6 +177,9 @@ class DecodingSimulator:
 
         pending_window_count = len(self._window_manager.all_windows) - len(self._decoding_manager._window_decoding_completion_times)
         if pending_window_count_cutoff > 0 and pending_window_count > pending_window_count_cutoff:
+            self.failed = True
+            return
+        if device_rounds_cutoff > 0 and self._device_manager.current_round > device_rounds_cutoff:
             self.failed = True
             return
 
