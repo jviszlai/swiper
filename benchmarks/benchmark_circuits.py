@@ -16,6 +16,7 @@ from    pyLIQTR.BlockEncodings.getEncoding                    import   getEncodi
 from pyLIQTR.BlockEncodings.CarlemanLinearization   import Carleman_Linearization
 from pyLIQTR.ProblemInstances.NonlinearODE          import FOperators
 from pyLIQTR.utils.circuit_decomposition  import keep, generator_decompose
+from pyLIQTR.utils.get_hdf5 import get_hdf5
 from pyLIQTR.ProblemInstances.getInstance import *
 from pyLIQTR.BlockEncodings.getEncoding   import *
 from pyLIQTR.utils.resource_analysis          import estimate_resources
