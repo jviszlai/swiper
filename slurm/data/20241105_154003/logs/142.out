@@ -1,0 +1,19 @@
+2024-11-05 15:40:53 | Loading benchmark slurm/data/20241105_154003/benchmarks/H2O.lss...
+2024-11-05 15:41:18 | Starting simulation
+2024-11-05 15:41:24 | Simulation update: decoder round 1, completed instructions: 0/339178, actively running or decoding instructions: 13, waiting windows: 0/0. Max active instruction index: 175
+2024-11-05 15:41:34 | Simulation update: decoder round 63, completed instructions: 70/339178, actively running or decoding instructions: 20, waiting windows: 62/62. Max active instruction index: 176
+Traceback (most recent call last):
+  File "/project/ftchong/projects/swiper/slurm/run_simulation.py", line 57, in <module>
+    success, device_data, window_data, decoding_data = simulator.run(
+                                                       ^^^^^^^^^^^^^^
+  File "/project/ftchong/projects/swiper/swiper/simulator.py", line 118, in run
+    self.step_experiment(pending_window_count_cutoff=pending_window_count_cutoff, device_rounds_cutoff=device_rounds_cutoff, print_interval=print_interval)
+  File "/project/ftchong/projects/swiper/swiper/simulator.py", line 201, in step_experiment
+    newly_constructed_windows = self._window_manager.process_round(syndrome_rounds)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/project/ftchong/projects/swiper/swiper/window_manager.py", line 453, in process_round
+    self._assign_window_layers(new_commits)
+  File "/project/ftchong/projects/swiper/swiper/window_manager.py", line 701, in _assign_window_layers
+    assert self._get_layer_idx(prev_window_idx) in [0,1,2]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
