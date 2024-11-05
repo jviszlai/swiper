@@ -7,6 +7,8 @@ from swiper.window_builder import DecodingWindow
 from swiper.window_manager import WindowData
 from swiper.decoder_manager import DecoderData
 
+plt.rcParams['axes.prop_cycle'] = mpl.cycler(color=['#0072B2', '#CC79A7', '#009E73', '#E69F00', '#56B4E9', '#D55E00', '#F0E442']) 
+
 def plot_device_schedule_trace(
         data: DeviceData,
         spacing: int = 1,
@@ -27,7 +29,7 @@ def plot_device_schedule_trace(
         },
         windows: list[DecodingWindow] = [],
         window_schedule_times: list[int] = [],
-        window_cmap: str = 'viridis',
+        window_cmap: str | None = 'viridis',
         window_buffers_to_highlight: list[int] = [],
         selected_window_colors: list[str] = [
             'firebrick', 'pink', 'orange',
@@ -36,9 +38,19 @@ def plot_device_schedule_trace(
         default_fig: plt.Figure | None = None,
         z_min: int | None = None,
         z_max: int | None = None,
+        ax: mpl.axes.Axes | None = None,
     ):
-    fig = plt.figure() if not default_fig else default_fig
-    ax = fig.add_subplot(111, projection='3d')
+    if default_fig and not ax:
+        fig = default_fig
+        ax = fig.add_subplot(111, projection='3d')
+    elif ax and not default_fig:
+        fig = ax.figure
+    elif not ax and not default_fig:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+    else:
+        fig = default_fig
+    assert ax and fig
 
     rows = max([r for r,c in data.all_patch_coords]) - min([r for r,c in data.all_patch_coords]) + 1
     cols = max([c for r,c in data.all_patch_coords]) - min([c for r,c in data.all_patch_coords]) + 1
@@ -58,8 +70,10 @@ def plot_device_schedule_trace(
     def get_color(window_idx):
         if window_idx in window_buffers_to_highlight:
             return selected_window_colors[window_buffers_to_highlight.index(window_idx)]
-        else:
+        elif window_cmap:
             return plt.cm.get_cmap(window_cmap)(window_schedule_times[window_idx] / max(window_schedule_times))         
+        else:
+            return 'white'
 
     z_offset = 0
     increased_z = False
@@ -143,6 +157,7 @@ def plot_device_schedule_trace(
     ax.voxels(x,y,z, filled=volume, facecolors=colors, edgecolors=edgecolors, lightsource=mpl.colors.LightSource(azdeg=315, altdeg=45), alpha=alpha, linewidths=linewidth)
     
     ax.set_aspect('equal')
+
     ax.view_init(elev=15, azim=30)
     ax.set_xticks([])
     ax.set_yticks([])
