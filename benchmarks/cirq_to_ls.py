@@ -1,8 +1,3 @@
-# from lsqecc.logical_lattice_ops import logical_lattice_ops
-# from lsqecc.patches.patches import PatchType
-# from lsqecc.pipeline.lattice_surgery_compilation_pipeline import compile_str
-# from lsqecc.simulation.logical_patch_state_simulation import SimulatorType
-# from lsqecc.gates import gates
 import json
 import parse
 import re
@@ -10,6 +5,8 @@ import subprocess
 import os
 import shutil
 import cirq
+import numpy as np
+from qualtran.bloqs.mcmt.and_bloq import And
 
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 
@@ -59,28 +56,58 @@ S_GATE_MAPPING = {
     'Z' : cirq.Z,
 }
 
+from retry import retry
+
+@retry(exceptions=(subprocess.CalledProcessError), tries=3, delay=2)
+def run_subprocess_with_retry(command):
+    try:
+        result = subprocess.run(command, capture_output=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error running command: {e}")
+        raise
+
 def _get_gridsynth_sequence(op: cirq.Operation, rads: float, precision: float = 1e-10):
     assert len(op.qubits) == 1
     # pi / x = rz_angle => x = pi / rz_angle
-    angle_str = f'{rads}' if rads >= 0 else f'({rads})'
-    command = ["benchmarks/gridsynth", angle_str, f'--epsilon={precision}']
-    output = subprocess.check_output(command)
+    pi_rots = [0.0, np.pi, np.pi / 2, np.pi / 4]
+    output_gate = None
+    for i, pi_rot in enumerate(pi_rots):
+        if (rads) - pi_rot < 1e-6:
+            match i:
+                case 0:
+                    return []
+                case 1:
+                    output_gate = cirq.Z
+                case 2:
+                    output_gate = cirq.S
+                case 3:
+                    output_gate = cirq.T
+            break
+    if not output_gate:
+        angle_str = f'{rads}' if rads >= 0 else f'({rads})'
+
+        command = ["benchmarks/gridsynth", angle_str, f'--epsilon={precision}']
+        output = run_subprocess_with_retry(command)
+
+        ss = str(output)[2:-3].strip('W')[::-1]
+
     
-    ss = str(output)[2:-3].strip('W')[::-1]
-    
-    # Merge double S gate
-    new_s = ''
-    for i in range(1, len(ss)):
-        if ss[i] == ss[i-1] == 'S':
-            new_s += 'Z'
-        else:
-            new_s += ss[i]
-    
-    # Build a circuit from this
-    approx_seq = []
-    for s in new_s:
-        approx_seq.append(S_GATE_MAPPING[s].on(op.qubits[0]))
-    return approx_seq
+        # Merge double S gate
+        new_s = ''
+        for i in range(1, len(ss)):
+            if ss[i] == ss[i-1] == 'S':
+                new_s += 'Z'
+            else:
+                new_s += ss[i]
+        
+        # Build a circuit from this
+        approx_seq = []
+        for s in new_s:
+            approx_seq.append(S_GATE_MAPPING[s].on(op.qubits[0]))
+        return approx_seq
+    else:
+        return [output_gate.on(op.qubits[0])]
 
 def _get_merge(cell_program, endpoint: Cell):
     if endpoint.patch_type != 'Qubit':
@@ -153,32 +180,20 @@ def _get_merge(cell_program, endpoint: Cell):
 
 
 def cirq_to_ls(circ: cirq.Circuit, eps=1e-10) -> LatticeSurgerySchedule:
-    qbit_mapping = {q: f'q_{i}' for i, q in enumerate(circ.all_qubits())}
-    bad_ops = []
-    for i, moment in enumerate(circ.moments):
-        for op in moment:
-            no_control_op = op.without_classical_controls()
-            try:
-                test_qasm = no_control_op._qasm_(cirq.QasmArgs(qubit_id_map=qbit_mapping))
-                if 'ry' in test_qasm:
-                    raise Exception('Ry gate') # TODO: Properly convert Ry gates
-                if isinstance(op.gate, cirq.ZPowGate) and op.gate._exponent != 1:
-                    # Undecomposed gate TODO
-                    if op.gate == cirq.T or op.gate == cirq.S:
-                        continue
-                    raise Exception('Undecomposed Gate')
-                if isinstance(op.gate, cirq.XPowGate) and op.gate._exponent != 1:
-                    # Undecomposed gate TODO
-                    raise Exception('Undecomposed Gate')
-                if isinstance(op.gate, cirq.YPowGate) and op.gate._exponent != 1:
-                    # Undecomposed gate TODO
-                    raise Exception('Undecomposed Gate')
-            except Exception:
-                bad_ops.append((i, op))
-    circ.batch_remove(bad_ops)
     def decomp(op: cirq.Operation) -> cirq.OP_TREE:
         return cirq.decompose(op, keep=lambda op: len(op.qubits) <= 2)
     def map_approx_rz(op: cirq.Operation) -> cirq.OP_TREE:
+        if isinstance(op.gate, cirq.ZPowGate):
+            exponent = op.gate._exponent
+            op = cirq.Rz(rads=exponent * np.pi).on(op.qubits[0])
+        if isinstance(op.gate, cirq.XPowGate):
+            exponent = op.gate._exponent
+            op = cirq.Rz(rads=exponent * np.pi).on(op.qubits[0])
+            return [cirq.H.on(op.qubits[0]), _get_gridsynth_sequence(op, op.gate._rads, precision=eps), cirq.H.on(op.qubits[0])]
+        if isinstance(op.gate, cirq.YPowGate):
+            exponent = op.gate._exponent
+            op = cirq.Rz(rads=exponent * np.pi).on(op.qubits[0])
+            return [cirq.S.on(op.qubits[0]), cirq.H.on(op.qubits[0]), _get_gridsynth_sequence(op, op.gate._rads, precision=eps), cirq.H.on(op.qubits[0]), cirq.S.on(op.qubits[0])]
         if isinstance(op.gate, cirq.Rz):
             return _get_gridsynth_sequence(op, op.gate._rads, precision=eps)
         return op
@@ -186,6 +201,18 @@ def cirq_to_ls(circ: cirq.Circuit, eps=1e-10) -> LatticeSurgerySchedule:
         return op.without_classical_controls()
 
     circ = circ.map_operations(decomp).map_operations(map_approx_rz).map_operations(make_qasm_compat)
+
+    qbit_mapping = {q: f'q_{i}' for i, q in enumerate(circ.all_qubits())}
+    bad_ops = []
+    for i, moment in enumerate(circ.moments):
+        for op in moment:
+            no_control_op = op.without_classical_controls()
+            try:
+                test_qasm = no_control_op._qasm_(cirq.QasmArgs(qubit_id_map=qbit_mapping))
+                assert(test_qasm)
+            except Exception:
+                bad_ops.append((i, op))
+    circ.batch_remove(bad_ops)
 
     os.makedirs('benchmarks/tmp')
     circ.save_qasm('benchmarks/tmp/prog.qasm')
