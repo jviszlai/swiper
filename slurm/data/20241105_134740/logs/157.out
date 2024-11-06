@@ -1,0 +1,18 @@
+2024-11-05 13:47:47 | Loading benchmark slurm/data/20241105_134740/benchmarks/electronic_structure.lss...
+2024-11-05 13:48:24 | Starting simulation
+2024-11-05 13:48:30 | Simulation update: decoder round 1, completed instructions: 0/467603, actively running or decoding instructions: 51, waiting windows: 0/0. Max active instruction index: 1198
+Traceback (most recent call last):
+  File "/project/ftchong/projects/swiper/slurm/run_simulation.py", line 57, in <module>
+    success, device_data, window_data, decoding_data = simulator.run(
+                                                       ^^^^^^^^^^^^^^
+  File "/project/ftchong/projects/swiper/swiper/simulator.py", line 118, in run
+    self.step_experiment(pending_window_count_cutoff=pending_window_count_cutoff, device_rounds_cutoff=device_rounds_cutoff, print_interval=print_interval)
+  File "/project/ftchong/projects/swiper/swiper/simulator.py", line 203, in step_experiment
+    self._decoding_manager.update_decoding(newly_constructed_windows, self._window_manager.window_dag)
+  File "/project/ftchong/projects/swiper/swiper/decoder_manager.py", line 250, in update_decoding
+    self._active_window_progress[task_idx] = self.decoding_time_function(task.window.total_spacetime_volume())
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/project/ftchong/projects/swiper/slurm/run_simulation.py", line 41, in <lambda>
+    decoding_latency_fn = lambda volume: generator.choice(decoder_dist[max(2, math.ceil(volume / distance))])
+                                                          ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 20

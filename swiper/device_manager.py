@@ -34,6 +34,7 @@ class DeviceData:
     instruction_count_by_round: list[int]
     generated_syndrome_data: list[list[SyndromeRound]]
     patches_initialized_by_round: dict[int, list[tuple[int, int]]]
+    conditioned_decode_wait_times: dict[int, int]
 
     def to_dict(self):
         return asdict(self)
@@ -60,6 +61,7 @@ class DeviceManager:
         self._all_patch_coords = set()
         self._generated_syndrome_data = []
         self._conditional_S_locations = []
+        self._conditioned_decode_wait_times = dict()
 
         self._completed_instructions = dict()
         self._active_instructions = dict()
@@ -220,6 +222,7 @@ class DeviceManager:
                         pass
                     elif self.schedule_instructions[instruction_idx].conditioned_on_idx & incomplete_instructions:
                         # decoding dependency not yet satisfied
+                        self._conditioned_decode_wait_times[instruction_idx] = self._conditioned_decode_wait_times.get(instruction_idx, 0) + 1
                         pass
                     elif not self.schedule_instructions[instruction_idx].conditioned_on_completion_idx.issubset(set(self._completed_instructions.keys())):
                         # dependency not yet satisfied
@@ -410,6 +413,7 @@ class DeviceManager:
                 instruction_count_by_round=self._instruction_count_by_round,
                 generated_syndrome_data=None,
                 patches_initialized_by_round={k: list(v) for k,v in patches_initialized_by_round.items()},
+                conditioned_decode_wait_times=self._conditioned_decode_wait_times,
             )
         else:
             return DeviceData(
@@ -422,4 +426,5 @@ class DeviceManager:
                 instruction_count_by_round=self._instruction_count_by_round,
                 generated_syndrome_data=self._postprocess_idle_data(self._generated_syndrome_data),
                 patches_initialized_by_round={k: list(v) for k,v in patches_initialized_by_round.items()},
+                conditioned_decode_wait_times=self._conditioned_decode_wait_times,
             )

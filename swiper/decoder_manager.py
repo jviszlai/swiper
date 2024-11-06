@@ -219,7 +219,7 @@ class DecoderManager:
             assert task.window_idx == task_idx
 
             if task.completed_decoding or not task.window.constructed:
-                continue
+                raise RuntimeError(f'Task is complete, but marked as unprocessed: {task_idx}')
 
             if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
                 break
