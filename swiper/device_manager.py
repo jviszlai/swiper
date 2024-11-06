@@ -274,7 +274,8 @@ class DeviceManager:
     def _generate_syndrome_round(self) -> tuple[list[SyndromeRound], set[int]]:
         generated_syndrome_rounds = []
 
-        self._instruction_count_by_round.append(0)
+        if not self.lightweight_output:
+            self._instruction_count_by_round.append(0)
         patches_used_this_round = set()
         completed_instructions = set()
         for instruction_idx in self._active_instructions.keys():
@@ -290,7 +291,8 @@ class DeviceManager:
             patches_used_this_round.update(self.schedule_instructions[instruction_idx].patches)
             self._active_patches.update(self.schedule_instructions[instruction_idx].patches)
             self._active_instructions[instruction_idx] -= 1
-            self._instruction_count_by_round[-1] += 1
+            if not self.lightweight_output:
+                self._instruction_count_by_round[-1] += 1
             if self._active_instructions[instruction_idx] == 0:
                 completed_instructions.add(instruction_idx)
         self._all_patch_coords.update(patches_used_this_round)
@@ -304,9 +306,10 @@ class DeviceManager:
                           is_unwanted_idle=True) 
             for coords in self._active_patches - patches_used_this_round
             ])
-        self._instruction_count_by_round[-1] += len(self._active_patches - patches_used_this_round)
-        self._syndrome_count_by_round.append(len(generated_syndrome_rounds))
+        
         if not self.lightweight_output:
+            self._instruction_count_by_round[-1] += len(self._active_patches - patches_used_this_round)
+            self._syndrome_count_by_round.append(len(generated_syndrome_rounds))
             self._generated_syndrome_data.append(generated_syndrome_rounds)
 
         return generated_syndrome_rounds, completed_instructions
@@ -409,10 +412,10 @@ class DeviceManager:
                 instructions=None,
                 instruction_start_times=[(self._completed_instructions[i]-self._instruction_durations[i]+1 if i in self._completed_instructions else None) for i in range(len(self.schedule_instructions))],
                 all_patch_coords=list(self._all_patch_coords),
-                syndrome_count_by_round=self._syndrome_count_by_round,
-                instruction_count_by_round=self._instruction_count_by_round,
+                syndrome_count_by_round=None,
+                instruction_count_by_round=None,
                 generated_syndrome_data=None,
-                patches_initialized_by_round={k: list(v) for k,v in patches_initialized_by_round.items()},
+                patches_initialized_by_round=None,
                 conditioned_decode_wait_times=self._conditioned_decode_wait_times,
             )
         else:

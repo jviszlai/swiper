@@ -22,7 +22,6 @@ class WindowData:
     all_constructed_windows: list[int]
     window_dag_edges: list[tuple[int, int]]
     window_construction_times: dict[int, int]
-    window_count_history: list[int]
     window_volumes: list[tuple[list[int], list[int]]] # list of (commit_region_durations, buffer_region_durations)
 
     def to_dict(self):
@@ -46,7 +45,6 @@ class WindowManager(ABC):
         self.window_construction_wait: set[int] = set()
         self.current_round = 0
         self._window_construction_times: dict[int, int] = {}
-        self._window_count_history: list[int] = []
         self._unconstructed_window_indices: dict[DecodingWindow, int] = {}
         self.lightweight_output = lightweight_output
 
@@ -334,10 +332,9 @@ class WindowManager(ABC):
         if self.lightweight_output:
             return WindowData(
                 all_windows=None,
-                all_constructed_windows=self.all_constructed_windows,
-                window_dag_edges=list(self.window_dag.edges),
+                all_constructed_windows=None,
+                window_dag_edges=None,
                 window_construction_times=self._window_construction_times,
-                window_count_history=self._window_count_history,
                 window_volumes=[([cr.duration for cr in window.commit_region], [br.duration for br in window.buffer_regions]) for window in [self._get_window(window_idx) for window_idx in self.all_constructed_windows]]
             )
         else:
@@ -346,7 +343,6 @@ class WindowManager(ABC):
                 all_constructed_windows=self.all_constructed_windows,
                 window_dag_edges=list(self.window_dag.edges),
                 window_construction_times=self._window_construction_times,
-                window_count_history=self._window_count_history,
                 window_volumes=[([cr.duration for cr in window.commit_region], [br.duration for br in window.buffer_regions]) for window in [self._get_window(window_idx) for window_idx in self.all_constructed_windows]]
             )
 
@@ -412,7 +408,6 @@ class SlidingWindowManager(WindowManager):
                                     self.window_dag.add_edge(window_idx, w_idx)
 
         self._update_waiting_windows()
-        self._window_count_history.append(len(self.all_constructed_windows) + len(self._unconstructed_window_indices))
 
         if not new_rounds:
             self._flush_windows()
@@ -463,7 +458,6 @@ class ParallelWindowManager(WindowManager):
             self._update_dependencies_and_dag()
 
         self._update_waiting_windows()
-        self._window_count_history.append(len(self.all_constructed_windows) + len(self._unconstructed_window_indices))
 
         if not new_rounds:
             self._flush_windows()

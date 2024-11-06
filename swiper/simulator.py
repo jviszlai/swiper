@@ -64,6 +64,7 @@ class DecodingSimulator:
             print_interval: dt.timedelta | None = None,
             pending_window_count_cutoff: int = 0,
             device_rounds_cutoff: int = 0,
+            clock_timeout: dt.timedelta | None = None,
             save_animation_frames: bool = False,
             lightweight_output: bool = False,
             rng: int | np.random.Generator = np.random.default_rng(),
@@ -84,6 +85,8 @@ class DecodingSimulator:
             device_rounds_cutoff: If the number of device rounds exceeds this
                 value, the simulation is considered to have failed and will
                 return early.
+            clock_timeout: If given, stop simulation after this much time has
+                elapsed.
             save_animation_frames: If using in Jupyter notebook, use %%capture
                 TODO: broken
             lightweight_output: If True, avoid returning certain large data
@@ -91,8 +94,10 @@ class DecodingSimulator:
                 outputs. Useful for large-scale simulations.
             rng: Random number generator.
         """
+        start_time = dt.datetime.now()
+
         if print_interval is not None:
-            print(f'{dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Starting simulation')
+            print(f'{start_time.strftime("%Y-%m-%d %H:%M:%S")} | Starting simulation')
             sys.stdout.flush()
 
         self.initialize_experiment(
@@ -124,6 +129,8 @@ class DecodingSimulator:
                 ax = plotter.plot_device_schedule_trace(self._device_manager.get_data(), spacing=1, default_fig=fig)
                 ax.set_zticks([])
                 self.frame_data.append(ax)
+            if dt.datetime.now() > start_time + clock_timeout:
+                self.failed = True
         
         if print_interval is not None:
             print(f'{dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Finished simulation')
