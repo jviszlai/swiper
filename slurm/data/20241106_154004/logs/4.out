@@ -1,0 +1,21 @@
+CONFIG 4
+benchmark_file: slurm/data/20241106_154004/benchmarks/regular_t_1000_0.lss
+decoder_dist_filename: slurm/data/20241106_154004/decoder_dists.json
+distance: 21
+max_parallel_processes: None
+rng: 0
+scheduling_method: parallel
+speculation_accuracy: 0.99
+speculation_latency: 1
+speculation_mode: separate
+2024-11-06 15:40:21 | Loading benchmark slurm/data/20241106_154004/benchmarks/regular_t_1000_0.lss...
+2024-11-06 15:40:22 | Starting simulation
+2024-11-06 15:40:22 | Simulation update: decoder round 1, completed instructions: 0/4001, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-06 15:40:32 | Simulation update: decoder round 56760, completed instructions: 772/4001, actively running or decoding instructions: 3, waiting windows: 3016/6005. Max active instruction index: 769
+2024-11-06 15:40:42 | Simulation update: decoder round 106503, completed instructions: 1448/4001, actively running or decoding instructions: 3, waiting windows: 5629/11231. Max active instruction index: 1445
+2024-11-06 15:40:52 | Simulation update: decoder round 150836, completed instructions: 2052/4001, actively running or decoding instructions: 2, waiting windows: 8003/15978. Max active instruction index: 2049
+2024-11-06 15:41:02 | Simulation update: decoder round 189894, completed instructions: 2592/4001, actively running or decoding instructions: 4, waiting windows: 10136/20245. Max active instruction index: 2596
+2024-11-06 15:41:12 | Simulation update: decoder round 226724, completed instructions: 3092/4001, actively running or decoding instructions: 3, waiting windows: 12148/24264. Max active instruction index: 3089
+2024-11-06 15:41:22 | Simulation update: decoder round 262735, completed instructions: 3584/4001, actively running or decoding instructions: 3, waiting windows: 14112/28191. Max active instruction index: 3581
+2024-11-06 15:41:30 | Finished simulation
+2024-11-06 15:41:31 | Finished saving output. Done! Total elapsed time: 0:01:10.030511

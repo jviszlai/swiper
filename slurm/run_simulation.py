@@ -12,6 +12,7 @@ if __name__ == '__main__':
 
     config_filename = args[1]
     output_dir = args[2]
+    max_job_time = dt.timedelta(seconds=int(args[3]))
     config_idx = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     start_time = dt.datetime.now()
@@ -65,6 +66,7 @@ if __name__ == '__main__':
         print_interval=dt.timedelta(seconds=10),
         lightweight_output=True,
         device_rounds_cutoff=500_000,
+        clock_timeout = max_job_time - dt.timedelta(minutes=5), # allow 5 mins for starting + finishing job
         rng=rng,
     )
 

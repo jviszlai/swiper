@@ -8,6 +8,14 @@ from functools import reduce
 
 if __name__ == '__main__':
     time = dt.datetime.now()
+    max_time = dt.timedelta(minutes=20)
+    if max_time.days > 0:
+        assert max_time.days == 1
+        max_time_str = f'1-{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
+    else:
+        max_time_str = f'{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
+
+    decoder_dist_source = 'benchmarks/data/decoder_dists_median.json'
 
     data_dir = f'slurm/data/{time.strftime("%Y%m%d_%H%M%S")}'
     config_filename = f'{data_dir}/config.json'
@@ -27,7 +35,7 @@ if __name__ == '__main__':
     benchmark_names = {}
     memory_settings = None
     for file in os.listdir('benchmarks/cached_schedules/'):
-        if file.endswith('.lss'):# and file in ['H2.lss', 'H2O.lss', 'LiH.lss', 'shor_15_4.lss']:
+        if file.endswith('.lss') and file in ['regular_t_1000_0.lss']:
             path = os.path.join('benchmarks/cached_schedules/', file)
             newpath = os.path.join(benchmark_dir, file)
             shutil.copyfile(path, newpath)
@@ -42,10 +50,10 @@ if __name__ == '__main__':
             print(f'WARNING: {name} not found in .memory_settings.json, using default 4GB...')
             memory_settings[name] = 4
 
-    shutil.copyfile('benchmarks/data/decoder_dists.json', decoder_dist_filename)
+    shutil.copyfile(decoder_dist_source, decoder_dist_filename)
 
     sweep_params = {
-        'distance':[13, 15, 17, 21, 23, 25],
+        'distance':[21],
         'speculation_latency':[1],
         'speculation_accuracy':[0.99],
         'speculation_mode':[None, 'separate'],
@@ -83,18 +91,23 @@ if __name__ == '__main__':
         configs_by_mem.setdefault(mem_gb, []).append(i)
 
     job_ids = []
+    submit_idx = 0
     for i,mem_gb in enumerate(sorted(configs_by_mem.keys())):
         config_indices = configs_by_mem[mem_gb]
-        sbatch_filename = os.path.join(sbatch_dir, f'submit_{i}.sbatch')
-        with open(sbatch_filename, 'w') as f:
-            f.write(f'''#!/bin/bash
+        num_submissions = math.ceil(len(config_indices) / 1000) # caslake submission limit
+        for j in range(num_submissions):
+            selected_config_indices = config_indices[j*1000:(j+1)*1000]
+            sbatch_filename = os.path.join(sbatch_dir, f'submit_{submit_idx}.sbatch')
+            submit_idx += 1
+            with open(sbatch_filename, 'w') as f:
+                f.write(f'''#!/bin/bash
 #SBATCH --job-name={time.strftime("%Y%m%d_%H%M%S")}
 #SBATCH --output={log_dir}/%a.out
 #SBATCH --error={log_dir}/%a.out
 #SBATCH --account=pi-ftchong
 #SBATCH --partition=caslake
 #SBATCH --array={','.join([str(x) for x in config_indices])}
-#SBATCH --time=12:00:00
+#SBATCH --time={max_time_str}
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu={mem_gb*1000}
 
@@ -102,21 +115,22 @@ module load python
 eval "$(conda shell.bash hook)"
 conda activate /project/ftchong/projects/envs/pySwiper/
 
-python slurm/run_simulation.py "{config_filename}" "{output_dir}"'''
-            )
+python slurm/run_simulation.py "{config_filename}" "{output_dir}" {int(max_time.total_seconds())}'''
+                )
 
-        p = subprocess.Popen(f'sbatch {sbatch_filename}', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        lines = list(p.stdout.readlines())
-        retval = p.wait()
-        if retval != 0:
-            print(lines)
-        job_ids.append(int(lines[-1].decode('utf-8').rstrip().split(' ')[-1]))
+            p = subprocess.Popen(f'sbatch {sbatch_filename}', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            lines = list(p.stdout.readlines())
+            retval = p.wait()
+            if retval != 0:
+                print(lines)
+            job_ids.append((int(lines[-1].decode('utf-8').rstrip().split(' ')[-1]), mem_gb))
 
     with open(metadata_filename, 'w') as f:
         f.write(f'Time: {time.strftime("%Y-%m-%d %H:%M:%S")}\n')
         f.write(f'Job IDs:\n')
-        for i,mem_gb in enumerate(sorted(configs_by_mem.keys())):
-            f.write(f'    submit_{i}.sbatch: {job_ids[i]}. {mem_gb}GB RAM, configs {configs_by_mem[mem_gb]}\n')
+        for i,(job_id, mem_gb) in enumerate(job_ids):
+            f.write(f'    submit_{i}.sbatch: {job_id}. {mem_gb}GB RAM, configs {configs_by_mem[mem_gb]}\n')
+        f.write(f'Max clock time: {max_time_str}\n')
         f.write(f'Total num. tasks: {total_num_configs}\n')
         f.write(f'Params:\n')
         for name,params in sweep_params.items():
