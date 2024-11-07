@@ -129,7 +129,7 @@ class DecodingSimulator:
                 ax = plotter.plot_device_schedule_trace(self._device_manager.get_data(), spacing=1, default_fig=fig)
                 ax.set_zticks([])
                 self.frame_data.append(ax)
-            if dt.datetime.now() > start_time + clock_timeout:
+            if clock_timeout is not None and dt.datetime.now() > start_time + clock_timeout:
                 self.failed = True
         
         if print_interval is not None:

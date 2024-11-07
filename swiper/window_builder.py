@@ -102,13 +102,20 @@ class DecodingWindow:
     window_idx: int
     constructed: bool
 
+    def commit_spacetime_volume(self) -> int:
+        """Calculate the spacetime volume of the commit region, in units of
+        rounds*d^2."""
+        return sum(region.duration for region in self.commit_region)
+    
+    def buffer_spacetime_volume(self) -> int:
+        """Calculate the spacetime volume of the buffer regions, in units of
+        rounds*d^2."""
+        return sum(region.duration for region in self.buffer_regions)
+
     def total_spacetime_volume(self) -> int:
         """Calculate the total spacetime volume of this window, in units of
         rounds*d^2."""
-        if isinstance(self.commit_region, SpacetimeRegion):
-            return self.commit_region.duration + sum(region.duration for region in self.buffer_regions)
-        else:
-            return sum(region.duration for region in self.commit_region) + sum(region.duration for region in self.buffer_regions)
+        return self.commit_spacetime_volume() + self.buffer_spacetime_volume()
 
     def shares_timelike_boundary(self, other: 'DecodingWindow') -> bool:
         for region in self.commit_region:

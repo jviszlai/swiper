@@ -27,7 +27,7 @@ from pyLIQTR.utils.printing                 import openqasm
 from pyLIQTR.pest_interface.pest_python import pw_to_dpw_cutoff
 
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
-from swiper.schedule_experiments import RegularTSchedule, MSD15To1Schedule, MemorySchedule
+from swiper.schedule_experiments import RegularTSchedule, MSD15To1Schedule, MemorySchedule, RandomTSchedule
 from benchmarks.cirq_to_ls import cirq_to_ls
 
 def _decompose_circuit(circuit) -> cirq.Circuit:
@@ -217,6 +217,20 @@ class RegularT(Benchmark):
     def name(self) -> str:
         return f"regular_t_{self.num_ts}_{self.idle_between_ts}"
     
+class RandomT(Benchmark):
+        
+    def __init__(self, num_ts: int, max_idle_between_ts: int, seed: int) -> None:
+        self.num_ts = num_ts
+        self.max_idle_between_ts = max_idle_between_ts
+        self.seed = seed
+        self.schedule = RandomTSchedule(num_ts, max_idle_between_ts, rng=seed).schedule
+
+    def get_schedule(self) -> LatticeSurgerySchedule:
+        return self.schedule
+    
+    def name(self) -> str:
+        return f"random_t_{self.num_ts}_{self.max_idle_between_ts}_{self.seed}"
+
 class Memory(Benchmark):
     
         def __init__(self, rounds: int = 10000) -> None:

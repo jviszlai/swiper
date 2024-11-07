@@ -98,17 +98,20 @@ class RandomTSchedule:
     of idle rounds between each T gate. Alternates T state creation between two
     adjacent patches.
     """
-    def __init__(self, num_Ts: int, max_idle_between_Ts: int):
+    def __init__(self, num_Ts: int, max_idle_between_Ts: int, rng: np.random.Generator | int = np.random.default_rng()):
         """Builds the schedule.
         
         Args:
             num_Ts: Number of T gates to inject.
             max_idle_between_Ts: Maximum number of idle rounds between each T gate.
         """
+        if isinstance(rng, int):
+            rng = np.random.default_rng(rng)
+
         schedule = LatticeSurgerySchedule()
         prev_injection_flag = False
         for i in range(num_Ts):
-            schedule.idle([(0,0)], np.random.randint(1, max_idle_between_Ts))
+            schedule.idle([(0,0)], rng.integers(0, max_idle_between_Ts+1))
 
             injection_patch = (0,1) if prev_injection_flag else (1,0)
             schedule.inject_T([injection_patch])

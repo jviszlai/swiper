@@ -485,11 +485,58 @@ class ParallelWindowManager(WindowManager):
             self.window_dag.add_node(window_idx)
             self.window_construction_wait.add(window_idx)
 
+    def _choose_layer(self, window_idx: int, possible_layers: list[int], tolerable_resulting_sizes: dict[int, int]) -> int:
+        """Choose a layer to assign to a new window (which will result in it
+        being merged with neighbors of the same layer) by calculating the
+        expected size of the resulting merged window. 
+        
+        Will prefer adding to existing windows instead of inserting into a new
+        layer if the resulting window is below the tolerable size for that
+        layer. Assumes that first layer in list is default layer, if none are
+        preferred.
+
+        Args:
+            window_idx: Index of the new window
+            possible_layers: List of layer indices to consider. The first is
+                treated as the default.
+            tolerable_resulting_sizes: Dictionary of tolerable commit region
+                sizes for each layer. If the resulting window is below this
+                size, it will be added to the layer with the smallest size.
+        """
+        window = self._get_window(window_idx)
+        layer_sizes = {layer: 0 for layer in possible_layers}
+        for idx in self._get_touching_unconstructed_window_indices(window):
+            for layer in possible_layers:
+                if idx in self.layer_indices[layer]:
+                    layer_sizes[layer] += self._get_window(idx).commit_spacetime_volume()
+                    break
+        if not any(layer_sizes.values()):
+            return possible_layers[0]
+        elif any(0 < size < tolerable_resulting_sizes[layer] for layer,size in layer_sizes.items()):
+            # Prefer adding to existing windows if the resulting window is
+            # below the tolerable size for that layer
+            return min({layer:size for layer,size in layer_sizes.items() if 0 < size < tolerable_resulting_sizes[layer]}, key=lambda k: layer_sizes[k], default=possible_layers[0])
+        else:
+            return min(layer_sizes, key=lambda k: layer_sizes[k], default=possible_layers[0])
+
     def _assign_window_layers(self, new_commits: list[DecodingWindow]) -> None:
         """Process new commits, deciding on their window layer based on previous
         temporally-connected windows.
         """
-        for window in new_commits:
+        new_commits_to_process = new_commits.copy()
+        # sort so that we process windows with history first
+        def has_history(window):
+            patch = window.commit_region[0].patch
+            prev_window_end = window.commit_region[0].round_start
+            if (patch, prev_window_end) in self.window_end_lookup:
+                prev_window_idx, cr_idx = self.window_end_lookup[(patch, prev_window_end)]
+                prev_window = self._get_window(prev_window_idx)
+                prev_commit = prev_window.commit_region[cr_idx]
+                return not prev_commit.discard_after
+            return False
+        new_commits_to_process.sort(key=lambda window: has_history(window), reverse=True)
+
+        for window in new_commits_to_process:
             assert len(window.commit_region) == 1 # all new windows are single commit regions
             window_idx = self._unconstructed_window_indices[window]
             patch = window.commit_region[0].patch
@@ -500,10 +547,7 @@ class ParallelWindowManager(WindowManager):
                 prev_commit = prev_window.commit_region[cr_idx]
                 if prev_commit.discard_after:
                     # No previous window to merge with; this will be a source
-                    if any(idx in self.layer_indices[1] for idx in self._get_touching_unconstructed_window_indices(window)):
-                        self.layer_indices[0].add(window_idx)
-                    else:
-                        self.layer_indices[1].add(window_idx)
+                    self.layer_indices[self._choose_layer(window_idx, [1,0], {0:3, 1:1})].add(window_idx)
                 elif prev_window_idx in self.layer_indices[2]:
                     if len(prev_window.commit_region) < 3:
                         # Merge with prev sink and remove from all_windows
@@ -518,7 +562,7 @@ class ParallelWindowManager(WindowManager):
                         # Mark prev window as constructed
                         assert not prev_window.constructed
                         self._append_to_buffers(window, prev_commit)
-                        self.window_dag.add_edge(window_idx, prev_window_idx)
+                        # self.window_dag.add_edge(window_idx, prev_window_idx)
                 else:
                     # This will be a sink; add buffer to prev source and
                     # mark as complete
@@ -526,21 +570,11 @@ class ParallelWindowManager(WindowManager):
                     assert not prev_window.constructed
                     self.layer_indices[2].add(window_idx)
                     prev_window = self._append_to_buffers(prev_window, window.commit_region[0])
-                    self.window_dag.add_edge(prev_window_idx, window_idx)
+                    # self.window_dag.add_edge(prev_window_idx, window_idx)
             else:
                 # No previous window to merge with; this will be a source
                 # Decide layer based on size of touching windows
-                total_layer0_size = 0
-                total_layer1_size = 0
-                for idx in self._get_touching_unconstructed_window_indices(window):
-                    if idx in self.layer_indices[0]:
-                        total_layer0_size += self._get_window(idx).total_spacetime_volume()
-                    elif idx in self.layer_indices[1]:
-                        total_layer1_size += self._get_window(idx).total_spacetime_volume()
-                if total_layer0_size < total_layer1_size:
-                    self.layer_indices[0].add(window_idx)
-                else:
-                    self.layer_indices[1].add(window_idx)
+                self.layer_indices[self._choose_layer(window_idx, [1,0], {0:3, 1:1})].add(window_idx)
 
     def _merge_adjacent_windows(self) -> None:
         # Naive approach to resolve conflicts: merge any adjacent sinks or
@@ -646,9 +680,21 @@ class TAlignedWindowManager(ParallelWindowManager):
 
     def _assign_window_layers(self, new_commits: list[DecodingWindow]) -> None:
         # Process buffers in time (windows covering same patch)
-        # Make soft decisions to assign each window as a source or sink. May
-        # merge some new windows with existing windows, or with each other.
-        for window in new_commits:
+
+        new_commits_to_process = new_commits.copy()
+        # sort so that we process windows with history first
+        def has_history(window):
+            patch = window.commit_region[0].patch
+            prev_window_end = window.commit_region[0].round_start
+            if (patch, prev_window_end) in self.window_end_lookup:
+                prev_window_idx, cr_idx = self.window_end_lookup[(patch, prev_window_end)]
+                prev_window = self._get_window(prev_window_idx)
+                prev_commit = prev_window.commit_region[cr_idx]
+                return not prev_commit.discard_after
+            return False
+        new_commits_to_process.sort(key=lambda window: has_history(window), reverse=True)
+
+        for window in new_commits_to_process:
             assert len(window.commit_region) == 1 # all new windows are single commit regions
             window_idx = self._unconstructed_window_indices[window]
             patch = window.commit_region[0].patch
@@ -660,17 +706,15 @@ class TAlignedWindowManager(ParallelWindowManager):
                 if prev_commit.discard_after:
                     # No previous window to merge with; this will be a source
                     if self._is_blocking_window(window):
-                        self.layer_indices[2].add(window_idx)
-                    elif any(idx in self.layer_indices[1] for idx in self._get_touching_unconstructed_window_indices(window)):
-                        self.layer_indices[0].add(window_idx)
+                        self.layer_indices[self._choose_layer(window_idx, [3,2], {3:1, 2:3})].add(window_idx)
                     else:
-                        self.layer_indices[1].add(window_idx)
+                        self.layer_indices[self._choose_layer(window_idx, [1,0], {1:1, 0:3})].add(window_idx)
                 elif prev_window_idx in self.layer_indices[4]:
                     if self._is_blocking_window(window):
-                        self.layer_indices[2].add(window_idx)
+                        self.layer_indices[3].add(window_idx)
                         assert not prev_window.constructed
                         self._append_to_buffers(window, prev_commit)
-                        self.window_dag.add_edge(window_idx, prev_window_idx)
+                        # self.window_dag.add_edge(window_idx, prev_window_idx)
                     elif len(prev_window.commit_region) < 3:
                         # Merge with prev sink and remove from all_windows
                         assert not prev_window.constructed
@@ -690,37 +734,17 @@ class TAlignedWindowManager(ParallelWindowManager):
                     assert not prev_window.constructed
                     if self._is_blocking_window(window):
                         assert self._get_layer_idx(prev_window_idx) in [0,1]
-                        self.layer_indices[2].add(window_idx)
+                        self.layer_indices[3].add(window_idx)
                         prev_window = self._append_to_buffers(prev_window, window.commit_region[0])
-                        self.window_dag.add_edge(prev_window_idx, window_idx)
+                        # self.window_dag.add_edge(prev_window_idx, window_idx)
                     else:
                         assert self._get_layer_idx(prev_window_idx) in [0,1,2,3]
                         self.layer_indices[4].add(window_idx)
                         prev_window = self._append_to_buffers(prev_window, window.commit_region[0])
-                        self.window_dag.add_edge(prev_window_idx, window_idx)
+                        # self.window_dag.add_edge(prev_window_idx, window_idx)
             else:
                 # No previous window to merge with; this will be a source
                 if self._is_blocking_window(window):
-                    total_layer2_size = 0
-                    total_layer3_size = 0
-                    for idx in self._get_touching_unconstructed_window_indices(window):
-                        if idx in self.layer_indices[2]:
-                            total_layer2_size += self._get_window(idx).total_spacetime_volume()
-                        elif idx in self.layer_indices[3]:
-                            total_layer3_size += self._get_window(idx).total_spacetime_volume()
-                    if (total_layer3_size == 0 and total_layer2_size < 2) or (total_layer2_size < total_layer3_size):
-                        self.layer_indices[2].add(window_idx)
-                    else:
-                        self.layer_indices[3].add(window_idx)
+                    self.layer_indices[self._choose_layer(window_idx, [3,2], {3:1, 2:3})].add(window_idx)
                 else:
-                    total_layer0_size = 0
-                    total_layer1_size = 0
-                    for idx in self._get_touching_unconstructed_window_indices(window):
-                        if idx in self.layer_indices[0]:
-                            total_layer0_size += self._get_window(idx).total_spacetime_volume()
-                        elif idx in self.layer_indices[1]:
-                            total_layer1_size += self._get_window(idx).total_spacetime_volume()
-                    if total_layer0_size < total_layer1_size:
-                        self.layer_indices[0].add(window_idx)
-                    else:
-                        self.layer_indices[1].add(window_idx)
+                    self.layer_indices[self._choose_layer(window_idx, [1,0], {1:1, 0:3})].add(window_idx)
