@@ -30,27 +30,39 @@ if __name__ == '__main__':
     os.makedirs(log_dir)
     os.makedirs(benchmark_dir)
 
+    # copy files to data dir to preserve them
+    shutil.copyfile(decoder_dist_source, decoder_dist_filename)
+    shutil.copyfile('slurm/submit_jobs.py', f'{data_dir}/submit_jobs.py')
+    shutil.copyfile('slurm/run_simulation.py', f'{data_dir}/run_simulation.py')
+
     # Can make a chosen smaller list of these instead
     benchmark_files = []
     benchmark_names = {}
     memory_settings = None
     for file in os.listdir('benchmarks/cached_schedules/'):
-        if file.endswith('.lss') and file in ['regular_t_1000_0.lss']:
+        if False:
             path = os.path.join('benchmarks/cached_schedules/', file)
             newpath = os.path.join(benchmark_dir, file)
+            # copy files to data dir to preserve them
             shutil.copyfile(path, newpath)
             benchmark_files.append(newpath)
             benchmark_names[newpath] = file.split('.')[0]
         elif file == '.memory_settings.json':
             memory_settings = json.load(open(os.path.join('benchmarks/cached_schedules/', file), 'r'))
     assert memory_settings is not None
+    for file in os.listdir('benchmarks/cached_schedules/random_t'):
+        if file.endswith('.lss'):
+            path = os.path.join('benchmarks/cached_schedules/random_t', file)
+            newpath = os.path.join(benchmark_dir, file)
+            # copy files to data dir to preserve them
+            shutil.copyfile(path, newpath)
+            benchmark_files.append(newpath)
+            benchmark_names[newpath] = file.split('.')[0]
 
     for name in set(benchmark_names.values()):
         if name not in memory_settings:
             print(f'WARNING: {name} not found in .memory_settings.json, using default 4GB...')
             memory_settings[name] = 4
-
-    shutil.copyfile(decoder_dist_source, decoder_dist_filename)
 
     sweep_params = {
         'distance':[21],
@@ -66,6 +78,11 @@ if __name__ == '__main__':
     ordered_param_names = list(sorted(sweep_params.keys()))
     total_num_configs = reduce(lambda x,y: x*y, [len(params) for params in sweep_params.values()])
 
+    # can define this to only allow through certain combinations of params
+    def config_filter(cfg):
+        # check for same random seed between benchmark and 
+        return int(cfg['benchmark_file'].split('_')[-1].split('.')[0]) == cfg['rng']
+
     # Write config file (each Python job will read params from this)
     configs = []
     cur_indices = [0 for _ in ordered_param_names]
@@ -80,7 +97,8 @@ if __name__ == '__main__':
             if cur_indices[i] >= len(sweep_params[name]):
                 cur_indices[i] = 0
                 rolled_over[i] = True
-        configs.append(config)
+        if config_filter(config):
+            configs.append(config)
     with open(config_filename, 'w') as f:
         json.dump(configs, f)
 

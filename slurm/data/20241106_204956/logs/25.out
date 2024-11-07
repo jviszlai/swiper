@@ -1,0 +1,21 @@
+CONFIG 25
+benchmark_file: slurm/data/20241106_204956/benchmarks/random_t_1000_42_5.lss
+decoder_latency_or_dist_filename: slurm/data/20241106_204956/decoder_dists_nd.json
+distance: 21
+max_parallel_processes: None
+rng: 5
+scheduling_method: parallel
+speculation_accuracy: 0.99
+speculation_latency: 1
+speculation_mode: None
+2024-11-06 20:50:11 | Loading benchmark slurm/data/20241106_204956/benchmarks/random_t_1000_42_5.lss...
+2024-11-06 20:50:11 | Starting simulation
+2024-11-06 20:50:11 | Simulation update: decoder round 1, completed instructions: 0/4971, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-06 20:50:21 | Simulation update: decoder round 65618, completed instructions: 775/4971, actively running or decoding instructions: 4, waiting windows: 2202/4464. Max active instruction index: 772
+2024-11-06 20:50:31 | Simulation update: decoder round 130232, completed instructions: 1528/4971, actively running or decoding instructions: 3, waiting windows: 4365/8857. Max active instruction index: 1526
+2024-11-06 20:50:41 | Simulation update: decoder round 193241, completed instructions: 2283/4971, actively running or decoding instructions: 3, waiting windows: 6492/13166. Max active instruction index: 2281
+2024-11-06 20:50:51 | Simulation update: decoder round 257362, completed instructions: 3047/4971, actively running or decoding instructions: 3, waiting windows: 8662/17571. Max active instruction index: 3044
+2024-11-06 20:51:01 | Simulation update: decoder round 320913, completed instructions: 3813/4971, actively running or decoding instructions: 4, waiting windows: 10744/21799. Max active instruction index: 3810
+2024-11-06 20:51:11 | Simulation update: decoder round 381773, completed instructions: 4541/4971, actively running or decoding instructions: 2, waiting windows: 12816/26015. Max active instruction index: 4538
+2024-11-06 20:51:17 | Finished simulation
+2024-11-06 20:51:18 | Finished saving output. Done! Total elapsed time: 0:01:07.294431

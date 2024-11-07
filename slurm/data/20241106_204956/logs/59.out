@@ -1,0 +1,21 @@
+CONFIG 59
+benchmark_file: slurm/data/20241106_204956/benchmarks/random_t_1000_42_19.lss
+decoder_latency_or_dist_filename: slurm/data/20241106_204956/decoder_dists_nd.json
+distance: 21
+max_parallel_processes: None
+rng: 19
+scheduling_method: aligned
+speculation_accuracy: 0.99
+speculation_latency: 1
+speculation_mode: None
+2024-11-06 20:50:11 | Loading benchmark slurm/data/20241106_204956/benchmarks/random_t_1000_42_19.lss...
+2024-11-06 20:50:11 | Starting simulation
+2024-11-06 20:50:11 | Simulation update: decoder round 1, completed instructions: 0/4984, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-06 20:50:21 | Simulation update: decoder round 64604, completed instructions: 803/4984, actively running or decoding instructions: 3, waiting windows: 2019/4251. Max active instruction index: 801
+2024-11-06 20:50:31 | Simulation update: decoder round 128874, completed instructions: 1596/4984, actively running or decoding instructions: 3, waiting windows: 4042/8540. Max active instruction index: 1593
+2024-11-06 20:50:41 | Simulation update: decoder round 191333, completed instructions: 2347/4984, actively running or decoding instructions: 4, waiting windows: 6024/12732. Max active instruction index: 2344
+2024-11-06 20:50:51 | Simulation update: decoder round 255329, completed instructions: 3122/4984, actively running or decoding instructions: 3, waiting windows: 7997/16907. Max active instruction index: 3119
+2024-11-06 20:51:01 | Simulation update: decoder round 318686, completed instructions: 3911/4984, actively running or decoding instructions: 4, waiting windows: 9954/21081. Max active instruction index: 3909
+2024-11-06 20:51:11 | Simulation update: decoder round 381622, completed instructions: 4673/4984, actively running or decoding instructions: 4, waiting windows: 11923/25256. Max active instruction index: 4670
+2024-11-06 20:51:15 | Finished simulation
+2024-11-06 20:51:17 | Finished saving output. Done! Total elapsed time: 0:01:06.085383
