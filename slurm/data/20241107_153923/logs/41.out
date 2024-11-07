@@ -1,0 +1,21 @@
+CONFIG 41
+benchmark_file: slurm/data/20241107_153923/benchmarks/random_t_1000_42_1.lss
+decoder_latency_or_dist_filename: slurm/data/20241107_153923/decoder_dists.json
+distance: 21
+max_parallel_processes: None
+rng: 1
+scheduling_method: aligned
+speculation_accuracy: 0.99
+speculation_latency: 1
+speculation_mode: None
+2024-11-07 15:39:37 | Loading benchmark slurm/data/20241107_153923/benchmarks/random_t_1000_42_1.lss...
+2024-11-07 15:39:37 | Starting simulation
+2024-11-07 15:39:37 | Simulation update: decoder round 1, completed instructions: 0/4982, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 1
+2024-11-07 15:39:47 | Simulation update: decoder round 59698, completed instructions: 834/4982, actively running or decoding instructions: 3, waiting windows: 1826/3899. Max active instruction index: 833
+2024-11-07 15:39:57 | Simulation update: decoder round 117009, completed instructions: 1625/4982, actively running or decoding instructions: 3, waiting windows: 3648/7802. Max active instruction index: 1623
+2024-11-07 15:40:07 | Simulation update: decoder round 173886, completed instructions: 2410/4982, actively running or decoding instructions: 4, waiting windows: 5433/11611. Max active instruction index: 2407
+2024-11-07 15:40:17 | Simulation update: decoder round 230446, completed instructions: 3193/4982, actively running or decoding instructions: 4, waiting windows: 7281/15558. Max active instruction index: 3192
+2024-11-07 15:40:27 | Simulation update: decoder round 286701, completed instructions: 3965/4982, actively running or decoding instructions: 4, waiting windows: 9085/19422. Max active instruction index: 3963
+2024-11-07 15:40:37 | Simulation update: decoder round 343676, completed instructions: 4772/4982, actively running or decoding instructions: 4, waiting windows: 10826/23177. Max active instruction index: 4770
+2024-11-07 15:40:40 | Finished simulation
+2024-11-07 15:40:41 | Finished saving output. Done! Total elapsed time: 0:01:04.444009

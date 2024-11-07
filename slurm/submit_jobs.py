@@ -15,7 +15,7 @@ if __name__ == '__main__':
     else:
         max_time_str = f'{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
 
-    decoder_dist_source = 'benchmarks/data/decoder_dists_nd.json'
+    decoder_dist_source = 'benchmarks/data/decoder_dists.json'
 
     data_dir = f'slurm/data/{time.strftime("%Y%m%d_%H%M%S")}'
     config_filename = f'{data_dir}/config.json'
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     output_dir = f'{data_dir}/output'
     log_dir = f'{data_dir}/logs'
     benchmark_dir = f'{data_dir}/benchmarks'
-    decoder_dist_filename = f'{data_dir}/decoder_dists_nd.json'
+    decoder_dist_filename = f'{data_dir}/{decoder_dist_source.split("/")[-1]}'
     metadata_filename = f'{data_dir}/metadata.txt'
     os.makedirs(sbatch_dir)
     os.makedirs(output_dir)

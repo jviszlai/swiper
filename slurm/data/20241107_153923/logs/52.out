@@ -1,0 +1,21 @@
+CONFIG 52
+benchmark_file: slurm/data/20241107_153923/benchmarks/random_t_1000_42_12.lss
+decoder_latency_or_dist_filename: slurm/data/20241107_153923/decoder_dists.json
+distance: 21
+max_parallel_processes: None
+rng: 12
+scheduling_method: aligned
+speculation_accuracy: 0.99
+speculation_latency: 1
+speculation_mode: None
+2024-11-07 15:39:37 | Loading benchmark slurm/data/20241107_153923/benchmarks/random_t_1000_42_12.lss...
+2024-11-07 15:39:37 | Starting simulation
+2024-11-07 15:39:37 | Simulation update: decoder round 1, completed instructions: 0/4979, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-07 15:39:47 | Simulation update: decoder round 59800, completed instructions: 842/4979, actively running or decoding instructions: 4, waiting windows: 1819/3911. Max active instruction index: 839
+2024-11-07 15:39:57 | Simulation update: decoder round 117279, completed instructions: 1628/4979, actively running or decoding instructions: 3, waiting windows: 3642/7800. Max active instruction index: 1625
+2024-11-07 15:40:07 | Simulation update: decoder round 174068, completed instructions: 2404/4979, actively running or decoding instructions: 2, waiting windows: 5470/11703. Max active instruction index: 2401
+2024-11-07 15:40:17 | Simulation update: decoder round 232199, completed instructions: 3200/4979, actively running or decoding instructions: 3, waiting windows: 7264/15554. Max active instruction index: 3198
+2024-11-07 15:40:27 | Simulation update: decoder round 289775, completed instructions: 3993/4979, actively running or decoding instructions: 3, waiting windows: 9069/19433. Max active instruction index: 3991
+2024-11-07 15:40:37 | Simulation update: decoder round 343304, completed instructions: 4733/4979, actively running or decoding instructions: 4, waiting windows: 10823/23176. Max active instruction index: 4731
+2024-11-07 15:40:41 | Finished simulation
+2024-11-07 15:40:42 | Finished saving output. Done! Total elapsed time: 0:01:04.957082
