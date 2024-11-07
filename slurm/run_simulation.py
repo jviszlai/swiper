@@ -32,18 +32,22 @@ if __name__ == '__main__':
     speculation_latency = params['speculation_latency']
     speculation_mode = params['speculation_mode']
     benchmark_file = params['benchmark_file']
-    decoder_dist_filename = params['decoder_dist_filename']
+    decoder_latency_or_dist_filename = params['decoder_latency_or_dist_filename']
     rng = params['rng']
 
     generator = np.random.default_rng(rng)
 
     # decoder_dists[str(d)][str(volume)] = 10,000 sampled latencies, in microseconds
-    decoder_dists = json.load(open(decoder_dist_filename, 'r'))
-    decoder_dist = {}
-    for dist_str, dist_dict in decoder_dists.items():
-        if int(dist_str) == distance:
-            decoder_dist = {int(k):v for k,v in dist_dict.items()}
-    decoding_latency_fn = lambda volume: generator.choice(decoder_dist[max(2, math.ceil(volume / distance))])
+    if decoder_latency_or_dist_filename.endswith('.json'):
+        decoder_dists = json.load(open(decoder_latency_or_dist_filename, 'r'))
+        decoder_dist = {}
+        for dist_str, dist_dict in decoder_dists.items():
+            if int(dist_str) == distance:
+                decoder_dist = {int(k):v for k,v in dist_dict.items()}
+        decoding_latency_fn = lambda volume: generator.choice(decoder_dist[max(2, math.ceil(volume / distance))])
+    else:
+        decoding_latency = int(decoder_latency_or_dist_filename)
+        decoding_latency_fn = lambda _: decoding_latency
 
     print(f'{start_time.strftime("%Y-%m-%d %H:%M:%S")} | Loading benchmark {benchmark_file}...')
     sys.stdout.flush()
@@ -72,6 +76,7 @@ if __name__ == '__main__':
 
     with open(os.path.join(output_dir, f'config{config_idx}_d{distance}_{scheduling_method}_{speculation_mode}_{benchmark_file.split("/")[-1].split('.')[0]}_{rng}.json'), 'w') as f:
         json.dump({
+                'params':params,
                 'success':success,
                 'device_data':device_data.to_dict(),
                 'window_data':window_data.to_dict(),

@@ -1,0 +1,21 @@
+CONFIG 97
+benchmark_file: slurm/data/20241106_191145/benchmarks/regular_t_1000_0.lss
+decoder_latency_or_dist_filename: slurm/data/20241106_191145/decoder_dists_nd.json
+distance: 21
+max_parallel_processes: None
+rng: 17
+scheduling_method: parallel
+speculation_accuracy: 0.99
+speculation_latency: 1
+speculation_mode: separate
+2024-11-06 19:11:59 | Loading benchmark slurm/data/20241106_191145/benchmarks/regular_t_1000_0.lss...
+2024-11-06 19:11:59 | Starting simulation
+2024-11-06 19:12:00 | Simulation update: decoder round 1, completed instructions: 0/4001, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-06 19:12:10 | Simulation update: decoder round 54505, completed instructions: 749/4001, actively running or decoding instructions: 3, waiting windows: 3009/5997. Max active instruction index: 745
+2024-11-06 19:12:20 | Simulation update: decoder round 101306, completed instructions: 1393/4001, actively running or decoding instructions: 3, waiting windows: 5613/11213. Max active instruction index: 1389
+2024-11-06 19:12:30 | Simulation update: decoder round 144103, completed instructions: 1973/4001, actively running or decoding instructions: 3, waiting windows: 7933/15842. Max active instruction index: 1969
+2024-11-06 19:12:40 | Simulation update: decoder round 184083, completed instructions: 2520/4001, actively running or decoding instructions: 2, waiting windows: 10092/20170. Max active instruction index: 2517
+2024-11-06 19:12:50 | Simulation update: decoder round 221602, completed instructions: 3036/4001, actively running or decoding instructions: 3, waiting windows: 12140/24264. Max active instruction index: 3033
+2024-11-06 19:13:00 | Simulation update: decoder round 257033, completed instructions: 3524/4001, actively running or decoding instructions: 3, waiting windows: 14118/28225. Max active instruction index: 3521
+2024-11-06 19:13:09 | Finished simulation
+2024-11-06 19:13:11 | Finished saving output. Done! Total elapsed time: 0:01:11.303340

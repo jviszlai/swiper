@@ -1,0 +1,21 @@
+CONFIG 115
+benchmark_file: slurm/data/20241106_191145/benchmarks/regular_t_1000_0.lss
+decoder_latency_or_dist_filename: slurm/data/20241106_191145/decoder_dists_nd.json
+distance: 21
+max_parallel_processes: None
+rng: 15
+scheduling_method: aligned
+speculation_accuracy: 0.99
+speculation_latency: 1
+speculation_mode: separate
+2024-11-06 19:12:00 | Loading benchmark slurm/data/20241106_191145/benchmarks/regular_t_1000_0.lss...
+2024-11-06 19:12:00 | Starting simulation
+2024-11-06 19:12:00 | Simulation update: decoder round 1, completed instructions: 0/4001, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-06 19:12:10 | Simulation update: decoder round 54822, completed instructions: 772/4001, actively running or decoding instructions: 2, waiting windows: 2787/5933. Max active instruction index: 771
+2024-11-06 19:12:20 | Simulation update: decoder round 102855, completed instructions: 1444/4001, actively running or decoding instructions: 2, waiting windows: 5201/11088. Max active instruction index: 1441
+2024-11-06 19:12:30 | Simulation update: decoder round 146172, completed instructions: 2052/4001, actively running or decoding instructions: 2, waiting windows: 7414/15803. Max active instruction index: 2049
+2024-11-06 19:12:40 | Simulation update: decoder round 183489, completed instructions: 2577/4001, actively running or decoding instructions: 3, waiting windows: 9364/19968. Max active instruction index: 2573
+2024-11-06 19:12:50 | Simulation update: decoder round 220099, completed instructions: 3092/4001, actively running or decoding instructions: 3, waiting windows: 11244/23992. Max active instruction index: 3089
+2024-11-06 19:13:00 | Simulation update: decoder round 255652, completed instructions: 3592/4001, actively running or decoding instructions: 3, waiting windows: 13052/27855. Max active instruction index: 3589
+2024-11-06 19:13:09 | Finished simulation
+2024-11-06 19:13:10 | Finished saving output. Done! Total elapsed time: 0:01:10.191937

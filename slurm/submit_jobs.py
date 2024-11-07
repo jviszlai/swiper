@@ -8,7 +8,7 @@ from functools import reduce
 
 if __name__ == '__main__':
     time = dt.datetime.now()
-    max_time = dt.timedelta(minutes=20)
+    max_time = dt.timedelta(hours=1)
     if max_time.days > 0:
         assert max_time.days == 1
         max_time_str = f'1-{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     output_dir = f'{data_dir}/output'
     log_dir = f'{data_dir}/logs'
     benchmark_dir = f'{data_dir}/benchmarks'
-    decoder_dist_filename = f'{data_dir}/decoder_dists.json'
+    decoder_dist_filename = f'{data_dir}/decoder_dists_nd.json'
     metadata_filename = f'{data_dir}/metadata.txt'
     os.makedirs(sbatch_dir)
     os.makedirs(output_dir)
@@ -60,8 +60,8 @@ if __name__ == '__main__':
         'scheduling_method':['sliding', 'parallel', 'aligned'],
         'max_parallel_processes':[None],
         'benchmark_file':benchmark_files,
-        'decoder_dist_filename':[decoder_dist_filename],
-        'rng':[0],
+        'decoder_latency_or_dist_filename':[decoder_dist_filename],
+        'rng':list(range(20)),
     }
     ordered_param_names = list(sorted(sweep_params.keys()))
     total_num_configs = reduce(lambda x,y: x*y, [len(params) for params in sweep_params.values()])
