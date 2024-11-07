@@ -149,7 +149,7 @@ python slurm/run_simulation.py "{config_filename}" "{output_dir}" {int(max_time.
         for i,(job_id, mem_gb) in enumerate(job_ids):
             f.write(f'    submit_{i}.sbatch: {job_id}. {mem_gb}GB RAM, configs {configs_by_mem[mem_gb]}\n')
         f.write(f'Max clock time: {max_time_str}\n')
-        f.write(f'Total num. tasks: {len(configs)}\n')
+        f.write(f'Total num. tasks: {total_num_configs}\n')
         f.write(f'Params:\n')
         for name,params in sweep_params.items():
             f.write(f'    {name}: {params}\n')
