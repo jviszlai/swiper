@@ -266,22 +266,6 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
 
     assert num_rounds_integrated == num_rounds_separate
 
-# def test_qrom():
-#     qrom15 = QROM_Schedule([np.arange(15)], 15, 15)
-#     d=7
-#     decoding_time = 2*d
-#     speculation_time = 0
-#     speculation_accuracy = 0.7
-
-#     simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='integrated')
-    
-#     success, device_data, window_data, decoding_data = simulator.run(
-#         schedule=qrom15.schedule,
-#         scheduling_method='sliding',
-#         enforce_window_alignment=False,
-#         max_parallel_processes=None,
-#     )
-
 def test_lightweight_output():
     d=7
     decoding_time = 14
@@ -315,8 +299,18 @@ def test_lightweight_output():
             lightweight_setting=2,
         )
 
+        # success, device_data_3, window_data_3, decoding_data_3 = simulator.run(
+        #     schedule=schedule,
+        #     scheduling_method=scheduling_method,
+        #     max_parallel_processes=None,
+        #     rng=0,
+        #     lightweight_setting=3,
+        # )
+
         assert device_data_0.num_rounds == device_data_1.num_rounds == device_data_2.num_rounds
         assert decoding_data_0.num_rounds == decoding_data_1.num_rounds == decoding_data_2.num_rounds
+        assert np.isclose(np.mean(list(device_data_0.conditioned_decode_wait_times.values())), np.mean(list(device_data_1.conditioned_decode_wait_times.values()))), (np.mean(list(device_data_0.conditioned_decode_wait_times.values())), np.mean(list(device_data_1.conditioned_decode_wait_times.values())))
+        assert np.isclose(np.mean(list(device_data_0.conditioned_decode_wait_times.values())), device_data_2.avg_conditioned_decode_wait_time)
 
 if __name__ == '__main__':
     import os

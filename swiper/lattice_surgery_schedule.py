@@ -29,6 +29,17 @@ class Duration(Enum):
         else:
             raise ValueError(f'Invalid duration string: {s}')
 
+    @staticmethod
+    def get_true_duration(duration: 'Duration | int', distance: int):
+        if isinstance(duration, Duration):
+            if duration == Duration.D:
+                return distance
+            elif duration == Duration.HALF_D:
+                return distance // 2
+            elif duration == Duration.HALF_D_PLUS_2:
+                return distance // 2 + 2
+        return duration
+
 @dataclass(frozen=True)
 class Instruction:
     name: str
@@ -71,6 +82,9 @@ class Instruction:
             conditional_completion_dependencies=frozenset(eval(s[7])),
             merge_faces=frozenset(eval(s[8])),
         )
+    
+    def spacetime_volume(self, distance: int) -> int:
+        return len(self.patches) * Duration.get_true_duration(self.duration, distance)
 
 class LatticeSurgerySchedule:
     """Represents a planned series of lattice surgery operations."""
@@ -293,15 +307,18 @@ class LatticeSurgerySchedule:
         """
         if distance is None:
             return duration
-        if isinstance(duration, Duration):
-            if duration == Duration.D:
-                return distance
-            elif duration == Duration.HALF_D:
-                return distance // 2
-            elif duration == Duration.HALF_D_PLUS_2:
-                return distance // 2 + 2
-        return duration
+        else:
+            return Duration.get_true_duration(duration, distance)
     
+    def count_instructions(self, name: str):
+        return sum(instr.name == name for instr in self._all_instructions)
+    
+    def total_space_footprint(self):
+        return len(set(patch for instr in self._all_instructions for patch in instr.patches))
+
+    def total_instruction_volume(self, distance: int, name: str | None = None):
+        return sum(instr.spacetime_volume(distance) for instr in self._all_instructions if name is None or instr.name == name)
+
     def _add_instruction(self, instruction: Instruction):
         idx = len(self._all_instructions)
         self._all_instructions.append(instruction)

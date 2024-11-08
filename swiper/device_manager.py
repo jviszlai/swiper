@@ -81,7 +81,7 @@ class DeviceManager:
         if isinstance(rng, int):
             rng = np.random.default_rng(rng)
 
-        self._instruction_durations: list[int] = [self.schedule.get_true_duration(instr.instruction.duration, self.d_t) for instr in self.schedule_instructions]
+        self._instruction_durations: list[int] = [Duration.get_true_duration(instr.instruction.duration, self.d_t) for instr in self.schedule_instructions]
         for i,instr in enumerate(self.schedule_instructions):
             if instr.instruction.name == 'CONDITIONAL_S' and rng.random() < 0.5:
                 self._instruction_durations[i] = 0
@@ -249,7 +249,8 @@ class DeviceManager:
                         self.schedule_instructions[instruction_idx].start_round = self.current_round-1
                         self.schedule_instructions[instruction_idx].end_round = self.current_round-1
                         self._completed_instruction_count += 1
-                        self._completed_instructions.append(instruction_idx)
+                        if self.lightweight_setting < 2:
+                            self._completed_instructions.append(instruction_idx)
                         if instruction_task.instruction.name == 'DISCARD':
                             self._active_patches -= set(instruction_task.instruction.patches)
                         if instruction_task.instruction.name == 'CONDITIONAL_S' and self.lightweight_setting == 0:
@@ -293,11 +294,10 @@ class DeviceManager:
 
         # Keep track of how long conditional instructions have to wait
         for instr_idx in waiting_conditional_decode_instructions:
-            if instr_idx not in self._instruction_frontier:
-                if self.lightweight_setting == 2:
-                    self._conditioned_decode_wait_time_sum += 1
-                else:
-                    self._conditioned_decode_wait_times[instr_idx] = self._conditioned_decode_wait_times.get(instr_idx, 0) + 1
+            if self.lightweight_setting == 2:
+                self._conditioned_decode_wait_time_sum += 1
+            else:
+                self._conditioned_decode_wait_times[instr_idx] = self._conditioned_decode_wait_times.get(instr_idx, 0) + 1
 
     def _generate_syndrome_round(self) -> tuple[list[SyndromeRound], set[int]]:
         generated_syndrome_rounds = []
@@ -348,7 +348,8 @@ class DeviceManager:
         for instruction_idx in completed_instructions:
             self.schedule_instructions[instruction_idx].end_round = self.current_round
             self._completed_instruction_count += 1
-            self._completed_instructions.append(instruction_idx)
+            if self.lightweight_setting < 2:
+                self._completed_instructions.append(instruction_idx)
             self._active_instructions.pop(instruction_idx)
 
     def get_next_round(self, incomplete_instructions: set[int]) -> list[SyndromeRound]:
@@ -437,6 +438,8 @@ class DeviceManager:
             if round_idx <= self.current_round:
                 patches_initialized_by_round[round_idx] |= self._patches_initialized_by_instr[instr]
 
+        conditional_S_count = self.schedule.count_instructions('CONDITIONAL_S')
+
         if self.lightweight_setting == 0:
             return DeviceData(
                 d=self.d_t,
@@ -450,7 +453,7 @@ class DeviceManager:
                 generated_syndrome_data=self._postprocess_idle_data(self._generated_syndrome_data),
                 patches_initialized_by_round={k: list(v) for k,v in patches_initialized_by_round.items()},
                 conditioned_decode_wait_times=self._conditioned_decode_wait_times,
-                avg_conditioned_decode_wait_time=self._conditioned_decode_wait_time_sum / self._conditioned_decode_count if self._conditioned_decode_count > 0 else 0,
+                avg_conditioned_decode_wait_time=self._conditioned_decode_wait_time_sum / conditional_S_count if conditional_S_count > 0 else 0,
             )
         elif self.lightweight_setting == 1:
             return DeviceData(
@@ -465,7 +468,7 @@ class DeviceManager:
                 generated_syndrome_data=None,
                 patches_initialized_by_round=None,
                 conditioned_decode_wait_times=self._conditioned_decode_wait_times,
-                avg_conditioned_decode_wait_time=self._conditioned_decode_wait_time_sum / self._conditioned_decode_count if self._conditioned_decode_count > 0 else 0,
+                avg_conditioned_decode_wait_time=self._conditioned_decode_wait_time_sum / conditional_S_count if conditional_S_count > 0 else 0,
             )
         elif self.lightweight_setting == 2 or self.lightweight_setting == 3:
             return DeviceData(
@@ -480,7 +483,7 @@ class DeviceManager:
                 generated_syndrome_data=None,
                 patches_initialized_by_round=None,
                 conditioned_decode_wait_times=None,
-                avg_conditioned_decode_wait_time=self._conditioned_decode_wait_time_sum / self._conditioned_decode_count if self._conditioned_decode_count > 0 else 0,
+                avg_conditioned_decode_wait_time=self._conditioned_decode_wait_time_sum / conditional_S_count if conditional_S_count > 0 else 0,
             )
         else:
             raise ValueError('Invalid lightweight setting')
