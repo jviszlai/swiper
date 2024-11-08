@@ -13,3 +13,12 @@ Params:
     benchmark_file: ['slurm/data/20241107_153923/benchmarks/random_t_1000_42_3.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_2.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_17.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_19.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_8.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_16.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_12.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_4.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_11.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_7.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_13.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_0.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_18.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_14.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_9.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_6.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_15.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_1.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_10.lss', 'slurm/data/20241107_153923/benchmarks/random_t_1000_42_5.lss']
     decoder_latency_or_dist_filename: ['slurm/data/20241107_153923/decoder_dists.json']
     rng: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+Notes:
+- Gathing data on average wait time per conditional S as we increase the number
+of T gates in RandomT schedule.
+- Using fixed d=21.
+- Varying speculation on/off and scheduling method.
+- Using sampled Pymatching decoder times.
+- For each window manager / speculation config, run on 20 random seeds
+    (randomizing RegularT schedule as well as speculation failures)
