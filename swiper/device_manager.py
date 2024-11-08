@@ -27,6 +27,7 @@ class DeviceData:
     """Data containing the history of a device."""
     d: int
     num_rounds: int
+    completed_instructions: int
     instructions: list[Instruction]
     instruction_start_times: list[int]
     all_patch_coords: list[tuple[int, int]]
@@ -35,6 +36,7 @@ class DeviceData:
     generated_syndrome_data: list[list[SyndromeRound]]
     patches_initialized_by_round: dict[int, list[tuple[int, int]]]
     conditioned_decode_wait_times: dict[int, int]
+    avg_conditioned_decode_wait_time: float
 
     def to_dict(self):
         return asdict(self)
@@ -439,6 +441,7 @@ class DeviceManager:
             return DeviceData(
                 d=self.d_t,
                 num_rounds=self.current_round,
+                completed_instructions=self._completed_instruction_count,
                 instructions=[instr.instruction for instr in self.schedule_instructions],
                 instruction_start_times=[(instr_task.end_round-self._instruction_durations[i]+1 if instr_task.end_round != -1 else None) for i,instr_task in enumerate(self.schedule_instructions)],
                 all_patch_coords=list(self._all_patch_coords),
@@ -447,24 +450,13 @@ class DeviceManager:
                 generated_syndrome_data=self._postprocess_idle_data(self._generated_syndrome_data),
                 patches_initialized_by_round={k: list(v) for k,v in patches_initialized_by_round.items()},
                 conditioned_decode_wait_times=self._conditioned_decode_wait_times,
-            )
-        elif self.lightweight_setting == 2:
-            return DeviceData(
-                d=self.d_t,
-                num_rounds=self.current_round,
-                instructions=None,
-                instruction_start_times=None,
-                all_patch_coords=None,
-                syndrome_count_by_round=None,
-                instruction_count_by_round=None,
-                generated_syndrome_data=None,
-                patches_initialized_by_round=None,
-                conditioned_decode_wait_times=self._conditioned_decode_wait_time_sum / self._conditioned_decode_count if self._conditioned_decode_count > 0 else 0,
+                avg_conditioned_decode_wait_time=self._conditioned_decode_wait_time_sum / self._conditioned_decode_count if self._conditioned_decode_count > 0 else 0,
             )
         elif self.lightweight_setting == 1:
             return DeviceData(
                 d=self.d_t,
                 num_rounds=self.current_round,
+                completed_instructions=self._completed_instruction_count,
                 instructions=None,
                 instruction_start_times=[(instr_task.end_round-self._instruction_durations[i]+1 if instr_task.end_round != -1 else None) for i,instr_task in enumerate(self.schedule_instructions)],
                 all_patch_coords=list(self._all_patch_coords),
@@ -473,6 +465,22 @@ class DeviceManager:
                 generated_syndrome_data=None,
                 patches_initialized_by_round=None,
                 conditioned_decode_wait_times=self._conditioned_decode_wait_times,
+                avg_conditioned_decode_wait_time=self._conditioned_decode_wait_time_sum / self._conditioned_decode_count if self._conditioned_decode_count > 0 else 0,
+            )
+        elif self.lightweight_setting == 2 or self.lightweight_setting == 3:
+            return DeviceData(
+                d=self.d_t,
+                num_rounds=self.current_round,
+                completed_instructions=self._completed_instruction_count,
+                instructions=None,
+                instruction_start_times=None,
+                all_patch_coords=None,
+                syndrome_count_by_round=None,
+                instruction_count_by_round=None,
+                generated_syndrome_data=None,
+                patches_initialized_by_round=None,
+                conditioned_decode_wait_times=None,
+                avg_conditioned_decode_wait_time=self._conditioned_decode_wait_time_sum / self._conditioned_decode_count if self._conditioned_decode_count > 0 else 0,
             )
         else:
             raise ValueError('Invalid lightweight setting')

@@ -354,7 +354,7 @@ class WindowManager(ABC):
                 window_volumes=None
             )
         else:
-            raise ValueError("Invalid lightweight setting")
+            raise ValueError('Invalid lightweight setting')
 
 class SlidingWindowManager(WindowManager):
     def process_round(self, new_rounds: list[SyndromeRound]) -> list[DecodingWindow]:

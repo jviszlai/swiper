@@ -8,7 +8,8 @@ from swiper.window_builder import DecodingWindow
 @dataclass
 class DecoderData:
     num_rounds: int
-    max_parallel_processes: int | None
+    max_parallel_processes: int
+    num_completed_windows: int
     parallel_processes_by_round: list[int]
     completed_windows_by_round: list[int]
     window_speculation_start_times: dict[int, int]
@@ -76,6 +77,7 @@ class DecoderManager:
         self.rng = rng
 
         self.max_parallel_processes = max_parallel_processes
+        self._max_parallel_processes_used = 0
         self._parallel_processes_by_round: list[int] = []
         self._completed_windows_by_round: list[int] = []
         self._num_completed_windows = 0
@@ -151,6 +153,7 @@ class DecoderManager:
         if self.lightweight_setting == 0:
             self._parallel_processes_by_round.append(len(self._active_window_progress))
             self._completed_windows_by_round.append((self._completed_windows_by_round[-1] if self._current_round > 1 else 0) + len(completed_windows))
+        self._max_parallel_processes_used = max(self._max_parallel_processes_used, len(self._active_window_progress))
 
         if self.lightweight_setting == 3:
             deleted_task_indices = self._advance_finalized_frontier()
@@ -352,7 +355,8 @@ class DecoderManager:
         if self.lightweight_setting == 0:
             return DecoderData(
                 num_rounds=self._current_round,
-                max_parallel_processes=self.max_parallel_processes,
+                max_parallel_processes=self._max_parallel_processes_used,
+                num_completed_windows=self._num_completed_windows,
                 parallel_processes_by_round=self._parallel_processes_by_round,
                 completed_windows_by_round=self._completed_windows_by_round,
                 window_speculation_start_times={task_idx:task.speculation_start_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
@@ -363,7 +367,8 @@ class DecoderManager:
         elif self.lightweight_setting == 1:
             return DecoderData(
                 num_rounds=self._current_round,
-                max_parallel_processes=self.max_parallel_processes,
+                max_parallel_processes=self._max_parallel_processes_used,
+                num_completed_windows=self._num_completed_windows,
                 parallel_processes_by_round=None,
                 completed_windows_by_round=None,
                 window_speculation_start_times={task_idx:task.speculation_start_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
@@ -374,7 +379,8 @@ class DecoderManager:
         elif self.lightweight_setting == 2 or self.lightweight_setting == 3:
             return DecoderData(
                 num_rounds=self._current_round,
-                max_parallel_processes=self.max_parallel_processes,
+                max_parallel_processes=self._max_parallel_processes_used,
+                num_completed_windows=self._num_completed_windows,
                 parallel_processes_by_round=None,
                 completed_windows_by_round=None,
                 window_speculation_start_times=None,
@@ -382,3 +388,5 @@ class DecoderManager:
                 window_decoding_completion_times=None,
                 missed_speculation_events=None,
             )
+        else:
+            raise RuntimeError('Invalid lightweight setting')
