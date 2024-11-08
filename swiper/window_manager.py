@@ -35,7 +35,7 @@ class WindowData:
 
 class WindowManager(ABC):
 
-    def __init__(self, window_builder: WindowBuilder, lightweight_output: bool = False):
+    def __init__(self, window_builder: WindowBuilder, lightweight_setting: int = 0):
         self.all_windows: list[DecodingWindow | None] = []
         self.all_constructed_windows: list[int] = []
         self.window_builder = window_builder
@@ -46,7 +46,7 @@ class WindowManager(ABC):
         self.current_round = 0
         self._window_construction_times: dict[int, int] = {}
         self._unconstructed_window_indices: dict[DecodingWindow, int] = {}
-        self.lightweight_output = lightweight_output
+        self.lightweight_setting = lightweight_setting
 
     @abstractmethod
     def process_round(self, new_rounds: list[SyndromeRound]) -> list[DecodingWindow]:
@@ -310,7 +310,7 @@ class WindowManager(ABC):
     
     def _clean_old_windows(self, newly_constructed_window_indices) -> None:
         # Remove old windows from all_windows
-        assert self.lightweight_output
+        assert self.lightweight_setting >= 1
         for window_idx in newly_constructed_window_indices:
             for neighbor_idx in set(self.window_dag.successors(window_idx)) | set(self.window_dag.predecessors(window_idx)):
                 if self.all_windows[neighbor_idx]:
@@ -329,15 +329,7 @@ class WindowManager(ABC):
             #     self.all_windows[window_idx] = None
 
     def get_data(self) -> WindowData:
-        if self.lightweight_output:
-            return WindowData(
-                all_windows=None,
-                all_constructed_windows=None,
-                window_dag_edges=None,
-                window_construction_times=self._window_construction_times,
-                window_volumes=[([cr.duration for cr in window.commit_region], [br.duration for br in window.buffer_regions]) for window in [self._get_window(window_idx) for window_idx in self.all_constructed_windows]]
-            )
-        else:
+        if self.lightweight_setting == 0:
             return WindowData(
                 all_windows=self.all_windows,
                 all_constructed_windows=self.all_constructed_windows,
@@ -345,6 +337,24 @@ class WindowManager(ABC):
                 window_construction_times=self._window_construction_times,
                 window_volumes=[([cr.duration for cr in window.commit_region], [br.duration for br in window.buffer_regions]) for window in [self._get_window(window_idx) for window_idx in self.all_constructed_windows]]
             )
+        elif self.lightweight_setting == 1:
+            return WindowData(
+                all_windows=None,
+                all_constructed_windows=None,
+                window_dag_edges=None,
+                window_construction_times=self._window_construction_times,
+                window_volumes=[([cr.duration for cr in window.commit_region], [br.duration for br in window.buffer_regions]) for window in [self._get_window(window_idx) for window_idx in self.all_constructed_windows]]
+            )
+        elif self.lightweight_setting == 2 or self.lightweight_setting == 3:
+            return WindowData(
+                all_windows=None,
+                all_constructed_windows=None,
+                window_dag_edges=None,
+                window_construction_times=None,
+                window_volumes=None
+            )
+        else:
+            raise ValueError("Invalid lightweight setting")
 
 class SlidingWindowManager(WindowManager):
     def process_round(self, new_rounds: list[SyndromeRound]) -> list[DecodingWindow]:
@@ -414,7 +424,7 @@ class SlidingWindowManager(WindowManager):
 
         constructed_windows = [self._get_window(window_idx) for window_idx in self.all_constructed_windows[constructed_window_count:]]
 
-        if self.lightweight_output:
+        if self.lightweight_setting > 0:
             self._clean_old_windows(self.all_constructed_windows[constructed_window_count:])
 
         self.current_round += 1
@@ -433,9 +443,9 @@ class ParallelWindowManager(WindowManager):
     """
     layer_indices: list[set[int]]
 
-    def __init__(self, window_builder: WindowBuilder, lightweight_output: bool = False):
+    def __init__(self, window_builder: WindowBuilder, lightweight_setting: int = 0):
         self.layer_indices = [set(), set(), set()]
-        super().__init__(window_builder, lightweight_output=lightweight_output)
+        super().__init__(window_builder, lightweight_setting=lightweight_setting)
 
     def process_round(self, new_rounds: list[SyndromeRound]) -> list[DecodingWindow]:
         constructed_window_count = len(self.all_constructed_windows)
@@ -464,7 +474,7 @@ class ParallelWindowManager(WindowManager):
 
         constructed_windows = [self._get_window(window_idx) for window_idx in self.all_constructed_windows[constructed_window_count:]]
 
-        if self.lightweight_output:
+        if self.lightweight_setting > 0:
             self._clean_old_windows(self.all_constructed_windows[constructed_window_count:])
 
         self.current_round += 1
@@ -669,8 +679,8 @@ class TAlignedWindowManager(ParallelWindowManager):
     windows.
 
     """
-    def __init__(self, window_builder: WindowBuilder, lightweight_output: bool = False):
-        super().__init__(window_builder, lightweight_output=lightweight_output)
+    def __init__(self, window_builder: WindowBuilder, lightweight_setting: int = 0):
+        super().__init__(window_builder, lightweight_setting=lightweight_setting)
         self.layer_indices = [set(), set(), set(), set(), set()]
 
     def _is_blocking_window(self, window: DecodingWindow) -> bool:

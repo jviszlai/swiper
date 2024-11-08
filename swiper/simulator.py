@@ -66,7 +66,8 @@ class DecodingSimulator:
             device_rounds_cutoff: int = 0,
             clock_timeout: dt.timedelta | None = None,
             save_animation_frames: bool = False,
-            lightweight_output: bool = False,
+            lightweight_setting: int = 0,
+            ultralight_output: bool = False,
             rng: int | np.random.Generator = np.random.default_rng(),
         ) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         """TODO
@@ -89,9 +90,15 @@ class DecodingSimulator:
                 elapsed.
             save_animation_frames: If using in Jupyter notebook, use %%capture
                 TODO: broken
-            lightweight_output: If True, avoid returning certain large data
-                structures (e.g. window_dag, window_completion_times) in
-                outputs. Useful for large-scale simulations.
+            lightweight_setting: Optimization level for memory usage. Affects
+                runtime memory usage and output data size. Some output data will
+                not be available at higher settings.
+                0: No optimization.
+                1: Avoid data structures that scale with the total number of
+                    device rounds, but keep some data structures that scale with
+                    the number of windows.
+                2: Avoid any data structures that scales with simulation
+                    duration.
             rng: Random number generator.
         """
         start_time = dt.datetime.now()
@@ -104,7 +111,7 @@ class DecodingSimulator:
             schedule=schedule,
             scheduling_method=scheduling_method,
             max_parallel_processes=max_parallel_processes,
-            lightweight_output=lightweight_output,
+            lightweight_setting=lightweight_setting,
             rng=rng,
         )
         assert self._device_manager is not None
@@ -149,17 +156,17 @@ class DecodingSimulator:
             schedule: LatticeSurgerySchedule,
             scheduling_method: str,
             max_parallel_processes: int | None = None,
-            lightweight_output: bool = False,
+            lightweight_setting: int = 0,
             rng: int | np.random.Generator = np.random.default_rng(),
         ) -> None:
         self.failed = False
-        self._device_manager = DeviceManager(self.distance, schedule, lightweight_output=lightweight_output, rng=rng)
+        self._device_manager = DeviceManager(self.distance, schedule, lightweight_setting=lightweight_setting, rng=rng)
         if scheduling_method == 'sliding':
-            self._window_manager = SlidingWindowManager(WindowBuilder(self.distance, lightweight_output=lightweight_output), lightweight_output=lightweight_output)
+            self._window_manager = SlidingWindowManager(WindowBuilder(self.distance, lightweight_setting=lightweight_setting), lightweight_setting=lightweight_setting)
         elif scheduling_method == 'parallel':
-            self._window_manager = ParallelWindowManager(WindowBuilder(self.distance, lightweight_output=lightweight_output), lightweight_output=lightweight_output)
+            self._window_manager = ParallelWindowManager(WindowBuilder(self.distance, lightweight_setting=lightweight_setting), lightweight_setting=lightweight_setting)
         elif scheduling_method == 'aligned':
-            self._window_manager = TAlignedWindowManager(WindowBuilder(self.distance, lightweight_output=lightweight_output), lightweight_output=lightweight_output)
+            self._window_manager = TAlignedWindowManager(WindowBuilder(self.distance, lightweight_setting=lightweight_setting), lightweight_setting=lightweight_setting)
         else:
             raise ValueError(f"Unknown scheduling method: {scheduling_method}")
         self._decoding_manager = DecoderManager(
@@ -168,7 +175,7 @@ class DecodingSimulator:
             speculation_accuracy=self.speculation_accuracy,
             max_parallel_processes=max_parallel_processes,
             speculation_mode=self.speculation_mode,
-            lightweight_output=lightweight_output,
+            lightweight_setting=lightweight_setting,
             rng=rng,
         )
 
@@ -182,7 +189,7 @@ class DecodingSimulator:
         if self.is_done():
             raise ValueError("Experiment is already done. Run run() to start a new experiment.")
 
-        pending_window_count = len(self._window_manager.all_windows) - len(self._decoding_manager._window_decoding_completion_times)
+        pending_window_count = len(self._window_manager.all_windows) - self._decoding_manager._num_completed_windows
         if pending_window_count_cutoff > 0 and pending_window_count > pending_window_count_cutoff:
             self.failed = True
             return
@@ -192,14 +199,14 @@ class DecodingSimulator:
 
         # step device forward
         deleted_indices = self._decoding_manager.step()
-        self._window_manager.purge_windows([])
+        self._window_manager.purge_windows(deleted_indices)
         incomplete_instructions = set(self._device_manager._active_instructions.keys()) | self._window_manager.window_builder.get_incomplete_instructions() | self._window_manager.pending_instruction_indices() | self._decoding_manager.get_incomplete_instruction_indices()
 
         syndrome_rounds = self._device_manager.get_next_round(incomplete_instructions)
         
         cur_time = dt.datetime.now()
         if print_interval is not None and cur_time - self.last_print_time >= print_interval:
-            num_complete_instructions = len(self._device_manager._completed_instructions)
+            num_complete_instructions = self._device_manager._completed_instruction_count
             print(f'{cur_time.strftime("%Y-%m-%d %H:%M:%S")} | Simulation update: decoder round {self._decoding_manager._current_round}, completed instructions: {num_complete_instructions}/{len(self._device_manager.schedule)}, actively running or decoding instructions: {len(incomplete_instructions)}, waiting windows: {pending_window_count}/{len(self._window_manager.all_windows)}. Max active instruction index: {max(incomplete_instructions)}')
             sys.stdout.flush()
             self.last_print_time = cur_time
@@ -212,7 +219,7 @@ class DecodingSimulator:
     def is_done(self) -> bool:
         if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
             raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
-        return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_constructed_windows) - len(self._decoding_manager._window_decoding_completion_times) == 0)
+        return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_constructed_windows) - self._decoding_manager._num_completed_windows == 0)
 
     def get_data(self) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:

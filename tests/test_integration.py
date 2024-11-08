@@ -10,7 +10,7 @@ import numpy as np
 
 from swiper.simulator import DecodingSimulator
 import swiper.plot as plotter
-from swiper.schedule_experiments import MemorySchedule, RegularTSchedule, MSD15To1Schedule
+from swiper.schedule_experiments import MemorySchedule, RegularTSchedule, MSD15To1Schedule, RandomTSchedule
 from swiper.simulator import DecodingSimulator
 
 def test_sliding_memory():
@@ -286,26 +286,44 @@ def test_lightweight_output():
     d=7
     decoding_time = 14
     speculation_time = 1
-    speculation_accuracy = 0.99
+    speculation_accuracy = 0.5
     simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
-    schedule = RegularTSchedule(10, 0).schedule
+    schedule = MSD15To1Schedule().schedule
 
-    success, device_data, window_data, decoding_data = simulator.run(
-        schedule=schedule,
-        scheduling_method='sliding',
-        max_parallel_processes=None,
-        rng=0,
-    )
+    for scheduling_method in ['sliding', 'parallel', 'aligned']:
+        success, device_data_0, window_data_0, decoding_data_0 = simulator.run(
+            schedule=schedule,
+            scheduling_method=scheduling_method,
+            max_parallel_processes=None,
+            rng=0,
+            lightweight_setting=0,
+        )
 
-    success, device_data_light, window_data_light, decoding_data_light = simulator.run(
-        schedule=schedule,
-        scheduling_method='sliding',
-        max_parallel_processes=None,
-        rng=0,
-        lightweight_output=True,
-    )
-    assert device_data.num_rounds == device_data_light.num_rounds
-    assert decoding_data.num_rounds == decoding_data_light.num_rounds
+        success, device_data_1, window_data_1, decoding_data_1 = simulator.run(
+            schedule=schedule,
+            scheduling_method=scheduling_method,
+            max_parallel_processes=None,
+            rng=0,
+            lightweight_setting=1,
+        )
+
+        success, device_data_2, window_data_2, decoding_data_2 = simulator.run(
+            schedule=schedule,
+            scheduling_method=scheduling_method,
+            max_parallel_processes=None,
+            rng=0,
+            lightweight_setting=2,
+        )
+
+        assert device_data_0.num_rounds == device_data_1.num_rounds == device_data_2.num_rounds
+        assert decoding_data_0.num_rounds == decoding_data_1.num_rounds == decoding_data_2.num_rounds
 
 if __name__ == '__main__':
-    test_poor_predictor_same_as_slow_predictor()
+    import os
+    try:
+        path_initialized
+    except NameError:
+        path_initialized = True
+        os.chdir('..')
+        
+    test_lightweight_output()
