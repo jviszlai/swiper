@@ -1,0 +1,20 @@
+Time: 2024-11-08 16:23:04
+Job IDs:
+    submit_0.sbatch: 25522122. 4GB RAM, configs [0, 1, 2, 3, 4]
+Max clock time: 01:00:00
+Total num. tasks: 5
+Params:
+    distance: [21]
+    speculation_latency: [1]
+    speculation_accuracy: [0.9]
+    speculation_mode: ['separate', None]
+    scheduling_method: ['sliding', 'parallel', 'aligned']
+    max_parallel_processes: [None]
+    benchmark_file: ['slurm/data/20241108_162304/benchmarks/random_t_10000_200_0.lss']
+    decoder_latency_or_dist_filename: ['slurm/data/20241108_162304/decoder_dists.json']
+    rng: [0]
+    lightweight_setting: [1]
+
+Notes:
+- Gathering data on distribution of conditional S "reaction times" for with
+speculation on/off (90% accuracy)
