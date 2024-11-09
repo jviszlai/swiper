@@ -10,7 +10,7 @@ import numpy as np
 
 from swiper.simulator import DecodingSimulator
 import swiper.plot as plotter
-from swiper.schedule_experiments import MemorySchedule, RegularTSchedule, MSD15To1Schedule
+from swiper.schedule_experiments import MemorySchedule, RegularTSchedule, MSD15To1Schedule, RandomTSchedule
 from swiper.simulator import DecodingSimulator
 
 def test_sliding_memory():
@@ -266,46 +266,58 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
 
     assert num_rounds_integrated == num_rounds_separate
 
-# def test_qrom():
-#     qrom15 = QROM_Schedule([np.arange(15)], 15, 15)
-#     d=7
-#     decoding_time = 2*d
-#     speculation_time = 0
-#     speculation_accuracy = 0.7
-
-#     simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='integrated')
-    
-#     success, device_data, window_data, decoding_data = simulator.run(
-#         schedule=qrom15.schedule,
-#         scheduling_method='sliding',
-#         enforce_window_alignment=False,
-#         max_parallel_processes=None,
-#     )
-
 def test_lightweight_output():
     d=7
     decoding_time = 14
     speculation_time = 1
-    speculation_accuracy = 0.99
+    speculation_accuracy = 0.5
     simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
-    schedule = RegularTSchedule(10, 0).schedule
+    schedule = MSD15To1Schedule().schedule
 
-    success, device_data, window_data, decoding_data = simulator.run(
-        schedule=schedule,
-        scheduling_method='sliding',
-        max_parallel_processes=None,
-        rng=0,
-    )
+    for scheduling_method in ['sliding', 'parallel', 'aligned']:
+        success, device_data_0, window_data_0, decoding_data_0 = simulator.run(
+            schedule=schedule,
+            scheduling_method=scheduling_method,
+            max_parallel_processes=None,
+            rng=0,
+            lightweight_setting=0,
+        )
 
-    success, device_data_light, window_data_light, decoding_data_light = simulator.run(
-        schedule=schedule,
-        scheduling_method='sliding',
-        max_parallel_processes=None,
-        rng=0,
-        lightweight_output=True,
-    )
-    assert device_data.num_rounds == device_data_light.num_rounds
-    assert decoding_data.num_rounds == decoding_data_light.num_rounds
+        success, device_data_1, window_data_1, decoding_data_1 = simulator.run(
+            schedule=schedule,
+            scheduling_method=scheduling_method,
+            max_parallel_processes=None,
+            rng=0,
+            lightweight_setting=1,
+        )
+
+        success, device_data_2, window_data_2, decoding_data_2 = simulator.run(
+            schedule=schedule,
+            scheduling_method=scheduling_method,
+            max_parallel_processes=None,
+            rng=0,
+            lightweight_setting=2,
+        )
+
+        # success, device_data_3, window_data_3, decoding_data_3 = simulator.run(
+        #     schedule=schedule,
+        #     scheduling_method=scheduling_method,
+        #     max_parallel_processes=None,
+        #     rng=0,
+        #     lightweight_setting=3,
+        # )
+
+        assert device_data_0.num_rounds == device_data_1.num_rounds == device_data_2.num_rounds
+        assert decoding_data_0.num_rounds == decoding_data_1.num_rounds == decoding_data_2.num_rounds
+        assert np.isclose(np.mean(list(device_data_0.conditioned_decode_wait_times.values())), np.mean(list(device_data_1.conditioned_decode_wait_times.values()))), (np.mean(list(device_data_0.conditioned_decode_wait_times.values())), np.mean(list(device_data_1.conditioned_decode_wait_times.values())))
+        assert np.isclose(np.mean(list(device_data_0.conditioned_decode_wait_times.values())), device_data_2.avg_conditioned_decode_wait_time)
 
 if __name__ == '__main__':
-    test_poor_predictor_same_as_slow_predictor()
+    import os
+    try:
+        path_initialized
+    except NameError:
+        path_initialized = True
+        os.chdir('..')
+        
+    test_lightweight_output()

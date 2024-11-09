@@ -24,7 +24,7 @@ if __name__ == '__main__':
     for key,val in params.items():
         print(f'{key}: {val}')
 
-    assert len(params) == 9, 'Params list changed. Update this file!'
+    assert len(params) == 10, 'Params list changed. Update this file!'
     distance = params['distance']
     max_parallel_processes = params['max_parallel_processes']
     scheduling_method = params['scheduling_method']
@@ -34,6 +34,7 @@ if __name__ == '__main__':
     benchmark_file = params['benchmark_file']
     decoder_latency_or_dist_filename = params['decoder_latency_or_dist_filename']
     rng = params['rng']
+    lightweight_setting = params['lightweight_setting']
 
     generator = np.random.default_rng(rng)
 
@@ -68,7 +69,7 @@ if __name__ == '__main__':
         scheduling_method=scheduling_method,
         max_parallel_processes=max_parallel_processes,
         print_interval=dt.timedelta(seconds=10),
-        lightweight_output=True,
+        lightweight_setting=lightweight_setting,
         device_rounds_cutoff=500_000,
         clock_timeout = max_job_time - dt.timedelta(minutes=5), # allow 5 mins for starting + finishing job
         rng=rng,

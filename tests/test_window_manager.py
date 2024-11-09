@@ -80,9 +80,9 @@ def do_final_checks(device_data: DeviceData, window_data: WindowData, decoder_da
    all_commit_regions = [cr for window in simulator._window_manager.all_windows if window for cr in window.commit_region]
 
    for instr_idx,instr in enumerate(simulator._device_manager.schedule_instructions):
-      num_expected_syndromes = len(instr.patches) * simulator._device_manager._instruction_durations[instr_idx]
+      num_expected_syndromes = len(instr.instruction.patches) * simulator._device_manager._instruction_durations[instr_idx]
       for syndrome_round in all_syndrome_rounds:
-         if syndrome_round.instruction == instr:
+         if syndrome_round.instruction == instr.instruction:
             num_expected_syndromes -= 1
       assert num_expected_syndromes == 0, f"Instruction {instr_idx+1}/{len(simulator._device_manager.schedule_instructions)} missing syndrome rounds"
 
@@ -188,8 +188,8 @@ def test_parallel_idle():
    # Check final windows
    success, device_data, window_data, decoding_data = simulator.get_data()
    assert success
-   layer1_indices = simulator._window_manager.layer_indices[1]
-   layer2_indices = simulator._window_manager.layer_indices[2]
+   source_indices = simulator._window_manager.layer_indices[1]
+   sink_indices = simulator._window_manager.layer_indices[2]
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
    do_final_checks(device_data, window_data, decoding_data, simulator)
    window_dag = nx.DiGraph(window_data.window_dag_edges)
@@ -203,7 +203,7 @@ def test_parallel_idle():
          assert len(window.commit_region) == 1 or len(window.commit_region) == 3
          if len(window.commit_region) == 1:
             # source
-            assert i in layer1_indices
+            assert i in source_indices
             cr = window.commit_region[0]
             if i == 0:
                assert len(window.buffer_regions) == 1
@@ -211,7 +211,7 @@ def test_parallel_idle():
                assert br.round_start == cr.round_start + cr.duration
                assert set(window_dag.predecessors(i)) == set()
                assert set(window_dag.successors(i)) == {i+1}
-               assert i+1 in layer2_indices
+               assert i+1 in sink_indices
             else:
                assert len(window.buffer_regions) == 2
                br_1, br_2 = window.buffer_regions
@@ -221,10 +221,10 @@ def test_parallel_idle():
                assert cr.round_start + cr.duration == br_2.round_start
                assert set(window_dag.predecessors(i)) == set()
                assert set(window_dag.successors(i)) == {i-3, i+1}
-               assert i-3 in layer2_indices and i+1 in layer2_indices
+               assert i-3 in sink_indices and i+1 in sink_indices
          else:
             # sink
-            assert i in layer2_indices
+            assert i in sink_indices
             cr_1, cr_2, cr_3 = window.commit_region
             assert len(window.buffer_regions) == 0
             assert cr_1.round_start + cr_1.duration == cr_2.round_start
@@ -232,23 +232,23 @@ def test_parallel_idle():
 
             assert set(window_dag.predecessors(i)) == {i-1, i+3}
             assert set(window_dag.successors(i)) == set()
-            assert i-1 in layer1_indices and i+3 in layer1_indices
+            assert i-1 in source_indices and i+3 in source_indices
       else:
          assert len(window.buffer_regions) == 0 or len(window.commit_region) == 1
          if len(window.buffer_regions) == 0:
             # sink
-            assert i in layer2_indices
+            assert i in sink_indices
             assert 1 <= len(window.commit_region) <= 3
             assert set(window_dag.predecessors(i)) == {i-1}
             assert set(window_dag.successors(i)) == set()
-            assert i-1 in layer1_indices
+            assert i-1 in source_indices
          else:
             # source
-            assert i in layer1_indices
+            assert i in source_indices
             assert len(window.commit_region) == 1
             assert set(window_dag.predecessors(i)) == set()
             assert set(window_dag.successors(i)) == {i-3}
-            assert i-3 in layer2_indices
+            assert i-3 in sink_indices
       rounds_committed = np.concatenate([range(cr.round_start, cr.round_start + cr.duration) for cr in window.commit_region])
       assert np.all(device_rounds_covered[rounds_committed] == -1)
       device_rounds_covered[rounds_committed] = i

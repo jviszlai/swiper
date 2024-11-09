@@ -5,10 +5,11 @@ import math
 import subprocess
 import datetime as dt
 from functools import reduce
+import numpy as np
 
 if __name__ == '__main__':
     time = dt.datetime.now()
-    max_time = dt.timedelta(hours=1)
+    max_time = dt.timedelta(hours=12)
     if max_time.days > 0:
         assert max_time.days == 1
         max_time_str = f'1-{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
@@ -40,7 +41,7 @@ if __name__ == '__main__':
     benchmark_names = {}
     memory_settings = None
     for file in os.listdir('benchmarks/cached_schedules/'):
-        if file == 'random_t_1000_42_0.lss':
+        if file == 'random_t_10000_200_0.lss':
             path = os.path.join('benchmarks/cached_schedules/', file)
             newpath = os.path.join(benchmark_dir, file)
             # copy files to data dir to preserve them
@@ -57,23 +58,23 @@ if __name__ == '__main__':
             memory_settings[name] = 4
 
     sweep_params = {
-        'distance':[12],
+        'distance':[21],
         'speculation_latency':[1],
-        'speculation_accuracy':[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
-        'speculation_mode':[None, 'separate'],
+        'speculation_accuracy':[0.9],
+        'speculation_mode':['separate', None],
         'scheduling_method':['sliding', 'parallel', 'aligned'],
         'max_parallel_processes':[None],
         'benchmark_file':benchmark_files,
-        'decoder_latency_or_dist_filename':[6, 9, 12, 18, 24, 60, 120],
+        'decoder_latency_or_dist_filename':[decoder_dist_filename],
         'rng':[0],
+        'lightweight_setting':[1],
     }
     ordered_param_names = list(sorted(sweep_params.keys()))
     total_num_configs = reduce(lambda x,y: x*y, [len(params) for params in sweep_params.values()])
 
     # can define this to only allow through certain combinations of params
     def config_filter(cfg):
-        # check for same random seed between benchmark and 
-        return int(cfg['benchmark_file'].split('_')[-1].split('.')[0]) == cfg['rng']
+        return not (cfg['speculation_mode'] == None and cfg['scheduling_method'] == 'sliding')
 
     # Write config file (each Python job will read params from this)
     configs = []

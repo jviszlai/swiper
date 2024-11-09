@@ -8,7 +8,8 @@ from swiper.window_builder import DecodingWindow
 @dataclass
 class DecoderData:
     num_rounds: int
-    max_parallel_processes: int | None
+    max_parallel_processes: int
+    num_completed_windows: int
     parallel_processes_by_round: list[int]
     completed_windows_by_round: list[int]
     window_speculation_start_times: dict[int, int]
@@ -24,7 +25,11 @@ class DecoderTask:
     window: DecodingWindow
     window_idx: int # window index in DAG
     completed_decoding: bool = False
+    decoding_start_time: int = -1
+    decoding_completion_time: int = -1
     completed_speculation: bool = False
+    speculation_start_time: int = -1
+    speculation_completion_time: int = -1
     used_parent_speculations: dict[int, bool] = field(default_factory=dict)
 
 class DecoderManager:
@@ -35,8 +40,7 @@ class DecoderManager:
             speculation_accuracy: float,
             max_parallel_processes: int | None = None,
             speculation_mode: str = 'integrated',
-            lightweight_output: bool = False,
-            delete_old_windows_after: int | None = None,
+            lightweight_setting: int = 0,
             rng: int | np.random.Generator = np.random.default_rng(),
         ) -> None:
         """Initialize the decoder manager.
@@ -67,25 +71,23 @@ class DecoderManager:
         self.speculation_accuracy = speculation_accuracy
         self.speculation_mode = speculation_mode
         assert self.speculation_mode in ['integrated', 'separate', None]
-        self.lightweight_output = lightweight_output
-        # self.delete_old_windows_after = delete_old_windows_after
-        self.delete_old_windows_after = 1000 if lightweight_output else None
+        self.lightweight_setting = lightweight_setting
         if isinstance(rng, int):
             rng = np.random.default_rng(rng)
         self.rng = rng
 
         self.max_parallel_processes = max_parallel_processes
+        self._max_parallel_processes_used = 0
         self._parallel_processes_by_round: list[int] = []
         self._completed_windows_by_round: list[int] = []
+        self._num_completed_windows = 0
         self._current_round = 0
-        self._window_speculation_start_times: dict[int, int] = {}
-        self._window_decoding_start_times: dict[int, int] = {}
-        self._window_decoding_completion_times: dict[int, int] = {}
         self._missed_speculation_events: list[tuple[int, list[int]]] = []
         self._active_speculation_progress: dict[int, int] = {} # maps each speculated window to rounds remaining to complete speculation
         self._active_window_progress: dict[int, int] = {} # maps each active window to rounds remaining to complete decoding
         self._pending_decode_tasks: set[int] = set()
         self._pending_speculate_tasks: set[int] = set()
+        self._finalized_frontier: set[int] = set()
         self._tasks_by_idx: list[DecoderTask | None] = []
         self._partially_complete_instructions: set[int] = set()
 
@@ -99,25 +101,23 @@ class DecoderManager:
             self._active_window_progress[task_idx] -= 1
         completed_windows = []
         poisoned_speculations = []
-        deleted_task_indices = []
 
         for task_idx, time_remaining in self._active_window_progress.items():
             if time_remaining <= 0:
                 completed_windows.append(task_idx)
-                if self.speculation_mode and self.rng.random() > self.speculation_accuracy:
-                    # Mis-speculation
-                    # TODO: missed speculations should happen per-buffer-region, not per-window
-                    poisoned_speculations.append(task_idx)
-                if self.lightweight_output:
-                    for parent_idx in self._window_idx_dag.predecessors(task_idx):
-                        parent = self._get_task_or_none(parent_idx)
-                        if parent and all(self._get_task(sibling_idx).completed_decoding for sibling_idx in self._window_idx_dag.successors(parent_idx) if self._get_task_or_none(sibling_idx)):
-                            self._tasks_by_idx[parent_idx] = None
-                            deleted_task_indices.append(parent_idx)
+                if self.speculation_mode:
+                    for successor_idx in self._window_idx_dag.successors(task_idx):
+                        successor = self._get_task_or_none(successor_idx)
+                        if successor and successor.decoding_start_time != -1 and self.rng.random() > 1-(1-self.speculation_accuracy)**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
+                            # Missed speculation
+                            assert successor.used_parent_speculations[task_idx]
+                            poisoned_speculations.append(successor_idx)
 
+        self._num_completed_windows += len(completed_windows)
         for task_idx in completed_windows:
             task = self._get_task(task_idx)
-            self._window_decoding_completion_times[task_idx] = self._current_round
+            # self._window_decoding_completion_times[task_idx] = self._current_round
+            task.decoding_completion_time = self._current_round
             self._active_window_progress.pop(task_idx)
             task.completed_decoding = True
             self._partially_complete_instructions |= task.window.parent_instr_idx
@@ -138,36 +138,75 @@ class DecoderManager:
             # Update poisoned windows
             # For each poisoned window, reset any descendants that used the poisoned
             # speculation.
+            all_poisoned_indices = []
             for poisoned_task_idx in poisoned_speculations:
-                dependents = self._window_idx_dag.successors(poisoned_task_idx)
-                all_poisoned_indices = [poisoned_task_idx]
-                for dependent_idx in dependents:
-                    dependent = self._get_task_or_none(dependent_idx)
-                    if dependent and dependent_idx in self._window_decoding_start_times:
-                        assert dependent.used_parent_speculations[poisoned_task_idx]
-                        if dependent.completed_decoding:
-                            all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(dependent_idx)
-                        self._reset_decode_task(dependent_idx)
-                        all_poisoned_indices.append(dependent_idx)
+                poisoned_task = self._get_task_or_none(poisoned_task_idx)
+                if poisoned_task and poisoned_task.decoding_start_time != -1:
+                    if poisoned_task.completed_decoding:
+                        all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(poisoned_task_idx)
+                    self._reset_decode_task(poisoned_task_idx)
+                    all_poisoned_indices.append(poisoned_task_idx)
+            if self.lightweight_setting == 0:
                 self._missed_speculation_events.append((self._current_round, all_poisoned_indices))
 
         self._current_round += 1
-        self._parallel_processes_by_round.append(len(self._active_window_progress))
-        self._completed_windows_by_round.append(len(self._window_decoding_completion_times))
+        if self.lightweight_setting == 0:
+            self._parallel_processes_by_round.append(len(self._active_window_progress))
+            self._completed_windows_by_round.append((self._completed_windows_by_round[-1] if self._current_round > 1 else 0) + len(completed_windows))
+        self._max_parallel_processes_used = max(self._max_parallel_processes_used, len(self._active_window_progress))
 
-        return deleted_task_indices
+        if self.lightweight_setting == 3:
+            deleted_task_indices = self._advance_finalized_frontier()
+            return deleted_task_indices
+        return []
+
+    def _advance_finalized_frontier(self):
+        """Advance the frontier of finalized windows, and remove any windows
+        that are no longer needed.
+        
+        A window is considered finalized when it and all of its ancestors have
+        completed decoding. This means we will not have any missed speculations
+        happen in the future that would impact it. Every task in
+        self._finalized_frontier is guaranteed to have all of its ancestors
+        finalized.
+        """
+        assert self.lightweight_setting == 3
+        finalized_task_indices = []
+        change_made = True
+        while change_made and self._finalized_frontier:
+            change_made = False
+            task_idx = self._finalized_frontier.pop()
+            task = self._get_task_or_none(task_idx)
+            if task and task.completed_decoding:
+                finalized_task_indices.append(task_idx)
+                for successor in self._window_idx_dag.successors(task_idx):
+                    # print(f'Checking successor {successor} of task {task_idx}')
+                    # if not self._get_task_or_none(successor):
+                    #     assert self._get_task_or_none(successor)
+                    if all(self._get_task(parent_idx).completed_decoding for parent_idx in nx.ancestors(self._window_idx_dag, successor) if self._get_task_or_none(parent_idx)):
+                        self._finalized_frontier.add(successor)
+                change_made = True
+            else:
+                self._finalized_frontier.add(task_idx)
+        for task_idx in finalized_task_indices:
+            # print(f'Finalized task {task_idx}')
+            self._tasks_by_idx[task_idx] = None
+            # self._window_idx_dag.remove_node(task_idx)
+        return finalized_task_indices
 
     def _reset_decode_task(self, task_idx):
         task = self._get_task(task_idx)
-        self._window_decoding_start_times.pop(task_idx)
+        task.decoding_start_time = -1
         if task_idx in self._active_window_progress:
             self._active_window_progress.pop(task_idx)
         else:
-            self._window_decoding_completion_times.pop(task_idx)
+            # self._window_decoding_completion_times.pop(task_idx)
+            task.decoding_completion_time = -1
+            self._num_completed_windows -= 1
             task.completed_decoding = False
         task.used_parent_speculations = {}
         self._pending_decode_tasks.add(task_idx)
-        assert task_idx not in self._active_window_progress and task_idx not in self._window_decoding_start_times and task_idx not in self._window_decoding_completion_times and not task.completed_decoding
+        assert task_idx not in self._active_window_progress and task.decoding_start_time == -1 and task.decoding_completion_time == -1 and not task.completed_decoding
         return task_idx
 
     def _poisoned_task_reset_children_that_used_decoding(self, task_idx):
@@ -177,7 +216,7 @@ class DecoderManager:
         poisoned_indices = []
         for child_idx in self._window_idx_dag.successors(task_idx):
             child = self._get_task_or_none(child_idx)
-            if child and child_idx in self._window_decoding_start_times and not child.used_parent_speculations[task_idx]:
+            if child and child.decoding_start_time != -1 and not child.used_parent_speculations[task_idx]:
                 if child.completed_decoding:
                     poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(child_idx)
                 self._reset_decode_task(child_idx)
@@ -198,8 +237,6 @@ class DecoderManager:
                 between decoding windows.
         """
         # Check dependencies and start new speculation and decoding processes
-        # completed_windows = set(self._window_completion_times.keys())
-        # unprocessed_windows = set(all_windows) - completed_windows
         self._window_idx_dag = window_idx_dag
         new_task_indices = set(w.window_idx for w in new_windows)
         new_tasks = [DecoderTask(window=window, window_idx=window.window_idx) for window in new_windows]
@@ -207,7 +244,7 @@ class DecoderManager:
         if self.speculation_mode:
             self._pending_speculate_tasks |= new_task_indices
         
-        new_task_len = max(len(self._tasks_by_idx), max((task.window_idx for task in new_tasks), default=0) + 1)
+        new_task_len = max(len(self._tasks_by_idx), max((task.window_idx for task in new_tasks), default=-1) + 1)
         if len(self._tasks_by_idx) < new_task_len:
             self._tasks_by_idx += [None] * (new_task_len - len(self._tasks_by_idx))
         for task in new_tasks:
@@ -228,11 +265,12 @@ class DecoderManager:
             if task_idx in self._pending_speculate_tasks and self.speculation_mode == 'separate' and not self._completed_decoding(task_idx):
                 assert task_idx not in self._active_speculation_progress
                 self._pending_speculate_tasks.remove(task_idx)
-                self._window_speculation_start_times[task_idx] = self._current_round
+                task.speculation_start_time = self._current_round
                 if self.speculation_time > 0:
                     self._active_speculation_progress[task_idx] = self.speculation_time
                 else:
-                    self._get_task(task_idx).completed_speculation = True
+                    task.completed_speculation = True
+                    task.speculation_completion_time = self._current_round
                     unprocessed_task_indices |= {w_idx for w_idx in self._window_idx_dag.successors(task.window_idx) if not (self._get_task_or_none(w_idx) is None or self._get_task(w_idx).completed_decoding)}
             
             if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
@@ -246,8 +284,10 @@ class DecoderManager:
                 # begin decoding
                 assert not self._completed_decoding(task_idx) and task_idx not in self._active_window_progress
                 self._pending_decode_tasks.remove(task_idx)
-                self._window_decoding_start_times[task_idx] = self._current_round
+                task.decoding_start_time = self._current_round
                 self._active_window_progress[task_idx] = self.decoding_time_function(task.window.total_spacetime_volume())
+                if self.lightweight_setting == 3 and not any(ancestor_idx in self._finalized_frontier for ancestor_idx in nx.ancestors(self._window_idx_dag, task_idx)):
+                    self._finalized_frontier.add(task_idx)
                 task.used_parent_speculations = {}
                 for parent_idx in parents:
                     parent = self._get_task(parent_idx)
@@ -260,7 +300,7 @@ class DecoderManager:
                     # begin a speculation along with decoding
                     assert task_idx not in self._active_speculation_progress
                     self._pending_speculate_tasks.remove(task_idx)
-                    self._window_speculation_start_times[task_idx] = self._current_round
+                    task.speculation_start_time = self._current_round
                     if self.speculation_time > 0:
                         self._active_speculation_progress[task_idx] = self.speculation_time
                     else:
@@ -278,7 +318,7 @@ class DecoderManager:
         if task:
             return task.completed_speculation
         return False
-    
+
     def _get_task(self, task_idx: int) -> DecoderTask:
         if task_idx >= len(self._tasks_by_idx):
             raise RuntimeError(f'Invalid task index: {task_idx}')
@@ -296,10 +336,6 @@ class DecoderManager:
             return None
         return task
 
-    def _purge_old_windows(self) -> None:
-        if self.delete_old_windows_after is not None:
-            self._tasks_by_idx = [(task if task is None or i >= len(self._tasks_by_idx) - self.delete_old_windows_after else None) for i, task in enumerate(self._tasks_by_idx)]
-
     def get_finished_instruction_indices(self) -> set[int]:
         """Return the set of instruction idx that have been decoded."""
         # TODO: send unfinished instructions instead
@@ -316,13 +352,41 @@ class DecoderManager:
         return incomplete_task_instructions | incomplete_descendant_instructions
 
     def get_data(self) -> DecoderData:
-        return DecoderData(
-            num_rounds=self._current_round,
-            max_parallel_processes=self.max_parallel_processes,
-            parallel_processes_by_round=self._parallel_processes_by_round,
-            completed_windows_by_round=self._completed_windows_by_round,
-            window_speculation_start_times=self._window_speculation_start_times.copy(),
-            window_decoding_start_times=self._window_decoding_start_times.copy(),
-            window_decoding_completion_times=self._window_decoding_completion_times.copy(),
-            missed_speculation_events=self._missed_speculation_events.copy(),
-        )
+        if self.lightweight_setting == 0:
+            return DecoderData(
+                num_rounds=self._current_round,
+                max_parallel_processes=self._max_parallel_processes_used,
+                num_completed_windows=self._num_completed_windows,
+                parallel_processes_by_round=self._parallel_processes_by_round,
+                completed_windows_by_round=self._completed_windows_by_round,
+                window_speculation_start_times={task_idx:task.speculation_start_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
+                window_decoding_start_times={task_idx:task.decoding_start_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
+                window_decoding_completion_times={task_idx:task.decoding_completion_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
+                missed_speculation_events=self._missed_speculation_events,
+            )
+        elif self.lightweight_setting == 1:
+            return DecoderData(
+                num_rounds=self._current_round,
+                max_parallel_processes=self._max_parallel_processes_used,
+                num_completed_windows=self._num_completed_windows,
+                parallel_processes_by_round=None,
+                completed_windows_by_round=None,
+                window_speculation_start_times={task_idx:task.speculation_start_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
+                window_decoding_start_times={task_idx:task.decoding_start_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
+                window_decoding_completion_times={task_idx:task.decoding_completion_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
+                missed_speculation_events=self._missed_speculation_events,
+            )
+        elif self.lightweight_setting == 2 or self.lightweight_setting == 3:
+            return DecoderData(
+                num_rounds=self._current_round,
+                max_parallel_processes=self._max_parallel_processes_used,
+                num_completed_windows=self._num_completed_windows,
+                parallel_processes_by_round=None,
+                completed_windows_by_round=None,
+                window_speculation_start_times=None,
+                window_decoding_start_times=None,
+                window_decoding_completion_times=None,
+                missed_speculation_events=None,
+            )
+        else:
+            raise RuntimeError('Invalid lightweight setting')
