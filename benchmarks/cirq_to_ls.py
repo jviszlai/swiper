@@ -73,7 +73,7 @@ def _get_gridsynth_sequence(op: cirq.Operation, rads: float, precision: float = 
     pi_rots = [0.0, np.pi, np.pi / 2, np.pi / 4]
     output_gate = None
     for i, pi_rot in enumerate(pi_rots):
-        if (rads) - pi_rot < 1e-6:
+        if abs(abs(rads) - pi_rot) < 1e-10:
             match i:
                 case 0:
                     return []
@@ -95,11 +95,14 @@ def _get_gridsynth_sequence(op: cirq.Operation, rads: float, precision: float = 
     
         # Merge double S gate
         new_s = ''
-        for i in range(1, len(ss)):
-            if ss[i] == ss[i-1] == 'S':
+        i = 0
+        while i < len(ss):
+            if i < len(ss) - 1 and (ss[i] == ss[i+1] == 'S'):
                 new_s += 'Z'
+                i += 2
             else:
                 new_s += ss[i]
+                i += 1
         
         # Build a circuit from this
         approx_seq = []
