@@ -1,0 +1,22 @@
+CONFIG 45
+benchmark_file: slurm/data/20241110_135628/benchmarks/regular_t_1000_0.lss
+decoder_latency_or_dist_filename: slurm/data/20241110_135628/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+rng: 0
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-10 13:56:40 | Loading benchmark slurm/data/20241110_135628/benchmarks/regular_t_1000_0.lss...
+2024-11-10 13:56:40 | Starting simulation
+2024-11-10 13:56:40 | Simulation update: decoder round 1, completed instructions: 0/4001, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-10 13:56:50 | Simulation update: decoder round 48765, completed instructions: 612/4001, actively running or decoding instructions: 2, waiting windows: 2553/5130. Max active instruction index: 609
+2024-11-10 13:57:00 | Simulation update: decoder round 98371, completed instructions: 1225/4001, actively running or decoding instructions: 3, waiting windows: 5142/10319. Max active instruction index: 1225
+2024-11-10 13:57:10 | Simulation update: decoder round 147132, completed instructions: 1812/4001, actively running or decoding instructions: 3, waiting windows: 7703/15467. Max active instruction index: 1809
+2024-11-10 13:57:20 | Simulation update: decoder round 195034, completed instructions: 2368/4001, actively running or decoding instructions: 3, waiting windows: 10299/20653. Max active instruction index: 2365
+2024-11-10 13:57:30 | Simulation update: decoder round 243166, completed instructions: 2968/4001, actively running or decoding instructions: 2, waiting windows: 12881/25864. Max active instruction index: 2965
+2024-11-10 13:57:40 | Simulation update: decoder round 291205, completed instructions: 3552/4001, actively running or decoding instructions: 3, waiting windows: 15431/31002. Max active instruction index: 3549
+2024-11-10 13:57:48 | Finished simulation
+2024-11-10 13:57:48 | Finished saving output. Done! Total elapsed time: 0:01:08.623569

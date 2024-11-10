@@ -1,0 +1,22 @@
+CONFIG 72
+benchmark_file: slurm/data/20241110_135628/benchmarks/regular_t_1000_0.lss
+decoder_latency_or_dist_filename: slurm/data/20241110_135628/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-10 13:56:42 | Loading benchmark slurm/data/20241110_135628/benchmarks/regular_t_1000_0.lss...
+2024-11-10 13:56:43 | Starting simulation
+2024-11-10 13:56:43 | Simulation update: decoder round 1, completed instructions: 0/4001, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-10 13:56:53 | Simulation update: decoder round 48399, completed instructions: 624/4001, actively running or decoding instructions: 2, waiting windows: 2479/5084. Max active instruction index: 623
+2024-11-10 13:57:03 | Simulation update: decoder round 97304, completed instructions: 1251/4001, actively running or decoding instructions: 3, waiting windows: 4982/10236. Max active instruction index: 1252
+2024-11-10 13:57:13 | Simulation update: decoder round 145642, completed instructions: 1860/4001, actively running or decoding instructions: 3, waiting windows: 7454/15333. Max active instruction index: 1857
+2024-11-10 13:57:23 | Simulation update: decoder round 193282, completed instructions: 2464/4001, actively running or decoding instructions: 3, waiting windows: 9942/20455. Max active instruction index: 2461
+2024-11-10 13:57:33 | Simulation update: decoder round 241049, completed instructions: 3064/4001, actively running or decoding instructions: 2, waiting windows: 12452/25625. Max active instruction index: 3061
+2024-11-10 13:57:43 | Simulation update: decoder round 288530, completed instructions: 3660/4001, actively running or decoding instructions: 2, waiting windows: 14924/30735. Max active instruction index: 3657
+2024-11-10 13:57:48 | Finished simulation
+2024-11-10 13:57:49 | Finished saving output. Done! Total elapsed time: 0:01:06.408275
