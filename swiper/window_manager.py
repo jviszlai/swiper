@@ -225,6 +225,7 @@ class WindowManager(ABC):
         return new_window
     
     def purge_windows(self, window_indices) -> None:
+        return
         for window_idx in window_indices:
             window = self.all_windows[window_idx]
             if window:

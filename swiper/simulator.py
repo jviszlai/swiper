@@ -198,8 +198,8 @@ class DecodingSimulator:
             return
 
         # step device forward
-        deleted_indices = self._decoding_manager.step()
-        self._window_manager.purge_windows(deleted_indices)
+        completed_window_indices = self._decoding_manager.step()
+        purged_indices = self._window_manager.purge_windows(completed_window_indices)
         incomplete_instructions = set(self._device_manager._active_instructions.keys()) | self._window_manager.window_builder.get_incomplete_instructions() | self._window_manager.pending_instruction_indices() | self._decoding_manager.get_incomplete_instruction_indices()
 
         syndrome_rounds = self._device_manager.get_next_round(incomplete_instructions)
@@ -214,7 +214,7 @@ class DecodingSimulator:
         # process new round
         newly_constructed_windows = self._window_manager.process_round(syndrome_rounds)
         self.sent_windows.extend(w.window_idx for w in newly_constructed_windows)
-        self._decoding_manager.update_decoding(newly_constructed_windows, self._window_manager.window_dag)
+        self._decoding_manager.update_decoding(newly_constructed_windows, purged_indices, self._window_manager.window_dag)
 
     def is_done(self) -> bool:
         if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:

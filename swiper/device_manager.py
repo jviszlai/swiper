@@ -48,6 +48,34 @@ class InstructionTask:
     start_round: int
     end_round: int
 
+class OrderedSet:
+    def __init__(self):
+        self._data = []
+        self._set = set()
+    
+    def add(self, item, push_front=False):
+        if item in self._set:
+            if push_front:
+                self._data.remove(item)
+                self._data.append(item)
+        else:
+            self._data.append(item)
+            self._set.add(item)
+    
+    def pop(self):
+        item = self._data.pop()
+        self._set.remove(item)
+        return item
+    
+    def __contains__(self, item):
+        return item in self._set
+    
+    def __len__(self):
+        return len(self._data)
+    
+    def __iter__(self):
+        return iter(self._data)
+
 class DeviceManager:
     def __init__(self, d_t: int, schedule: LatticeSurgerySchedule, lightweight_setting: int = 0, rng: int | np.random.Generator = np.random.default_rng()):
         """TODO
@@ -62,6 +90,7 @@ class DeviceManager:
         self.schedule_instructions = [InstructionTask(i, instr, -1, -1) for i,instr in enumerate(schedule.full_instructions())]
         self.schedule_dag = schedule.to_dag(self.d_t)
         self._patches_initialized_by_instr = self._get_initialized_patches()
+        self._is_startup_instruction = [self._calc_is_startup_instruction(i) for i in range(len(self.schedule_instructions))]
         self.current_round = 0
         self.lightweight_setting = lightweight_setting
 
@@ -106,7 +135,7 @@ class DeviceManager:
                 active_patches |= patches
         return patches_initialized_by_instr
 
-    def _is_startup_instruction(self, instruction_idx: int) -> bool:
+    def _calc_is_startup_instruction(self, instruction_idx: int) -> bool:
         """Return whether an instruction is a startup instruction."""
         return len(self._patches_initialized_by_instr[instruction_idx]) == len(self.schedule_instructions[instruction_idx].instruction.patches)
 
@@ -114,7 +143,7 @@ class DeviceManager:
         schedule_longest_path = nx.dag_longest_path(self.schedule_dag)
         return schedule_longest_path[0]
 
-    def _predict_instruction_start_time(self, instruction_idx: int, first_round: dict[int, int], recur: bool = False) -> tuple[dict[int, int], list[int]]:
+    def _predict_instruction_start_time(self, instruction_idx: int, first_round: dict[int, int]) -> tuple[dict[int, int], list[int]]:
         """Update first_round with the expected start time of
         instruction_idx."""
         instructions_to_process = []
@@ -129,7 +158,7 @@ class DeviceManager:
         else:
             valid = True
             expected_start = None
-            if self._is_startup_instruction(instruction_idx):
+            if self._is_startup_instruction[instruction_idx]:
                 # startup instruction; schedule ALAP
                 for inst_idx in self.schedule_dag.successors(instruction_idx):
                     if inst_idx in first_round:
@@ -151,7 +180,7 @@ class DeviceManager:
                             this_start = start + self._instruction_durations[inst_idx]
                             if not expected_start or this_start > expected_start:
                                 expected_start = this_start
-                    elif self._is_startup_instruction(inst_idx):
+                    elif self._is_startup_instruction[inst_idx]:
                         if valid:
                             if self.schedule_instructions[inst_idx].end_round != -1:
                                 start = self.schedule_instructions[inst_idx].end_round
@@ -174,37 +203,46 @@ class DeviceManager:
             else:
                 instructions_to_process.append(instruction_idx)
 
-            if recur and len(instructions_to_process) > 0:
-                while len(instructions_to_process) > 0:
-                    instr = instructions_to_process.pop(0)
-                    first_round, new_instructions_to_process = self._predict_instruction_start_time(instr, first_round, recur=True)
-                    instructions_to_process.extend([instr for instr in new_instructions_to_process if instr not in instructions_to_process])
-        assert not recur or len(instructions_to_process) == 0
         return first_round, instructions_to_process
+
+    def _predict_instruction_start_time_fully(self, instruction_idx: int, first_round: dict[int, int]) -> dict[int, int]:
+        """Update first_round with the expected start time of
+        instruction_idx, and all instructions it depends on."""
+        instructions_to_process = OrderedSet()
+        instructions_to_process.add(instruction_idx)
+        prev_queue_len = len(instructions_to_process)
+        iters = 0
+        while len(instructions_to_process) > 0:
+            iters += 1
+            if iters % 1000 == 0 or iters > 10000:
+                if prev_queue_len - len(instructions_to_process) < 10:
+                    raise Exception('Infinite loop in _predict_instruction_start_time_fully', instructions_to_process, first_round)
+                else:
+                    prev_queue_len = len(instructions_to_process)
+                
+            instr = instructions_to_process.pop()
+            first_round, new_instructions_to_process = self._predict_instruction_start_time(instr, first_round)
+            # list comp is the expensive part here
+            for new_instr in reversed(new_instructions_to_process):
+                instructions_to_process.add(new_instr, push_front=True)
+            # instructions_to_process = new_instructions_to_process + [instr for instr in instructions_to_process if instr not in new_instructions_to_process]
+        return first_round
 
     def _predict_instruction_start_times(self):
         """For each not-yet-started instruction in the frontier, get number of
         rounds from now at which we expect it to begin, assuming no unexpected
         delays happen. Instructions which should be started immediately are
         assigned round 0.
+
+        TODO: can re-use most of the results from the previous time this was
+        evaluated. Need to check which things have changed since then (iterate
+        through each instruction in frontier, check if any of its predecessors
+        or successors have changed status since last time, etc.)
         """
         first_round = dict()
 
-        instruction_queue = list(self._instruction_frontier)
-
-        prev_queue_len = len(instruction_queue)
-        iters = 0
-        while len(instruction_queue) > 0:
-            iters += 1
-            if iters % 1000 == 0 or iters > 10000:
-                if prev_queue_len - len(instruction_queue) < 10:
-                    raise Exception('Infinite loop in _predict_instruction_start_times', instruction_queue, first_round)
-                else:
-                    prev_queue_len = len(instruction_queue)
-                
-            instruction_idx = instruction_queue.pop(0)
-            first_round, instructions_to_process = self._predict_instruction_start_time(instruction_idx, first_round, recur=True)
-            assert len(instructions_to_process) == 0
+        for instruction_idx in self._instruction_frontier:
+            first_round = self._predict_instruction_start_time_fully(instruction_idx, first_round)
         
         return first_round
 
@@ -258,7 +296,7 @@ class DeviceManager:
                         self._instruction_frontier -= set([instruction_idx])
                         new_instructions = set(self.schedule_dag.successors(instruction_idx)) - self._instruction_frontier
                         for instr in new_instructions:
-                            start_times, _ = self._predict_instruction_start_time(instr, start_times, recur=True)
+                            start_times = self._predict_instruction_start_time_fully(instr, start_times)
                         self._instruction_frontier.update(new_instructions)
                         break
 
@@ -289,7 +327,7 @@ class DeviceManager:
                     self._instruction_frontier -= set([instruction_idx])
                     new_instructions = set(self.schedule_dag.successors(instruction_idx)) - self._instruction_frontier
                     for instr in new_instructions:
-                        start_times, _ = self._predict_instruction_start_time(instr, start_times, recur=True)
+                        start_times = self._predict_instruction_start_time_fully(instr, start_times)
                     self._instruction_frontier.update(new_instructions)
 
         # Keep track of how long conditional instructions have to wait

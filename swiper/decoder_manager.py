@@ -155,44 +155,10 @@ class DecoderManager:
             self._completed_windows_by_round.append((self._completed_windows_by_round[-1] if self._current_round > 1 else 0) + len(completed_windows))
         self._max_parallel_processes_used = max(self._max_parallel_processes_used, len(self._active_window_progress))
 
-        if self.lightweight_setting == 3:
-            deleted_task_indices = self._advance_finalized_frontier()
-            return deleted_task_indices
-        return []
-
-    def _advance_finalized_frontier(self):
-        """Advance the frontier of finalized windows, and remove any windows
-        that are no longer needed.
-        
-        A window is considered finalized when it and all of its ancestors have
-        completed decoding. This means we will not have any missed speculations
-        happen in the future that would impact it. Every task in
-        self._finalized_frontier is guaranteed to have all of its ancestors
-        finalized.
-        """
-        assert self.lightweight_setting == 3
-        finalized_task_indices = []
-        change_made = True
-        while change_made and self._finalized_frontier:
-            change_made = False
-            task_idx = self._finalized_frontier.pop()
-            task = self._get_task_or_none(task_idx)
-            if task and task.completed_decoding:
-                finalized_task_indices.append(task_idx)
-                for successor in self._window_idx_dag.successors(task_idx):
-                    # print(f'Checking successor {successor} of task {task_idx}')
-                    # if not self._get_task_or_none(successor):
-                    #     assert self._get_task_or_none(successor)
-                    if all(self._get_task(parent_idx).completed_decoding for parent_idx in nx.ancestors(self._window_idx_dag, successor) if self._get_task_or_none(parent_idx)):
-                        self._finalized_frontier.add(successor)
-                change_made = True
-            else:
-                self._finalized_frontier.add(task_idx)
-        for task_idx in finalized_task_indices:
-            # print(f'Finalized task {task_idx}')
-            self._tasks_by_idx[task_idx] = None
-            # self._window_idx_dag.remove_node(task_idx)
-        return finalized_task_indices
+        # if self.lightweight_setting == 3:
+        #     deleted_task_indices = self._advance_finalized_frontier()
+        #     return deleted_task_indices
+        return completed_windows
 
     def _reset_decode_task(self, task_idx):
         task = self._get_task(task_idx)
@@ -222,7 +188,7 @@ class DecoderManager:
                 self._reset_decode_task(child_idx)
         return poisoned_indices
 
-    def update_decoding(self, new_windows: list[DecodingWindow], window_idx_dag: nx.DiGraph) -> None:
+    def update_decoding(self, new_windows: list[DecodingWindow], purged_indices: list[int], window_idx_dag: nx.DiGraph) -> None:
         """Update state of processing windows and start any new decoding
         processes, if possible.
 
