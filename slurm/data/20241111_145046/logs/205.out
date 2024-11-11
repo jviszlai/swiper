@@ -1,0 +1,19 @@
+CONFIG 205
+benchmark_file: slurm/data/20241111_145046/benchmarks/random_t_1000_200_0.lss
+decoder_latency_or_dist_filename: lambda volume: volume*1.291549665014884
+distance: 21
+lightweight_setting: 1
+max_parallel_processes: None
+poison_policy: successors
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 0.6000000000000001
+speculation_latency: 1
+speculation_mode: separate
+2024-11-11 14:52:16 | Loading benchmark slurm/data/20241111_145046/benchmarks/random_t_1000_200_0.lss...
+2024-11-11 14:52:16 | Starting simulation
+2024-11-11 14:52:17 | Simulation update: decoder round 1, completed instructions: 0/4997, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-11 14:52:27 | Simulation update: decoder round 94948, completed instructions: 1984/4997, actively running or decoding instructions: 3, waiting windows: 2289/5327. Max active instruction index: 1984
+2024-11-11 14:52:37 | Simulation update: decoder round 189900, completed instructions: 3999/4997, actively running or decoding instructions: 2, waiting windows: 4529/10583. Max active instruction index: 3999
+2024-11-11 14:52:42 | Finished simulation
+2024-11-11 14:52:42 | Finished saving output. Done! Total elapsed time: 0:00:25.953391
