@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 import networkx as nx
 import numpy as np
 from enum import Enum
+import copy
 
 class Duration(Enum):
     D = 1
@@ -88,23 +89,31 @@ class Instruction:
 
 class LatticeSurgerySchedule:
     """Represents a planned series of lattice surgery operations."""
-    _all_instructions: list[Instruction]
+    instructions: list[Instruction]
     _instructions_by_patch: dict[tuple[int, int], list[int]]
 
     def __init__(self, generate_dag_incrementally: bool = True):
-        self._all_instructions: list[Instruction] = []
+        self.instructions: list[Instruction] = []
         self._instructions_by_patch = {}
         self.generate_dag_incrementally = generate_dag_incrementally
         self._generated_dag = nx.DiGraph()
 
     def __len__(self):
-        return len(self._all_instructions)
+        return len(self.instructions)
     
     def __str__(self):
         return '\n'.join(str(instr) for instr in self.full_instructions())
     
     def __eq__(self, other):
         return self.full_instructions() == other.full_instructions()
+    
+    # copy
+    def __copy__(self):
+        instance = LatticeSurgerySchedule(generate_dag_incrementally=self.generate_dag_incrementally)
+        instance.instructions = copy.deepcopy(self.instructions)
+        instance._instructions_by_patch = copy.deepcopy(self._instructions_by_patch)
+        instance._generated_dag = copy.deepcopy(self._generated_dag)
+        return instance
     
     @classmethod
     def from_str(cls, s, generate_dag_incrementally: bool = False):
@@ -113,40 +122,37 @@ class LatticeSurgerySchedule:
             instance._add_instruction(Instruction.from_str(line))
         return instance
 
-    def full_instructions(self):
+    def full_schedule(self) -> 'LatticeSurgerySchedule':
         """Return a list of all instructions, with all the necessary DISCARDS
         placed at the end.
         """
-        instructions = self._all_instructions.copy()
-        for patch, instr_idxs in self._instructions_by_patch.items():
-            instr = instructions[instr_idxs[-1]]
-            if instr.name != 'DISCARD':
-                instructions.append(Instruction('DISCARD', len(instructions), frozenset([patch]), 0))
-        return instructions
+        full_sched = self.__copy__()
+        full_sched.discard(full_sched._get_final_active_patches())
+        return full_sched
 
     def inject_T(self, patches: list[tuple[int, int]]):
         for patch in patches:
-            if patch in self._instructions_by_patch and self._all_instructions[self._instructions_by_patch[patch][-1]].name != 'DISCARD':
-                raise ValueError(f'Tried to inject T gate on patch {patch} at instruction {len(self._all_instructions)}, but it was already active. If this was intended, make sure to DISCARD the patch first.')
-            instruction = Instruction('INJECT_T', len(self._all_instructions), frozenset([patch]), Duration.D)
+            if patch in self._instructions_by_patch and self.instructions[self._instructions_by_patch[patch][-1]].name != 'DISCARD':
+                raise ValueError(f'Tried to inject T gate on patch {patch} at instruction {len(self.instructions)}, but it was already active. If this was intended, make sure to DISCARD the patch first.')
+            instruction = Instruction('INJECT_T', len(self.instructions), frozenset([patch]), Duration.D)
             self._add_instruction(instruction)
 
     def conditional_S(self, patch_coords: tuple[int, int], conditioned_on_idx: int=None):
         if not conditioned_on_idx:
-            instruction = Instruction('CONDITIONAL_S', len(self._all_instructions), frozenset([patch_coords]), Duration.HALF_D_PLUS_2)
+            instruction = Instruction('CONDITIONAL_S', len(self.instructions), frozenset([patch_coords]), Duration.HALF_D_PLUS_2)
             self._add_instruction(instruction)
             return
-        instruction = Instruction('CONDITIONAL_S', len(self._all_instructions), frozenset([patch_coords]), Duration.HALF_D_PLUS_2, frozenset([conditioned_on_idx]))
+        instruction = Instruction('CONDITIONAL_S', len(self.instructions), frozenset([patch_coords]), Duration.HALF_D_PLUS_2, frozenset([conditioned_on_idx]))
         self._add_instruction(instruction)
         
-        update_instr = self._all_instructions[conditioned_on_idx]
-        self._all_instructions[conditioned_on_idx] = Instruction(
+        update_instr = self.instructions[conditioned_on_idx]
+        self.instructions[conditioned_on_idx] = Instruction(
             update_instr.name,
             update_instr.idx,
             update_instr.patches,
             update_instr.duration,
             update_instr.conditioned_on_idx,
-            update_instr.conditional_dependencies | frozenset([len(self._all_instructions) - 1]),
+            update_instr.conditional_dependencies | frozenset([len(self.instructions) - 1]),
             update_instr.conditioned_on_completion_idx,
             update_instr.conditional_completion_dependencies,
             update_instr.merge_faces,
@@ -177,9 +183,9 @@ class LatticeSurgerySchedule:
             The index of the merge instruction in the schedule.
         """
         if len(routing_qubits) == 0 and len(active_qubits) != 2:
-            raise ValueError(f'No routing patches provided for merge instruction {len(self._all_instructions)}, but more than two active patches {active_qubits}.')
+            raise ValueError(f'No routing patches provided for merge instruction {len(self.instructions)}, but more than two active patches {active_qubits}.')
         if len(routing_qubits) == 0 and np.linalg.norm(np.array(active_qubits[0]) - np.array(active_qubits[1])) != 1:
-            raise ValueError(f'No routing patches provided for merge instruction {len(self._all_instructions)}, but active patches {active_qubits} are not adjacent.')
+            raise ValueError(f'No routing patches provided for merge instruction {len(self.instructions)}, but active patches {active_qubits} are not adjacent.')
         if not merge_faces:
             merge_faces = set()
             if len(routing_qubits) > 0:
@@ -203,17 +209,17 @@ class LatticeSurgerySchedule:
         for patch in active_qubits + routing_qubits:
             assert sum(patch in face for face in merge_faces) <= 4, (patch, merge_faces)
         for patch in routing_qubits:
-            if patch in self._instructions_by_patch and self._all_instructions[self._instructions_by_patch[patch][-1]].name != 'DISCARD':
-                raise ValueError(f'Tried to initialize routing patch {patch} for merge instruction {len(self._all_instructions)}, but it is already active. If this was intended, make sure to DISCARD the patch first.')
+            if patch in self._instructions_by_patch and self.instructions[self._instructions_by_patch[patch][-1]].name != 'DISCARD':
+                raise ValueError(f'Tried to initialize routing patch {patch} for merge instruction {len(self.instructions)}, but it is already active. If this was intended, make sure to DISCARD the patch first.')
         instruction = Instruction(
             name='MERGE',
-            idx=len(self._all_instructions),
+            idx=len(self.instructions),
             patches=frozenset(active_qubits + routing_qubits),
             duration=duration,
             merge_faces=frozenset(merge_faces),
         )
         self._add_instruction(instruction)
-        idx = len(self._all_instructions) - 1
+        idx = len(self.instructions) - 1
         self.discard(routing_qubits) 
         return idx
 
@@ -221,13 +227,13 @@ class LatticeSurgerySchedule:
         if len(patches) == 0:
             return
         for patch in patches:
-            instruction = Instruction('DISCARD', len(self._all_instructions), frozenset([patch]), 0, conditioned_on_completion_idx=frozenset(conditioned_on_idx))
-            if patch in self._instructions_by_patch and self._all_instructions[self._instructions_by_patch[patch][-1]].name == 'DISCARD':
-                raise ValueError(f'Tried to discard the same patch {patch} twice at instruction {len(self._all_instructions)}.')
+            instruction = Instruction('DISCARD', len(self.instructions), frozenset([patch]), 0, conditioned_on_completion_idx=frozenset(conditioned_on_idx))
+            if patch in self._instructions_by_patch and self.instructions[self._instructions_by_patch[patch][-1]].name == 'DISCARD':
+                raise ValueError(f'Tried to discard the same patch {patch} twice at instruction {len(self.instructions)}.')
             self._add_instruction(instruction)
             for idx in conditioned_on_idx:
-                update_instr = self._all_instructions[idx]
-                self._all_instructions[idx] = Instruction(
+                update_instr = self.instructions[idx]
+                self.instructions[idx] = Instruction(
                     update_instr.name,
                     update_instr.idx,
                     update_instr.patches,
@@ -235,14 +241,14 @@ class LatticeSurgerySchedule:
                     update_instr.conditioned_on_idx,
                     update_instr.conditional_dependencies,
                     update_instr.conditioned_on_completion_idx,
-                    update_instr.conditional_completion_dependencies  | frozenset([len(self._all_instructions) - 1]),
+                    update_instr.conditional_completion_dependencies  | frozenset([len(self.instructions) - 1]),
                     update_instr.merge_faces,
                 )
 
     def idle(self, patches: list[tuple[int, int]], num_rounds: Duration | int = Duration.D):
         if isinstance(num_rounds, Duration) or num_rounds > 0:
             for patch in patches:
-                instruction = Instruction('IDLE', len(self._all_instructions), frozenset([patch]), num_rounds)
+                instruction = Instruction('IDLE', len(self.instructions), frozenset([patch]), num_rounds)
                 self._add_instruction(instruction)
         elif num_rounds < 0:
             raise ValueError('Number of rounds must be nonnegative.')
@@ -268,12 +274,12 @@ class LatticeSurgerySchedule:
             dag = self._generated_dag.copy()
             nx.set_edge_attributes(
                 G=dag, 
-                values={e: self.get_true_duration(self._all_instructions[e[0]].duration, distance=d) for e in dag.edges()},
+                values={e: self.get_true_duration(self.instructions[e[0]].duration, distance=d) for e in dag.edges()},
                 name='weight',
             )
             nx.set_node_attributes(
                 G=dag,
-                values={idx: self.get_true_duration(self._all_instructions[idx].duration, distance=d) for idx in dag.nodes()},
+                values={idx: self.get_true_duration(self.instructions[idx].duration, distance=d) for idx in dag.nodes()},
                 name='duration',
             )
             return dag
@@ -311,17 +317,17 @@ class LatticeSurgerySchedule:
             return Duration.get_true_duration(duration, distance)
     
     def count_instructions(self, name: str):
-        return sum(instr.name == name for instr in self._all_instructions)
+        return sum(instr.name == name for instr in self.instructions)
     
     def total_space_footprint(self):
-        return len(set(patch for instr in self._all_instructions for patch in instr.patches))
+        return len(set(patch for instr in self.instructions for patch in instr.patches))
 
     def total_instruction_volume(self, distance: int, name: str | None = None):
-        return sum(instr.spacetime_volume(distance) for instr in self._all_instructions if name is None or instr.name == name)
+        return sum(instr.spacetime_volume(distance) for instr in self.instructions if name is None or instr.name == name)
 
     def _add_instruction(self, instruction: Instruction):
-        idx = len(self._all_instructions)
-        self._all_instructions.append(instruction)
+        idx = len(self.instructions)
+        self.instructions.append(instruction)
 
         if self.generate_dag_incrementally:
             self._generated_dag.add_node(idx, duration=instruction.duration)
@@ -329,7 +335,15 @@ class LatticeSurgerySchedule:
                 if patch in self._instructions_by_patch and (self._instructions_by_patch[patch][-1], idx) not in self._generated_dag.edges():
                     prev_instruction = self._instructions_by_patch[patch][-1]
                     assert prev_instruction < idx
-                    self._generated_dag.add_edge(prev_instruction, idx, weight=self.get_true_duration(self._all_instructions[prev_instruction].duration))
+                    self._generated_dag.add_edge(prev_instruction, idx, weight=self.get_true_duration(self.instructions[prev_instruction].duration))
 
         for patch in instruction.patches:
             self._instructions_by_patch.setdefault(patch, []).append(idx)
+
+    def _get_final_active_patches(self):
+        patches = []
+        for patch, instr_idxs in self._instructions_by_patch.items():
+            instr = self.instructions[instr_idxs[-1]]
+            if instr.name != 'DISCARD':
+                patches.append(patch)
+        return patches

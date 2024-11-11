@@ -338,6 +338,7 @@ def test_lightweight_output():
 
         assert device_data_0.num_rounds == device_data_1.num_rounds == device_data_2.num_rounds
         assert decoding_data_0.num_rounds == decoding_data_1.num_rounds == decoding_data_2.num_rounds
+        assert device_data_0.avg_conditioned_decode_wait_time > 0
         assert np.isclose(np.mean(list(device_data_0.conditioned_decode_wait_times.values())), np.mean(list(device_data_1.conditioned_decode_wait_times.values()))), (np.mean(list(device_data_0.conditioned_decode_wait_times.values())), np.mean(list(device_data_1.conditioned_decode_wait_times.values())))
         assert np.isclose(np.mean(list(device_data_0.conditioned_decode_wait_times.values())), device_data_2.avg_conditioned_decode_wait_time)
 

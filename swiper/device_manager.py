@@ -49,7 +49,8 @@ class InstructionTask:
     end_round: int
 
 class OrderedSet:
-    def __init__(self):
+    def __init__(self, rng = np.random.default_rng()):
+        self.rng = rng
         self._data = []
         self._set = set()
     
@@ -64,6 +65,14 @@ class OrderedSet:
     
     def pop(self):
         item = self._data.pop()
+        self._set.remove(item)
+        return item
+    
+    def pop_random(self):
+        idx = self.rng.choice(len(self._data))
+        item = self._data[idx]
+        self._data[idx] = self._data[-1]
+        self._data.pop()
         self._set.remove(item)
         return item
     
@@ -86,9 +95,9 @@ class DeviceManager:
                 performed.
         """
         self.d_t = d_t
-        self.schedule = schedule
-        self.schedule_instructions = [InstructionTask(i, instr, -1, -1) for i,instr in enumerate(schedule.full_instructions())]
-        self.schedule_dag = schedule.to_dag(self.d_t)
+        self.schedule = schedule.full_schedule()
+        self.schedule_instructions = [InstructionTask(i, instr, -1, -1) for i,instr in enumerate(self.schedule.instructions)]
+        self.schedule_dag = self.schedule.to_dag(self.d_t)
         self._patches_initialized_by_instr = self._get_initialized_patches()
         self._is_startup_instruction = [self._calc_is_startup_instruction(i) for i in range(len(self.schedule_instructions))]
         self.current_round = 0
@@ -109,10 +118,11 @@ class DeviceManager:
 
         if isinstance(rng, int):
             rng = np.random.default_rng(rng)
+        self.rng = rng
 
         self._instruction_durations: list[int] = [Duration.get_true_duration(instr.instruction.duration, self.d_t) for instr in self.schedule_instructions]
         for i,instr in enumerate(self.schedule_instructions):
-            if instr.instruction.name == 'CONDITIONAL_S' and rng.random() < 0.5:
+            if instr.instruction.name == 'CONDITIONAL_S' and self.rng.random() < 0.5:
                 self._instruction_durations[i] = 0
 
         # Begin by starting the first instruction
@@ -208,9 +218,8 @@ class DeviceManager:
     def _predict_instruction_start_time_fully(self, instruction_idx: int, first_round: dict[int, int]) -> dict[int, int]:
         """Update first_round with the expected start time of
         instruction_idx, and all instructions it depends on."""
-        instructions_to_process = OrderedSet()
+        instructions_to_process = OrderedSet(self.rng)
         instructions_to_process.add(instruction_idx)
-        prev_queue_len = len(instructions_to_process)
         while len(instructions_to_process) > 0:
             instr = instructions_to_process.pop()
             first_round, new_instructions_to_process = self._predict_instruction_start_time(instr, first_round)
@@ -322,10 +331,9 @@ class DeviceManager:
 
         # Keep track of how long conditional instructions have to wait
         for instr_idx in waiting_conditional_decode_instructions:
-            if self.lightweight_setting == 2:
-                self._conditioned_decode_wait_time_sum += 1
-            else:
+            if self.lightweight_setting < 2:
                 self._conditioned_decode_wait_times[instr_idx] = self._conditioned_decode_wait_times.get(instr_idx, 0) + 1
+            self._conditioned_decode_wait_time_sum += 1
 
     def _generate_syndrome_round(self) -> tuple[list[SyndromeRound], set[int]]:
         generated_syndrome_rounds = []
