@@ -58,14 +58,15 @@ if __name__ == '__main__':
             memory_settings[name] = 4
 
     sweep_params = {
+        'benchmark_file':benchmark_files,
         'distance':[21],
+        'scheduling_method':['sliding', 'parallel', 'aligned'],
+        'decoder_latency_or_dist_filename':[decoder_dist_filename],
+        'speculation_mode':['separate', None],
         'speculation_latency':[1],
         'speculation_accuracy':[0.9],
-        'speculation_mode':['separate', None],
-        'scheduling_method':['sliding', 'parallel', 'aligned'],
+        'poison_policy':['successors'],
         'max_parallel_processes':[None],
-        'benchmark_file':benchmark_files,
-        'decoder_latency_or_dist_filename':[decoder_dist_filename],
         'rng':[0],
         'lightweight_setting':[1],
     }

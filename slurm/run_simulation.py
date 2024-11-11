@@ -24,17 +24,19 @@ if __name__ == '__main__':
     for key,val in params.items():
         print(f'{key}: {val}')
 
-    assert len(params) == 10, 'Params list changed. Update this file!'
+    assert len(params) == 11, 'Params list changed. Update this file!'
+    benchmark_file = params['benchmark_file']
     distance = params['distance']
-    max_parallel_processes = params['max_parallel_processes']
     scheduling_method = params['scheduling_method']
+    decoder_latency_or_dist_filename = params['decoder_latency_or_dist_filename']
+    speculation_mode = params['speculation_mode']
     speculation_accuracy = params['speculation_accuracy']
     speculation_latency = params['speculation_latency']
-    speculation_mode = params['speculation_mode']
-    benchmark_file = params['benchmark_file']
-    decoder_latency_or_dist_filename = params['decoder_latency_or_dist_filename']
-    rng = params['rng']
+    poison_policy = params['poison_policy']
+    max_parallel_processes = params['max_parallel_processes']
     lightweight_setting = params['lightweight_setting']
+
+    rng = params['rng']
 
     generator = np.random.default_rng(rng)
 
@@ -56,21 +58,19 @@ if __name__ == '__main__':
     with open(benchmark_file, 'r') as f:
         benchmark_schedule = LatticeSurgerySchedule.from_str(f.read(), generate_dag_incrementally=True)
 
-    simulator = DecodingSimulator(
-        distance=distance,
-        decoding_latency_fn=decoding_latency_fn,
-        speculation_latency=speculation_latency,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode=speculation_mode,
-    )
-
+    simulator = DecodingSimulator()
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=benchmark_schedule,
+        distance=distance,
         scheduling_method=scheduling_method,
+        decoding_latency_fn=decoding_latency_fn,
+        speculation_mode=speculation_mode,
+        speculation_latency=speculation_latency,
+        speculation_accuracy=speculation_accuracy,
+        poison_policy=poison_policy,
         max_parallel_processes=max_parallel_processes,
         print_interval=dt.timedelta(seconds=10),
         lightweight_setting=lightweight_setting,
-        device_rounds_cutoff=500_000,
         clock_timeout = max_job_time - dt.timedelta(minutes=5), # allow 5 mins for starting + finishing job
         rng=rng,
     )
