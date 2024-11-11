@@ -48,6 +48,8 @@ if __name__ == '__main__':
             if int(dist_str) == distance:
                 decoder_dist = {int(k):v for k,v in dist_dict.items()}
         decoding_latency_fn = lambda volume: generator.choice(decoder_dist[max(2, math.ceil(volume / distance))])
+    elif isinstance(decoder_latency_or_dist_filename, str):
+        decoding_latency_fn = eval(decoder_latency_or_dist_filename)
     else:
         decoding_latency = int(decoder_latency_or_dist_filename)
         decoding_latency_fn = lambda _: decoding_latency

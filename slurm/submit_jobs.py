@@ -11,7 +11,7 @@ if __name__ == '__main__':
     time = dt.datetime.now()
 
     # USER SETTING: maximum job duration
-    max_time = dt.timedelta(hours=36)
+    max_time = dt.timedelta(hours=1)
 
     if max_time.days > 0:
         assert max_time.days == 1
@@ -32,9 +32,9 @@ if __name__ == '__main__':
     os.makedirs(benchmark_dir)
 
     # USER SETTING: decoder distribution (can also set to an integer)
-    decoder_dist_source = 'benchmarks/data/decoder_dists.json'
-    decoder_dist_filename = f'{data_dir}/{decoder_dist_source.split("/")[-1]}'
-    shutil.copyfile(decoder_dist_source, decoder_dist_filename)
+    # decoder_dist_source = 'benchmarks/data/decoder_dists.json'
+    # decoder_dist_filename = f'{data_dir}/{decoder_dist_source.split("/")[-1]}'
+    # shutil.copyfile(decoder_dist_source, decoder_dist_filename)
 
     # copy files to data dir to preserve them
     shutil.copyfile('slurm/submit_jobs.py', f'{data_dir}/submit_jobs_copy.py')
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     memory_settings = None
     for file in os.listdir('benchmarks/cached_schedules/'):
         # USER SETTING: filter benchmark files if desired
-        if file.endswith('.lss'):
+        if file.endswith('.lss') and file.startswith('random_t_1000_200_0'):
             path = os.path.join('benchmarks/cached_schedules/', file)
             newpath = os.path.join(benchmark_dir, file)
             # copy files to data dir to preserve them
@@ -68,21 +68,21 @@ if __name__ == '__main__':
         'benchmark_file':benchmark_files,
         'distance':[21],
         'scheduling_method':['sliding', 'parallel', 'aligned'],
-        'decoder_latency_or_dist_filename':[decoder_dist_filename],
-        'speculation_mode':['separate', None],
+        'decoder_latency_or_dist_filename':[f'lambda volume: volume*{fac}' for fac in np.geomspace(0.1, 10, 10)],
+        'speculation_mode':['separate'],
         'speculation_latency':[1],
-        'speculation_accuracy':[0.9],
+        'speculation_accuracy':list(np.linspace(0, 1, 11)),
         'poison_policy':['successors'],
         'max_parallel_processes':[None],
         'rng':[0],
-        'lightweight_setting':[2],
+        'lightweight_setting':[1],
     }
     ordered_param_names = list(sorted(sweep_params.keys()))
     total_num_configs = reduce(lambda x,y: x*y, [len(params) for params in sweep_params.values()])
 
     # USER SETTING: filter out some combinations of the above parameters
     def config_filter(cfg):
-        return not (cfg['speculation_mode'] == None and cfg['scheduling_method'] == 'sliding')
+        return True
 
     # Write config file (each Python job will read params from this)
     configs = []
