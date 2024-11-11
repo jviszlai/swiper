@@ -40,6 +40,7 @@ class DecoderManager:
             speculation_accuracy: float,
             max_parallel_processes: int | None = None,
             speculation_mode: str = 'integrated',
+            poison_policy: str = 'successors',
             lightweight_setting: int = 0,
             rng: int | np.random.Generator = np.random.default_rng(),
         ) -> None:
@@ -64,13 +65,22 @@ class DecoderManager:
                 can be run independently of decoding. In this case, speculation
                 uses a parallel process and counts towards
                 max_parallel_processes. If None, no speculation is performed.
+            poison_policy: 'successors' or 'descendants'. If 'successors', a
+                poisoned speculation will reset only direct descendants that
+                depended on the speculation. If 'descendants', a poisoned
+                speculation will reset all descendants of the poisoned window,
+                regardless of whether they directly depended on the speculation.
             rng: Random number generator, or integer seed.
         """
         self.decoding_time_function = decoding_time_function
         self.speculation_time = speculation_time
         self.speculation_accuracy = speculation_accuracy
+        if speculation_mode not in ['integrated', 'separate', None]:
+            raise ValueError('Invalid speculation mode')
         self.speculation_mode = speculation_mode
-        assert self.speculation_mode in ['integrated', 'separate', None]
+        if poison_policy not in ['successors', 'descendants']:
+            raise ValueError('Invalid poison policy')
+        self.poison_policy = poison_policy
         self.lightweight_setting = lightweight_setting
         if isinstance(rng, int):
             rng = np.random.default_rng(rng)
@@ -142,9 +152,15 @@ class DecoderManager:
             for poisoned_task_idx in poisoned_speculations:
                 poisoned_task = self._get_task_or_none(poisoned_task_idx)
                 if poisoned_task and poisoned_task.decoding_start_time != -1:
-                    if poisoned_task.completed_decoding:
-                        all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(poisoned_task_idx)
-                    self._reset_decode_task(poisoned_task_idx)
+                    if self.poison_policy == 'descendants':
+                        for descendant_idx in nx.descendants(self._window_idx_dag, poisoned_task_idx):
+                            descendant = self._get_task_or_none(descendant_idx)
+                            if descendant and descendant.decoding_start_time != -1:
+                                self._reset_decode_task(descendant_idx)
+                    elif self.poison_policy == 'successors':
+                        if poisoned_task.completed_decoding:
+                            all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(poisoned_task_idx)
+                        self._reset_decode_task(poisoned_task_idx)
                     all_poisoned_indices.append(poisoned_task_idx)
             if self.lightweight_setting == 0:
                 self._missed_speculation_events.append((self._current_round, all_poisoned_indices))

@@ -125,14 +125,17 @@ def test_window_manager():
 
 def test_sliding_idle():
    """Test that SlidingWindowManager can correctly handle idle rounds."""
-   simulator = DecodingSimulator(
+   simulator = DecodingSimulator()
+   simulator.initialize_experiment(
+      schedule=idle_schedule,
       distance=distance,
+      scheduling_method='sliding',
       decoding_latency_fn=decoding_fn,
+      speculation_mode=speculation_mode,
       speculation_latency=speculation_latency,
       speculation_accuracy=speculation_accuracy,
-      speculation_mode=speculation_mode,
+      rng=0,
    )
-   simulator.initialize_experiment(idle_schedule, 'sliding', rng=0)
    assert simulator._window_manager
 
    # Check windows as they are released
@@ -170,14 +173,17 @@ def test_sliding_idle():
 
 def test_parallel_idle():
    """Test that ParallelWindowManager can correctly handle idle rounds."""
-   simulator = DecodingSimulator(
+   simulator = DecodingSimulator()
+   simulator.initialize_experiment(
+      schedule=idle_schedule,
       distance=distance,
+      scheduling_method='parallel',
       decoding_latency_fn=decoding_fn,
+      speculation_mode=speculation_mode,
       speculation_latency=speculation_latency,
       speculation_accuracy=speculation_accuracy,
-      speculation_mode=speculation_mode,
+      rng=0,
    )
-   simulator.initialize_experiment(idle_schedule, 'parallel', rng=0)
    assert isinstance(simulator._window_manager, ParallelWindowManager)
 
    # Check windows as they are released
@@ -259,14 +265,17 @@ def test_parallel_idle():
 
 def test_sliding_merge():
    """Test that SlidingWindowManager can correctly handle a merge schedule."""
-   simulator = DecodingSimulator(
+   simulator = DecodingSimulator()
+   simulator.initialize_experiment(
+      schedule=merge_schedule,
       distance=distance,
+      scheduling_method='sliding',
       decoding_latency_fn=decoding_fn,
+      speculation_mode=speculation_mode,
       speculation_latency=speculation_latency,
       speculation_accuracy=speculation_accuracy,
-      speculation_mode=speculation_mode,
+      rng=0,
    )
-   simulator.initialize_experiment(merge_schedule, 'sliding', rng=0)
    assert simulator._window_manager
 
    # Check windows as they are released
@@ -302,14 +311,17 @@ def test_sliding_merge():
 
 def test_parallel_merge():
    """Test that ParallelWindowManager can correctly handle a merge schedule."""
-   simulator = DecodingSimulator(
+   simulator = DecodingSimulator()
+   simulator.initialize_experiment(
+      schedule=merge_schedule,
       distance=distance,
+      scheduling_method='parallel',
       decoding_latency_fn=decoding_fn,
+      speculation_mode=speculation_mode,
       speculation_latency=speculation_latency,
       speculation_accuracy=speculation_accuracy,
-      speculation_mode=speculation_mode,
+      rng=0,
    )
-   simulator.initialize_experiment(merge_schedule, 'parallel', rng=0)
    assert simulator._window_manager
 
    while not simulator.is_done():
@@ -331,14 +343,17 @@ def test_parallel_merge():
 def test_sliding_distillation():
    """Test that SlidingWindowManager can correctly handle the 15-to-1
    distillation schedule."""
-   simulator = DecodingSimulator(
+   simulator = DecodingSimulator()
+   simulator.initialize_experiment(
+      schedule=MSD15To1Schedule().schedule,
       distance=distance,
+      scheduling_method='sliding',
       decoding_latency_fn=decoding_fn,
+      speculation_mode=speculation_mode,
       speculation_latency=speculation_latency,
       speculation_accuracy=speculation_accuracy,
-      speculation_mode=speculation_mode,
+      rng=0,
    )
-   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'sliding', rng=0)
    assert simulator._window_manager
  
    # Check windows as they are released
@@ -358,14 +373,18 @@ def test_sliding_distillation():
 
 def test_parallel_distillation():
    """Test that ParallelWindowManager can correctly handle a merge schedule."""
-   simulator = DecodingSimulator(
+   simulator = DecodingSimulator()
+   simulator.initialize_experiment(
+      schedule=MSD15To1Schedule().schedule,
       distance=distance,
+      scheduling_method='parallel',
       decoding_latency_fn=decoding_fn,
+      speculation_mode=speculation_mode,
       speculation_latency=speculation_latency,
       speculation_accuracy=speculation_accuracy,
-      speculation_mode=speculation_mode,
+      rng=0,
    )
-   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'parallel', rng=0)
+
    assert simulator._window_manager
 
    while not simulator.is_done():
@@ -385,14 +404,17 @@ def test_parallel_distillation():
 
 def test_aligned_randomT():
    """Test that TAlignedWindowManager can correctly handle a RandomT schedule."""
-   simulator = DecodingSimulator(
+   simulator = DecodingSimulator()
+   simulator.initialize_experiment(
+      schedule=RandomTSchedule(10, 50).schedule,
       distance=distance,
+      scheduling_method='aligned',
       decoding_latency_fn=decoding_fn,
+      speculation_mode=speculation_mode,
       speculation_latency=speculation_latency,
       speculation_accuracy=speculation_accuracy,
-      speculation_mode=speculation_mode,
+      rng=0,
    )
-   simulator.initialize_experiment(RandomTSchedule(10, 50).schedule, 'aligned', rng=0)
    assert simulator._window_manager
 
    while not simulator.is_done():
@@ -414,14 +436,18 @@ def test_aligned_randomT():
 
 def test_aligned_distillation():
    """Test that TAlignedWindowManager can correctly handle a distillation schedule."""
-   simulator = DecodingSimulator(
+   simulator = DecodingSimulator()
+   simulator.initialize_experiment(
+      schedule=MSD15To1Schedule().schedule,
       distance=distance,
+      scheduling_method='aligned',
       decoding_latency_fn=decoding_fn,
+      speculation_mode=speculation_mode,
       speculation_latency=speculation_latency,
       speculation_accuracy=speculation_accuracy,
-      speculation_mode=speculation_mode,
+      rng=0,
    )
-   simulator.initialize_experiment(MSD15To1Schedule().schedule, 'aligned', rng=0)
+
    assert simulator._window_manager
 
    while not simulator.is_done():

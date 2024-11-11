@@ -91,7 +91,7 @@ class LatticeSurgerySchedule:
     _all_instructions: list[Instruction]
     _instructions_by_patch: dict[tuple[int, int], list[int]]
 
-    def __init__(self, generate_dag_incrementally: bool = False):
+    def __init__(self, generate_dag_incrementally: bool = True):
         self._all_instructions: list[Instruction] = []
         self._instructions_by_patch = {}
         self.generate_dag_incrementally = generate_dag_incrementally

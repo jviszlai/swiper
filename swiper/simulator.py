@@ -14,51 +14,21 @@ import swiper.plot as plotter
 class DecodingSimulator:
     def __init__(
             self,
-            distance: int,
-            decoding_latency_fn: Callable[[int], int],
-            speculation_latency: int,
-            speculation_accuracy: float,
-            speculation_mode: str,
         ):
-        """Initialize the decoding simulator.
-        
-        Args:
-            distance: The distance of the surface code (which also specifies the
-                number of QEC rounds for each lattice surgery operation).
-            decoding_latency_fn: A function that returns a (possibly
-                randomly-sampled) decoding latency given the spacetime volume of
-                the decoding problem, in units of rounds*d^2 (e.g. dxdx2d =>
-                volume 2d). Returned latency is in units of rounds of QEC.
-            speculation_latency: The latency of a speculative prediction, in
-                units of rounds of QEC.
-            speculation_accuracy: The probability that a speculative prediction
-                is correct.
-            speculation_mode: 'integrated', 'separate', or None. If 'integrated', the
-                speculation time is included in the decoding time of a window,
-                and speculation can only be performed once the decoder starts
-                processing the window. If 'separate', the speculation time is
-                not included in the decoding, time of a window, and speculation
-                can be run independently of decoding. In this case, speculation
-                uses a parallel process and counts towards
-                max_parallel_processes. If None, no speculation is performed.
-        """
-        self.distance = distance
-        self.decoding_latency_fn = decoding_latency_fn
-        self.speculation_latency = speculation_latency
-        self.speculation_accuracy = speculation_accuracy
-        assert speculation_mode in ['integrated', 'separate', None]
-        self.speculation_mode = speculation_mode
-
         self._device_manager: DeviceManager | None = None
         self._window_manager: SlidingWindowManager | ParallelWindowManager | TAlignedWindowManager | None = None
         self._decoding_manager: DecoderManager | None = None
 
-        self.sent_windows = []
-
     def run(
             self,
             schedule: LatticeSurgerySchedule,
+            distance: int,
             scheduling_method: str,
+            decoding_latency_fn: Callable[[int], int],
+            speculation_mode: str | None = None,
+            speculation_latency: int = 1,
+            speculation_accuracy: float = 0,
+            poison_policy: str = 'successors',
             max_parallel_processes: int | None = None,
             progress_bar: bool = False,
             print_interval: dt.timedelta | None = None,
@@ -67,7 +37,6 @@ class DecodingSimulator:
             clock_timeout: dt.timedelta | None = None,
             save_animation_frames: bool = False,
             lightweight_setting: int = 0,
-            ultralight_output: bool = False,
             rng: int | np.random.Generator = np.random.default_rng(),
         ) -> tuple[bool, DeviceData, WindowData, DecoderData]:
         """TODO
@@ -75,8 +44,20 @@ class DecodingSimulator:
         Args:
             schedule: LatticeSurgerySchedule encoding operations to be
                 performed.
-            scheduling_method: Window scheduling method. 'sliding', 'parallel', 
-                or 'aligned'.
+            distance: The distance of the surface code (which also specifies the
+                number of QEC rounds for each lattice surgery operation).
+            scheduling_method: 'sliding', 'parallel', or 'aligned'. See
+                WindowManager.
+            decoding_latency_fn: A function that returns a decoding latency
+                given the spacetime volume of the decoding problem. See
+                DecoderManager.
+            speculation_mode: 'integrated', 'separate', or None. See
+                DecoderManager.
+            speculation_latency: The latency of a speculative prediction, in
+                units of rounds of QEC. See DecoderManager.
+            speculation_accuracy: The probability that a speculative prediction
+                is correct. See DecoderManager.
+            poison_policy: 'successors' or 'descendants'. See DecoderManager.
             max_parallel_processes: Maximum number of parallel decoding
                 processes to run. If None, run as many as possible.
             progress_bar: If True, display a progress bar for the simulation.
@@ -109,7 +90,13 @@ class DecodingSimulator:
 
         self.initialize_experiment(
             schedule=schedule,
+            distance=distance,
             scheduling_method=scheduling_method,
+            decoding_latency_fn=decoding_latency_fn,
+            speculation_mode=speculation_mode,
+            speculation_latency=speculation_latency,
+            speculation_accuracy=speculation_accuracy,
+            poison_policy=poison_policy,
             max_parallel_processes=max_parallel_processes,
             lightweight_setting=lightweight_setting,
             rng=rng,
@@ -154,27 +141,34 @@ class DecodingSimulator:
     def initialize_experiment(
             self,
             schedule: LatticeSurgerySchedule,
+            distance: int,
             scheduling_method: str,
+            decoding_latency_fn: Callable[[int], int],
+            speculation_mode: str,
+            speculation_latency: int,
+            speculation_accuracy: float,
+            poison_policy: str = 'successors',
             max_parallel_processes: int | None = None,
             lightweight_setting: int = 0,
             rng: int | np.random.Generator = np.random.default_rng(),
         ) -> None:
         self.failed = False
-        self._device_manager = DeviceManager(self.distance, schedule, lightweight_setting=lightweight_setting, rng=rng)
+        self._device_manager = DeviceManager(distance, schedule, lightweight_setting=lightweight_setting, rng=rng)
         if scheduling_method == 'sliding':
-            self._window_manager = SlidingWindowManager(WindowBuilder(self.distance, lightweight_setting=lightweight_setting), lightweight_setting=lightweight_setting)
+            self._window_manager = SlidingWindowManager(WindowBuilder(distance, lightweight_setting=lightweight_setting), lightweight_setting=lightweight_setting)
         elif scheduling_method == 'parallel':
-            self._window_manager = ParallelWindowManager(WindowBuilder(self.distance, lightweight_setting=lightweight_setting), lightweight_setting=lightweight_setting)
+            self._window_manager = ParallelWindowManager(WindowBuilder(distance, lightweight_setting=lightweight_setting), lightweight_setting=lightweight_setting)
         elif scheduling_method == 'aligned':
-            self._window_manager = TAlignedWindowManager(WindowBuilder(self.distance, lightweight_setting=lightweight_setting), lightweight_setting=lightweight_setting)
+            self._window_manager = TAlignedWindowManager(WindowBuilder(distance, lightweight_setting=lightweight_setting), lightweight_setting=lightweight_setting)
         else:
             raise ValueError(f"Unknown scheduling method: {scheduling_method}")
         self._decoding_manager = DecoderManager(
-            decoding_time_function=self.decoding_latency_fn,
-            speculation_time=self.speculation_latency,
-            speculation_accuracy=self.speculation_accuracy,
+            decoding_time_function=decoding_latency_fn,
+            speculation_time=speculation_latency,
+            speculation_accuracy=speculation_accuracy,
             max_parallel_processes=max_parallel_processes,
-            speculation_mode=self.speculation_mode,
+            speculation_mode=speculation_mode,
+            poison_policy=poison_policy,
             lightweight_setting=lightweight_setting,
             rng=rng,
         )
@@ -213,7 +207,6 @@ class DecodingSimulator:
             
         # process new round
         newly_constructed_windows = self._window_manager.process_round(syndrome_rounds)
-        self.sent_windows.extend(w.window_idx for w in newly_constructed_windows)
         self._decoding_manager.update_decoding(newly_constructed_windows, purged_indices, self._window_manager.window_dag)
 
     def is_done(self) -> bool:

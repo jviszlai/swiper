@@ -24,19 +24,22 @@ def xor(a, b):
 
 def test_spatial_adjacency():
     """"""
-    simulator = DecodingSimulator(
-        distance=distance,
-        decoding_latency_fn=decoding_fn,
-        speculation_latency=speculation_latency,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode=speculation_mode,
-    )
+    simulator = DecodingSimulator()
 
     schedule = LatticeSurgerySchedule()
     schedule.idle([(0,0)], distance)
     schedule.merge([(0,1), (1,0)], [(1,1)], duration=distance)
 
-    simulator.initialize_experiment(schedule, 'sliding', rng=0)
+    simulator.initialize_experiment(
+        schedule=schedule,
+        distance=distance,
+        scheduling_method='sliding',
+        decoding_latency_fn=decoding_fn,
+        speculation_mode=speculation_mode,
+        speculation_latency=speculation_latency,
+        speculation_accuracy=speculation_accuracy,
+        rng=0,
+    )
     assert simulator._window_manager
 
     # Check windows as they are released
@@ -71,7 +74,16 @@ def test_spatial_adjacency():
     schedule.merge([(1,0), (1,1)], [], duration=distance)
     schedule.discard([(0,0), (0,1), (1,0), (1,1)])
 
-    simulator.initialize_experiment(schedule, 'sliding', rng=0)
+    simulator.initialize_experiment(
+        schedule=schedule,
+        distance=distance,
+        scheduling_method='sliding',
+        decoding_latency_fn=decoding_fn,
+        speculation_mode=speculation_mode,
+        speculation_latency=speculation_latency,
+        speculation_accuracy=speculation_accuracy,
+        rng=0,
+    )
     assert simulator._window_manager
 
     # Check windows as they are released
@@ -85,6 +97,7 @@ def test_spatial_adjacency():
             window = window_data.get_window(window_idx)
             if window.commit_region[0].patch == patch and window.commit_region[0].round_start == round_start:
                 return window
+        raise ValueError(f"Window not found for patch {patch} and round_start {round_start}")
     
     all_syndrome_rounds = [sr for sublist in device_data.generated_syndrome_data for sr in sublist]
     all_commit_regions = [cr for window_idx in window_data.all_constructed_windows for cr in window_data.get_window(window_idx).commit_region]

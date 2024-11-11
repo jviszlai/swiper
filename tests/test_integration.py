@@ -18,11 +18,16 @@ def test_sliding_memory():
     decoding_time = 14
     speculation_time = 0
     speculation_accuracy = 0
-    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+    simulator = DecodingSimulator()
 
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=MemorySchedule(d).schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
     )
     assert device_data.num_rounds == d
@@ -30,7 +35,12 @@ def test_sliding_memory():
 
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=MemorySchedule(2*d).schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
     )
     assert device_data.num_rounds == 2*d
@@ -40,11 +50,16 @@ def test_sliding_memory():
     decoding_time = 14
     speculation_time = 1
     speculation_accuracy = 1
-    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+    simulator = DecodingSimulator()
 
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=MemorySchedule(2*d).schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
     )
     assert device_data.num_rounds == 2*d
@@ -55,11 +70,16 @@ def test_sliding_regular_T():
     decoding_time = 14
     speculation_time = 100
     speculation_accuracy = 0
-    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+    simulator = DecodingSimulator()
 
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=RegularTSchedule(1, 0).schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
         rng=0,
     )
@@ -70,11 +90,16 @@ def test_sliding_regular_T():
     decoding_time = 14
     speculation_time = 0
     speculation_accuracy = 0
-    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+    simulator = DecodingSimulator()
 
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=RegularTSchedule(1, 0).schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
         rng=0,
     )
@@ -85,11 +110,16 @@ def test_sliding_regular_T():
     decoding_time = 14
     speculation_time = 0
     speculation_accuracy = 1
-    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+    simulator = DecodingSimulator()
 
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=RegularTSchedule(1, 0).schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
         rng=0,
     )
@@ -108,16 +138,15 @@ def test_poor_predictor_same_as_slow_predictor_idle():
     # Poor predictor
     speculation_time = 1
     speculation_accuracy = 0
-    simulator = DecodingSimulator(
-        distance=d,
-        decoding_latency_fn=lambda _: decoding_time,
-        speculation_latency=speculation_time,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode='integrated',
-    )
+    simulator = DecodingSimulator()
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
         rng=0,
     )
@@ -126,34 +155,28 @@ def test_poor_predictor_same_as_slow_predictor_idle():
     # Slow predictor
     speculation_time = 100*d
     speculation_accuracy = 1
-    simulator = DecodingSimulator(
-        distance=d,
-        decoding_latency_fn=lambda _: decoding_time,
-        speculation_latency=speculation_time,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode='integrated',
-    )
+    simulator = DecodingSimulator()
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
         rng=0,
     )
     num_rounds_slow_speculation = decoding_data.num_rounds
 
     # No speculation
-    speculation_time = 0
-    speculation_accuracy = 1
-    simulator = DecodingSimulator(
-        distance=d,
-        decoding_latency_fn=lambda _: decoding_time,
-        speculation_latency=speculation_time,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode=None,
-    )
+    simulator = DecodingSimulator()
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode=None,
         max_parallel_processes=None,
         rng=0,
     )
@@ -172,16 +195,15 @@ def test_poor_predictor_same_as_slow_predictor_t():
     # Poor predictor
     speculation_time = 1
     speculation_accuracy = 0
-    simulator = DecodingSimulator(
-        distance=d,
-        decoding_latency_fn=lambda _: decoding_time,
-        speculation_latency=speculation_time,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode='integrated',
-    )
+    simulator = DecodingSimulator()
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
         rng=0,
     )
@@ -190,34 +212,28 @@ def test_poor_predictor_same_as_slow_predictor_t():
     # Slow predictor
     speculation_time = 100*d
     speculation_accuracy = 1
-    simulator = DecodingSimulator(
-        distance=d,
-        decoding_latency_fn=lambda _: decoding_time,
-        speculation_latency=speculation_time,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode='integrated',
-    )
+    simulator = DecodingSimulator()
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
         rng=0,
     )
     num_rounds_slow_speculation = decoding_data.num_rounds
 
     # No speculation
-    speculation_time = 0
-    speculation_accuracy = 1
-    simulator = DecodingSimulator(
-        distance=d,
-        decoding_latency_fn=lambda _: decoding_time,
-        speculation_latency=speculation_time,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode=None,
-    )
+    simulator = DecodingSimulator()
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode=None,
         max_parallel_processes=None,
         rng=0,
     )
@@ -234,31 +250,29 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
     speculation_time = 1
     speculation_accuracy = 0
     regular_t_schedule = RegularTSchedule(10, 2*d)
-    simulator = DecodingSimulator(
-        distance=d,
-        decoding_latency_fn=lambda _: decoding_time,
-        speculation_latency=speculation_time,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode='integrated',
-    )
+    simulator = DecodingSimulator()
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='integrated',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
         rng=0,
     )
     num_rounds_integrated = decoding_data.num_rounds
 
-    simulator = DecodingSimulator(
-        distance=d,
-        decoding_latency_fn=lambda _: decoding_time,
-        speculation_latency=speculation_time,
-        speculation_accuracy=speculation_accuracy,
-        speculation_mode='separate',
-    )
+    simulator = DecodingSimulator()
     success, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
+        distance=d,
         scheduling_method='sliding',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_time,
+        speculation_accuracy=speculation_accuracy,
         max_parallel_processes=None,
         rng=0,
     )
@@ -269,15 +283,20 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
 def test_lightweight_output():
     d=7
     decoding_time = 14
-    speculation_time = 1
+    speculation_latency = 1
     speculation_accuracy = 0.5
-    simulator = DecodingSimulator(d, lambda _: decoding_time, speculation_time, speculation_accuracy, speculation_mode='separate')
+    simulator = DecodingSimulator()
     schedule = MSD15To1Schedule().schedule
 
     for scheduling_method in ['sliding', 'parallel', 'aligned']:
         success, device_data_0, window_data_0, decoding_data_0 = simulator.run(
             schedule=schedule,
+            distance=d,
             scheduling_method=scheduling_method,
+            decoding_latency_fn=lambda _: decoding_time,
+            speculation_mode='separate',
+            speculation_latency=speculation_latency,
+            speculation_accuracy=speculation_accuracy,
             max_parallel_processes=None,
             rng=0,
             lightweight_setting=0,
@@ -285,7 +304,12 @@ def test_lightweight_output():
 
         success, device_data_1, window_data_1, decoding_data_1 = simulator.run(
             schedule=schedule,
+            distance=d,
             scheduling_method=scheduling_method,
+            decoding_latency_fn=lambda _: decoding_time,
+            speculation_mode='separate',
+            speculation_latency=speculation_latency,
+            speculation_accuracy=speculation_accuracy,
             max_parallel_processes=None,
             rng=0,
             lightweight_setting=1,
@@ -293,7 +317,12 @@ def test_lightweight_output():
 
         success, device_data_2, window_data_2, decoding_data_2 = simulator.run(
             schedule=schedule,
+            distance=d,
             scheduling_method=scheduling_method,
+            decoding_latency_fn=lambda _: decoding_time,
+            speculation_mode='separate',
+            speculation_latency=speculation_latency,
+            speculation_accuracy=speculation_accuracy,
             max_parallel_processes=None,
             rng=0,
             lightweight_setting=2,
