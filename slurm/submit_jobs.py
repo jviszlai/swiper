@@ -9,14 +9,15 @@ import numpy as np
 
 if __name__ == '__main__':
     time = dt.datetime.now()
-    max_time = dt.timedelta(hours=12)
+
+    # USER SETTING: maximum job duration
+    max_time = dt.timedelta(hours=36)
+
     if max_time.days > 0:
         assert max_time.days == 1
         max_time_str = f'1-{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
     else:
         max_time_str = f'{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
-
-    decoder_dist_source = 'benchmarks/data/decoder_dists.json'
 
     data_dir = f'slurm/data/{time.strftime("%Y%m%d_%H%M%S")}'
     config_filename = f'{data_dir}/config.json'
@@ -24,24 +25,28 @@ if __name__ == '__main__':
     output_dir = f'{data_dir}/output'
     log_dir = f'{data_dir}/logs'
     benchmark_dir = f'{data_dir}/benchmarks'
-    decoder_dist_filename = f'{data_dir}/{decoder_dist_source.split("/")[-1]}'
     metadata_filename = f'{data_dir}/metadata.txt'
     os.makedirs(sbatch_dir)
     os.makedirs(output_dir)
     os.makedirs(log_dir)
     os.makedirs(benchmark_dir)
 
-    # copy files to data dir to preserve them
+    # USER SETTING: decoder distribution (can also set to an integer)
+    decoder_dist_source = 'benchmarks/data/decoder_dists.json'
+    decoder_dist_filename = f'{data_dir}/{decoder_dist_source.split("/")[-1]}'
     shutil.copyfile(decoder_dist_source, decoder_dist_filename)
-    shutil.copyfile('slurm/submit_jobs.py', f'{data_dir}/submit_jobs.py')
-    shutil.copyfile('slurm/run_simulation.py', f'{data_dir}/run_simulation.py')
+
+    # copy files to data dir to preserve them
+    shutil.copyfile('slurm/submit_jobs.py', f'{data_dir}/submit_jobs_copy.py')
+    shutil.copyfile('slurm/run_simulation.py', f'{data_dir}/run_simulation_copy.py')
 
     # Can make a chosen smaller list of these instead
     benchmark_files = []
     benchmark_names = {}
     memory_settings = None
     for file in os.listdir('benchmarks/cached_schedules/'):
-        if file == 'random_t_10000_200_0.lss':
+        # USER SETTING: filter benchmark files if desired
+        if file.endswith('.lss'):
             path = os.path.join('benchmarks/cached_schedules/', file)
             newpath = os.path.join(benchmark_dir, file)
             # copy files to data dir to preserve them
@@ -49,6 +54,7 @@ if __name__ == '__main__':
             benchmark_files.append(newpath)
             benchmark_names[newpath] = file.split('.')[0]
         elif file == '.memory_settings.json':
+            # USER SETTING: change values in this file to add memory for certain benchmarks
             memory_settings = json.load(open(os.path.join('benchmarks/cached_schedules/', file), 'r'))
     assert memory_settings is not None
 
@@ -57,6 +63,7 @@ if __name__ == '__main__':
             print(f'WARNING: {name} not found in .memory_settings.json, using default 4GB...')
             memory_settings[name] = 4
 
+    # USER SETTING: change parameter sweeps for distance, spec acc, etc.
     sweep_params = {
         'benchmark_file':benchmark_files,
         'distance':[21],
@@ -68,12 +75,12 @@ if __name__ == '__main__':
         'poison_policy':['successors'],
         'max_parallel_processes':[None],
         'rng':[0],
-        'lightweight_setting':[1],
+        'lightweight_setting':[2],
     }
     ordered_param_names = list(sorted(sweep_params.keys()))
     total_num_configs = reduce(lambda x,y: x*y, [len(params) for params in sweep_params.values()])
 
-    # can define this to only allow through certain combinations of params
+    # USER SETTING: filter out some combinations of the above parameters
     def config_filter(cfg):
         return not (cfg['speculation_mode'] == None and cfg['scheduling_method'] == 'sliding')
 

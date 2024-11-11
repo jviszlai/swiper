@@ -211,21 +211,11 @@ class DeviceManager:
         instructions_to_process = OrderedSet()
         instructions_to_process.add(instruction_idx)
         prev_queue_len = len(instructions_to_process)
-        iters = 0
         while len(instructions_to_process) > 0:
-            iters += 1
-            if iters % 1000 == 0 or iters > 10000:
-                if prev_queue_len - len(instructions_to_process) < 10:
-                    raise Exception('Infinite loop in _predict_instruction_start_time_fully', instructions_to_process, first_round)
-                else:
-                    prev_queue_len = len(instructions_to_process)
-                
             instr = instructions_to_process.pop()
             first_round, new_instructions_to_process = self._predict_instruction_start_time(instr, first_round)
-            # list comp is the expensive part here
             for new_instr in reversed(new_instructions_to_process):
                 instructions_to_process.add(new_instr, push_front=True)
-            # instructions_to_process = new_instructions_to_process + [instr for instr in instructions_to_process if instr not in new_instructions_to_process]
         return first_round
 
     def _predict_instruction_start_times(self):
