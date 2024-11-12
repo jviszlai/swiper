@@ -31,6 +31,7 @@ class DecoderTask:
     speculation_start_time: int = -1
     speculation_completion_time: int = -1
     used_parent_speculations: dict[int, bool] = field(default_factory=dict)
+    speculation_modifiers: dict[int, float] = field(default_factory=dict)
 
 class DecoderManager:
     def __init__(
@@ -41,6 +42,7 @@ class DecoderManager:
             max_parallel_processes: int | None = None,
             speculation_mode: str = 'integrated',
             poison_policy: str = 'successors',
+            missed_speculation_modifier: float = 1.4,
             lightweight_setting: int = 0,
             rng: int | np.random.Generator = np.random.default_rng(),
         ) -> None:
@@ -70,6 +72,8 @@ class DecoderManager:
                 depended on the speculation. If 'descendants', a poisoned
                 speculation will reset all descendants of the poisoned window,
                 regardless of whether they directly depended on the speculation.
+            missed_speculation_modifier: Factor by which incorrect speculation
+                rate increases when an adjacent face has a missed speculation.
             rng: Random number generator, or integer seed.
         """
         self.decoding_time_function = decoding_time_function
@@ -81,6 +85,7 @@ class DecoderManager:
         if poison_policy not in ['successors', 'descendants']:
             raise ValueError('Invalid poison policy')
         self.poison_policy = poison_policy
+        self.missed_speculation_modifier = missed_speculation_modifier
         self.lightweight_setting = lightweight_setting
         if isinstance(rng, int):
             rng = np.random.default_rng(rng)
@@ -115,22 +120,51 @@ class DecoderManager:
         for task_idx, time_remaining in self._active_window_progress.items():
             if time_remaining <= 0:
                 completed_windows.append(task_idx)
-                if self.speculation_mode:
-                    for successor_idx in self._window_idx_dag.successors(task_idx):
-                        successor = self._get_task_or_none(successor_idx)
-                        if successor and successor.decoding_start_time != -1 and self.rng.random() > 1-(1-self.speculation_accuracy)**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
-                            # Missed speculation
-                            assert successor.used_parent_speculations[task_idx]
-                            poisoned_speculations.append(successor_idx)
+                # if self.speculation_mode:
+                #     for successor_idx in self._window_idx_dag.successors(task_idx):
+                #         successor = self._get_task_or_none(successor_idx)
+                #         if successor and successor.decoding_start_time != -1 and self.rng.random() > 1-(1-self.speculation_accuracy)**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
+                #             # Missed speculation
+                #             assert successor.used_parent_speculations[task_idx]
+                #             poisoned_speculations.append(successor_idx)
 
         self._num_completed_windows += len(completed_windows)
-        for task_idx in completed_windows:
+        for task_idx in self._topologically_sort(completed_windows):
             task = self._get_task(task_idx)
             # self._window_decoding_completion_times[task_idx] = self._current_round
             task.decoding_completion_time = self._current_round
             self._active_window_progress.pop(task_idx)
             task.completed_decoding = True
             self._partially_complete_instructions |= task.window.parent_instr_idx
+
+            # Check if any speculations failed
+            if self.speculation_mode:
+                for successor_idx in self._window_idx_dag.successors(task_idx):
+                    successor = self._get_task_or_none(successor_idx)
+                    task = self._get_task(task_idx)
+                    spec_acc_modifier = task.speculation_modifiers[successor_idx] if successor_idx in task.speculation_modifiers else 1.0
+                    if spec_acc_modifier > 1.0:
+                        print(f'Window {task_idx} has a modifier of {spec_acc_modifier} for window {successor_idx}')
+                    if successor and successor.decoding_start_time != -1 and self.rng.random() > 1-((1-self.speculation_accuracy)*spec_acc_modifier)**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
+                        # Missed speculation
+                        assert successor.used_parent_speculations[task_idx]
+                        poisoned_speculations.append(successor_idx)
+                        # update speculation modifiers (adjacent faces have
+                        # higher failure rate)
+                        poisoned_source_crs = successor.window.get_touching_commit_regions(task.window)
+                        for other_successor_idx in self._window_idx_dag.successors(successor_idx):
+                            other_successor = self._get_task_or_none(other_successor_idx)
+                            if other_successor:
+                                for other_cr in successor.window.get_touching_commit_regions(other_successor.window):
+                                    if any(cr.shares_edge(other_cr) for cr in poisoned_source_crs):
+                                        successor.speculation_modifiers[other_successor_idx] = self.missed_speculation_modifier
+                                        print(f'\tWindow {successor_idx} has a modifier of 1.4 for window {other_successor_idx}')
+                                        # TODO: edge case where single
+                                        # window has multiple adjacent
+                                        # faces, and only some of them
+                                        # should get the extra modifier. But
+                                        # this is rare and our current
+                                        # method is good enough for now.
 
         # Step speculation forward
         if self.speculation_mode:
@@ -170,11 +204,16 @@ class DecoderManager:
             self._parallel_processes_by_round.append(len(self._active_window_progress))
             self._completed_windows_by_round.append((self._completed_windows_by_round[-1] if self._current_round > 1 else 0) + len(completed_windows))
         self._max_parallel_processes_used = max(self._max_parallel_processes_used, len(self._active_window_progress))
-
-        # if self.lightweight_setting == 3:
-        #     deleted_task_indices = self._advance_finalized_frontier()
-        #     return deleted_task_indices
         return completed_windows
+
+    def _topologically_sort(self, task_indices):
+        """Topologically sort a subset of the window DAG."""
+        if len(task_indices) == 0:
+            return []
+        subgraph = nx.subgraph(self._window_idx_dag, set((itertools.chain.from_iterable(nx.descendants(self._window_idx_dag, idx) for idx in task_indices))) | set(task_indices))
+        sorted = list(nx.topological_sort(subgraph))
+        sorted = [idx for idx in sorted if idx in task_indices]
+        return sorted
 
     def _reset_decode_task(self, task_idx):
         task = self._get_task(task_idx)
@@ -187,6 +226,7 @@ class DecoderManager:
             self._num_completed_windows -= 1
             task.completed_decoding = False
         task.used_parent_speculations = {}
+        task.speculation_modifiers = {}
         self._pending_decode_tasks.add(task_idx)
         assert task_idx not in self._active_window_progress and task.decoding_start_time == -1 and task.decoding_completion_time == -1 and not task.completed_decoding
         return task_idx

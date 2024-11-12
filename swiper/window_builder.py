@@ -78,6 +78,21 @@ class SpacetimeRegion:
         """
         return self.patch == other.patch and self.round_start < other.round_start + other.duration and other.round_start < self.round_start + self.duration
     
+    def shares_edge(self, other: 'SpacetimeRegion') -> bool:
+        return (
+            (   # spacelike edge
+                np.linalg.norm(np.array(self.patch) - np.array(other.patch)) == 1
+                and (
+                    self.round_start == other.round_start + other.duration
+                    or other.round_start == self.round_start + self.duration
+                )
+            )
+            or (# timelike edge
+                np.abs(np.array(self.patch) - np.array(other.patch)).sum() == 2
+                and other.round_start <= self.round_start < other.round_start + other.duration
+            )
+        )
+
     def __repr__(self):
         return f'Region({self.patch}, {self.round_start}, {self.duration}, {self.num_spatial_boundaries}, {self.initialized_patch}, {self.discard_after})'
 

@@ -29,6 +29,7 @@ class DecodingSimulator:
             speculation_latency: int = 1,
             speculation_accuracy: float = 0,
             poison_policy: str = 'successors',
+            missed_speculation_modifier: float = 1.4,
             max_parallel_processes: int | None = None,
             progress_bar: bool = False,
             print_interval: dt.timedelta | None = None,
@@ -58,6 +59,7 @@ class DecodingSimulator:
             speculation_accuracy: The probability that a speculative prediction
                 is correct. See DecoderManager.
             poison_policy: 'successors' or 'descendants'. See DecoderManager.
+            missed_speculation_modifier: See DecoderManager.
             max_parallel_processes: Maximum number of parallel decoding
                 processes to run. If None, run as many as possible.
             progress_bar: If True, display a progress bar for the simulation.
@@ -97,6 +99,7 @@ class DecodingSimulator:
             speculation_latency=speculation_latency,
             speculation_accuracy=speculation_accuracy,
             poison_policy=poison_policy,
+            missed_speculation_modifier=missed_speculation_modifier,
             max_parallel_processes=max_parallel_processes,
             lightweight_setting=lightweight_setting,
             rng=rng,
@@ -148,6 +151,7 @@ class DecodingSimulator:
             speculation_latency: int,
             speculation_accuracy: float,
             poison_policy: str = 'successors',
+            missed_speculation_modifier: float = 1.4,
             max_parallel_processes: int | None = None,
             lightweight_setting: int = 0,
             rng: int | np.random.Generator = np.random.default_rng(),
@@ -169,6 +173,7 @@ class DecodingSimulator:
             max_parallel_processes=max_parallel_processes,
             speculation_mode=speculation_mode,
             poison_policy=poison_policy,
+            missed_speculation_modifier=missed_speculation_modifier,
             lightweight_setting=lightweight_setting,
             rng=rng,
         )
