@@ -283,17 +283,18 @@ class LatticeSurgerySchedule:
                 name='duration',
             )
             return dag
-        instructions = self.full_instructions()
-        dag = nx.DiGraph()
-        for i,instruction in enumerate(instructions):
-            dag.add_node(i, duration=self.get_true_duration(instruction.duration, distance=d))
-            hidden_patches = set() # patches we will no longer draw connections to
-            for j,instr in reversed(list(enumerate(instructions[:i]))):
-                if (set(instruction.patches) & set(instr.patches)) - hidden_patches:
-                    dag.add_edge(j, i, weight=self.get_true_duration(instr.duration, distance=d))
+        else:
+            full_schedule = self.full_schedule()
+            dag = nx.DiGraph()
+            for i,instruction in enumerate(full_schedule.instructions):
+                dag.add_node(i, duration=self.get_true_duration(instruction.duration, distance=d))
+                hidden_patches = set() # patches we will no longer draw connections to
+                for j,instr in reversed(list(enumerate(full_schedule.instructions[:i]))):
+                    if (set(instruction.patches) & set(instr.patches)) - hidden_patches:
+                        dag.add_edge(j, i, weight=self.get_true_duration(instr.duration, distance=d))
 
-                hidden_patches |= set(instr.patches)
-        return dag
+                    hidden_patches |= set(instr.patches)
+            return dag
     
     def total_duration(self, distance: int):
         """Calculate the duration of the longest path in the schedule DAG."""

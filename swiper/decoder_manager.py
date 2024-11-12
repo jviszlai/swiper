@@ -120,18 +120,10 @@ class DecoderManager:
         for task_idx, time_remaining in self._active_window_progress.items():
             if time_remaining <= 0:
                 completed_windows.append(task_idx)
-                # if self.speculation_mode:
-                #     for successor_idx in self._window_idx_dag.successors(task_idx):
-                #         successor = self._get_task_or_none(successor_idx)
-                #         if successor and successor.decoding_start_time != -1 and self.rng.random() > 1-(1-self.speculation_accuracy)**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
-                #             # Missed speculation
-                #             assert successor.used_parent_speculations[task_idx]
-                #             poisoned_speculations.append(successor_idx)
 
         self._num_completed_windows += len(completed_windows)
         for task_idx in self._topologically_sort(completed_windows):
             task = self._get_task(task_idx)
-            # self._window_decoding_completion_times[task_idx] = self._current_round
             task.decoding_completion_time = self._current_round
             self._active_window_progress.pop(task_idx)
             task.completed_decoding = True
@@ -143,8 +135,6 @@ class DecoderManager:
                     successor = self._get_task_or_none(successor_idx)
                     task = self._get_task(task_idx)
                     spec_acc_modifier = task.speculation_modifiers[successor_idx] if successor_idx in task.speculation_modifiers else 1.0
-                    if spec_acc_modifier > 1.0:
-                        print(f'Window {task_idx} has a modifier of {spec_acc_modifier} for window {successor_idx}')
                     if successor and successor.decoding_start_time != -1 and self.rng.random() > 1-((1-self.speculation_accuracy)*spec_acc_modifier)**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
                         # Missed speculation
                         assert successor.used_parent_speculations[task_idx]
@@ -157,8 +147,7 @@ class DecoderManager:
                             if other_successor:
                                 for other_cr in successor.window.get_touching_commit_regions(other_successor.window):
                                     if any(cr.shares_edge(other_cr) for cr in poisoned_source_crs):
-                                        successor.speculation_modifiers[other_successor_idx] = self.missed_speculation_modifier
-                                        print(f'\tWindow {successor_idx} has a modifier of 1.4 for window {other_successor_idx}')
+                                        successor.speculation_modifiers[other_successor_idx] = successor.speculation_modifiers.get(other_successor_idx, 1.0) * self.missed_speculation_modifier
                                         # TODO: edge case where single
                                         # window has multiple adjacent
                                         # faces, and only some of them
@@ -189,8 +178,11 @@ class DecoderManager:
                     if self.poison_policy == 'descendants':
                         for descendant_idx in nx.descendants(self._window_idx_dag, poisoned_task_idx):
                             descendant = self._get_task_or_none(descendant_idx)
-                            if descendant and descendant.decoding_start_time != -1:
-                                self._reset_decode_task(descendant_idx)
+                            if descendant:
+                                if descendant.decoding_start_time != -1:
+                                    self._reset_decode_task(descendant_idx)
+                                if descendant.speculation_start_time != -1:
+                                    self._reset_speculate_task(descendant_idx)
                     elif self.poison_policy == 'successors':
                         if poisoned_task.completed_decoding:
                             all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(poisoned_task_idx)
@@ -226,10 +218,22 @@ class DecoderManager:
             self._num_completed_windows -= 1
             task.completed_decoding = False
         task.used_parent_speculations = {}
-        task.speculation_modifiers = {}
         self._pending_decode_tasks.add(task_idx)
         assert task_idx not in self._active_window_progress and task.decoding_start_time == -1 and task.decoding_completion_time == -1 and not task.completed_decoding
         return task_idx
+    
+    def _reset_speculate_task(self, task_idx):
+        task = self._get_task(task_idx)
+        task.speculation_start_time = -1
+        if task_idx in self._active_speculation_progress:
+            self._active_speculation_progress.pop(task_idx)
+        else:
+            task.speculation_completion_time = -1
+            task.completed_speculation = False
+        task.speculation_modifiers = {}
+        self._pending_speculate_tasks.add(task_idx)
+        assert task_idx not in self._active_speculation_progress and task.speculation_start_time == -1 and task.speculation_completion_time == -1 and not task.completed_speculation
+        return task
 
     def _poisoned_task_reset_children_that_used_decoding(self, task_idx):
         """Recursively reset children of a completed-and-then-poisoned task (if
