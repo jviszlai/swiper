@@ -8,6 +8,7 @@ from swiper.window_manager import WindowData
 from swiper.decoder_manager import DecoderData
 
 plt.rcParams['axes.prop_cycle'] = mpl.cycler(color=['#0072B2', '#CC79A7', '#009E73', '#E69F00', '#56B4E9', '#D55E00', '#F0E442']) 
+plt.rcParams['font.family'] = 'serif'
 
 def plot_device_schedule_trace(
         data: DeviceData,
