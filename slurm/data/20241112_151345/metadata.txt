@@ -1,0 +1,23 @@
+Time: 2024-11-12 15:13:45
+Job IDs:
+    submit_0.sbatch: 25704536. 4GB RAM, configs [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+Max clock time: 01:00:00
+Total num. tasks: 100
+Params:
+    benchmark_file: ['slurm/data/20241112_151345/benchmarks/qrom_15_15.lss']
+    distance: [21]
+    scheduling_method: ['sliding', 'parallel', 'aligned']
+    decoder_latency_or_dist_filename: ['slurm/data/20241112_151345/decoder_dists.json']
+    speculation_mode: ['separate', None]
+    speculation_latency: [1]
+    speculation_accuracy: [0.9]
+    poison_policy: ['successors', 'descendants']
+    missed_speculation_modifier: [1.0, 1.2915496650148839, 1.6681005372000588, 2.154434690031884, 2.7825594022071245, 3.5938136638046276, 4.641588833612778, 5.994842503189409, 7.742636826811269, 10.0]
+    max_parallel_processes: [None]
+    rng: [0]
+    lightweight_setting: [1]
+
+Notes:
+- Investigating the impact of missed_speculation_modifier under two
+poisoned-speculation recovery techniques (reset successors only, or reset all
+descendants).

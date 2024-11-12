@@ -1,0 +1,17 @@
+CONFIG 320
+benchmark_file: slurm/data/20241112_150322/benchmarks/random_t_1000_200_0.lss
+decoder_latency_or_dist_filename: lambda volume: volume*0.1
+distance: 21
+lightweight_setting: 1
+max_parallel_processes: None
+poison_policy: successors
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 1.0
+speculation_latency: 1
+speculation_mode: separate
+Traceback (most recent call last):
+  File "/project/ftchong/projects/swiper/slurm/run_simulation.py", line 27, in <module>
+    assert len(params) == 12, 'Params list changed. Update this file!'
+           ^^^^^^^^^^^^^^^^^
+AssertionError: Params list changed. Update this file!
