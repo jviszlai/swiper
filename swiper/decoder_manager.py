@@ -135,7 +135,7 @@ class DecoderManager:
                     successor = self._get_task_or_none(successor_idx)
                     task = self._get_task(task_idx)
                     spec_acc_modifier = task.speculation_modifiers[successor_idx] if successor_idx in task.speculation_modifiers else 1.0
-                    if successor and successor.decoding_start_time != -1 and self.rng.random() > 1-((1-self.speculation_accuracy)*spec_acc_modifier)**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
+                    if successor and successor.decoding_start_time != -1 and self.rng.random() > (1-((1-self.speculation_accuracy)*spec_acc_modifier))**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
                         # Missed speculation
                         assert successor.used_parent_speculations[task_idx]
                         poisoned_speculations.append(successor_idx)
