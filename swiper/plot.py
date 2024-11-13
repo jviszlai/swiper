@@ -157,6 +157,10 @@ def plot_device_schedule_trace(
                     edgecolors[coords[0]*2, coords[1]*2, coords[2]+z_offset-spacing:coords[2]+z_offset] = edgecolor
     ax.voxels(x,y,z, filled=volume, facecolors=colors, edgecolors=edgecolors, lightsource=mpl.colors.LightSource(azdeg=315, altdeg=45), alpha=alpha, linewidths=linewidth)
     
+    if z_min:
+        ax.set_zlim(bottom=z_min)
+    if z_max:
+        ax.set_zlim(top=z_max)
     ax.set_aspect('equal')
 
     ax.view_init(elev=15, azim=30)
