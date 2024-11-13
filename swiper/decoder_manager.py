@@ -185,7 +185,9 @@ class DecoderManager:
                                     self._reset_speculate_task(descendant_idx)
                     elif self.poison_policy == 'successors':
                         if poisoned_task.completed_decoding:
-                            all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(poisoned_task_idx)
+                            # don't reset children, just mark them as used
+                            # speculation rather than used decoding
+                            all_poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(poisoned_task_idx, only_mark_speculated=True)
                         self._reset_decode_task(poisoned_task_idx)
                     all_poisoned_indices.append(poisoned_task_idx)
             if self.lightweight_setting == 0:
@@ -235,17 +237,29 @@ class DecoderManager:
         assert task_idx not in self._active_speculation_progress and task.speculation_start_time == -1 and task.speculation_completion_time == -1 and not task.completed_speculation
         return task
 
-    def _poisoned_task_reset_children_that_used_decoding(self, task_idx):
+    def _poisoned_task_reset_children_that_used_decoding(self, task_idx, only_mark_speculated=False):
         """Recursively reset children of a completed-and-then-poisoned task (if
         children used the completed decoding result).
+
+        Args:
+            task_idx: Index of the poisoned task.
+            only_mark_speculated: If True, only mark children as having used the
+                parent's speculation, rather than actually resetting them. This
+                means that we may later have a chance of needing to redo them if
+                we realize that the parent decoding is different from what it
+                used to be (which we assume has the same probability as a missed
+                speculation).
         """
         poisoned_indices = []
         for child_idx in self._window_idx_dag.successors(task_idx):
             child = self._get_task_or_none(child_idx)
             if child and child.decoding_start_time != -1 and not child.used_parent_speculations[task_idx]:
-                if child.completed_decoding:
-                    poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(child_idx)
-                self._reset_decode_task(child_idx)
+                if only_mark_speculated:
+                    child.used_parent_speculations[task_idx] = True
+                else:
+                    if child.completed_decoding:
+                        poisoned_indices += self._poisoned_task_reset_children_that_used_decoding(child_idx)
+                    self._reset_decode_task(child_idx)
         return poisoned_indices
 
     def update_decoding(self, new_windows: list[DecodingWindow], purged_indices: list[int], window_idx_dag: nx.DiGraph) -> None:
