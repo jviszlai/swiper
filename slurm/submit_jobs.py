@@ -4,11 +4,12 @@ import json
 import math
 import subprocess
 import datetime as dt
+import time
 from functools import reduce
 import numpy as np
 
 if __name__ == '__main__':
-    time = dt.datetime.now()
+    cur_time = dt.datetime.now()
 
     # USER SETTING: maximum job duration
     max_time = dt.timedelta(hours=1)
@@ -19,7 +20,7 @@ if __name__ == '__main__':
     else:
         max_time_str = f'{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
 
-    data_dir = f'slurm/data/{time.strftime("%Y%m%d_%H%M%S")}'
+    data_dir = f'slurm/data/{cur_time.strftime("%Y%m%d_%H%M%S")}'
     config_filename = f'{data_dir}/config.json'
     sbatch_dir = f'{data_dir}/sbatch'
     output_dir = f'{data_dir}/output'
@@ -73,9 +74,9 @@ if __name__ == '__main__':
         'speculation_latency':[1],
         'speculation_accuracy':[0.9],
         'poison_policy':['successors', 'descendants'],
-        'missed_speculation_modifier':[1.4],
+        'missed_speculation_modifier':[1.4, 2.0, 5.0],
         'max_parallel_processes':[None],
-        'rng':[0],
+        'rng':list(range(20)),
         'lightweight_setting':[1],
     }
     ordered_param_names = list(sorted(sweep_params.keys()))
@@ -110,23 +111,29 @@ if __name__ == '__main__':
         mem_gb = memory_settings[benchmark_names[config['benchmark_file']]]
         configs_by_mem.setdefault(mem_gb, []).append(i)
 
+    # USER SETTING: submission delay (if too many jobs at once)
+    submission_delay = dt.timedelta(minutes=10)
+    last_submit_time = None
+    max_tasks_per_job = 800
     job_ids = []
     submit_idx = 0
     for i,mem_gb in enumerate(sorted(configs_by_mem.keys())):
         config_indices = configs_by_mem[mem_gb]
-        num_submissions = math.ceil(len(config_indices) / 1000) # caslake submission limit
+        num_submissions = math.ceil(len(config_indices) / max_tasks_per_job) # caslake submission limit
         for j in range(num_submissions):
-            selected_config_indices = config_indices[j*1000:(j+1)*1000]
+            if last_submit_time:
+                time.sleep(max(0, int((last_submit_time + submission_delay - dt.datetime.now()).total_seconds())))
+            selected_config_indices = config_indices[j*max_tasks_per_job:(j+1)*max_tasks_per_job]
             sbatch_filename = os.path.join(sbatch_dir, f'submit_{submit_idx}.sbatch')
             submit_idx += 1
             with open(sbatch_filename, 'w') as f:
                 f.write(f'''#!/bin/bash
-#SBATCH --job-name={time.strftime("%Y%m%d_%H%M%S")}
+#SBATCH --job-name={cur_time.strftime("%Y%m%d_%H%M%S")}
 #SBATCH --output={log_dir}/%a.out
 #SBATCH --error={log_dir}/%a.out
 #SBATCH --account=pi-ftchong
 #SBATCH --partition=caslake
-#SBATCH --array={','.join([str(x) for x in config_indices])}
+#SBATCH --array={','.join([str(x) for x in selected_config_indices])}
 #SBATCH --time={max_time_str}
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu={mem_gb*1000}
@@ -143,10 +150,13 @@ python slurm/run_simulation.py "{config_filename}" "{output_dir}" {int(max_time.
             retval = p.wait()
             if retval != 0:
                 print(lines)
-            job_ids.append((int(lines[-1].decode('utf-8').rstrip().split(' ')[-1]), mem_gb))
+            job_ids.append((int(lines[-1].decode('utf-8').rstrip().split(' ')[-1]), mem_gb, selected_config_indices))
+            last_submit_time = dt.datetime.now()
+            if submission_delay.total_seconds() > 0:
+                print(f'\tSubmitted job {job_ids[-1]}')
 
     with open(metadata_filename, 'w') as f:
-        f.write(f'Time: {time.strftime("%Y-%m-%d %H:%M:%S")}\n')
+        f.write(f'Time: {cur_time.strftime("%Y-%m-%d %H:%M:%S")}\n')
         f.write(f'Job IDs:\n')
         for i,(job_id, mem_gb) in enumerate(job_ids):
             f.write(f'    submit_{i}.sbatch: {job_id}. {mem_gb}GB RAM, configs {configs_by_mem[mem_gb]}\n')
