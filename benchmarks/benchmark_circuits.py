@@ -52,7 +52,7 @@ class QASMBenchmark(Benchmark):
         with open(qasm_file) as f_in:
             qasm_str = f_in.read()
         qiskit_circ = qiskit.QuantumCircuit.from_qasm_str(qasm_str)
-        cirq_circ = circuit_from_qasm(dumps(qiskit.transpile(RemoveBarriers()(qiskit_circ), basis_gates=['cx', 'u3'])))
+        cirq_circ = circuit_from_qasm(dumps(qiskit.transpile(RemoveBarriers()(qiskit_circ), basis_gates=['cx', 'h', 's', 't', 'tdg', 'x', 'y', 'z', 'u1'])))
         # cirq.to_json(cirq_circ, f'benchmarks/data/mqt/{file[:-5]}.json')
         self.schedule = cirq_to_ls(_decompose_circuit(cirq_circ), eps=eps)
         self._name = qasm_file.split("/")[-1].split(".")[0]
