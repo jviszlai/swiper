@@ -53,8 +53,10 @@ def plot_device_schedule_trace(
         fig = default_fig
     assert ax and fig
 
-    rows = max([r for r,c in data.all_patch_coords]) - min([r for r,c in data.all_patch_coords]) + 1
-    cols = max([c for r,c in data.all_patch_coords]) - min([c for r,c in data.all_patch_coords]) + 1
+    min_x = min([r for r,c in data.all_patch_coords])
+    min_y = min([c for r,c in data.all_patch_coords])
+    rows = max([r for r,c in data.all_patch_coords]) - min_x + 1
+    cols = max([c for r,c in data.all_patch_coords]) - min_y + 1
 
     num_rounds = data.num_rounds
     if z_max:
@@ -94,7 +96,7 @@ def plot_device_schedule_trace(
             increased_z = True
 
         for i, syndrome in enumerate(round_data):
-            coords = syndrome.patch + (round_idx,)
+            coords = (syndrome.patch[0] - min_x, syndrome.patch[1] - min_y, round_idx)
             name = syndrome.instruction.name
 
             if len(windows) == 0:

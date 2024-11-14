@@ -30,7 +30,7 @@ class DecodingSimulator:
             speculation_accuracy: float = 0,
             poison_policy: str = 'successors',
             missed_speculation_modifier: float = 1.4,
-            max_parallel_processes: int | None = None,
+            max_parallel_processes: int | str | None = None,
             progress_bar: bool = False,
             print_interval: dt.timedelta | None = None,
             pending_window_count_cutoff: int = 0,
@@ -61,7 +61,10 @@ class DecodingSimulator:
             poison_policy: 'successors' or 'descendants'. See DecoderManager.
             missed_speculation_modifier: See DecoderManager.
             max_parallel_processes: Maximum number of parallel decoding
-                processes to run. If None, run as many as possible.
+                processes to run. If None, run as many as possible. If
+                'predict', first run an ideal simulation (perfect speculation)
+                of the schedule to estimate the maximum number of parallel
+                tasks.
             progress_bar: If True, display a progress bar for the simulation.
             pending_window_count_cutoff: If the number of pending windows
                 exceeds this value, the simulation is considered to have failed
