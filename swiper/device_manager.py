@@ -28,6 +28,7 @@ class DeviceData:
     d: int
     num_rounds: int
     completed_instructions: int
+    total_volume: int
     instructions: list[Instruction]
     instruction_start_times: list[int]
     all_patch_coords: list[tuple[int, int]]
@@ -105,6 +106,7 @@ class DeviceManager:
 
         self._syndrome_count_by_round = []
         self._instruction_count_by_round = []
+        self._total_volume = 0
         self._all_patch_coords = set()
         self._generated_syndrome_data = []
         self._conditional_S_locations = []
@@ -376,6 +378,7 @@ class DeviceManager:
         if self.lightweight_setting == 0:
             self._instruction_count_by_round[-1] += len(self._active_patches - patches_used_this_round)
             self._syndrome_count_by_round.append(len(generated_syndrome_rounds))
+            self._total_volume += len(generated_syndrome_rounds)
             self._generated_syndrome_data.append(generated_syndrome_rounds)
 
         return generated_syndrome_rounds, completed_instructions
@@ -481,6 +484,7 @@ class DeviceManager:
                 d=self.d_t,
                 num_rounds=self.current_round,
                 completed_instructions=self._completed_instruction_count,
+                total_volume=self._total_volume,
                 instructions=[instr.instruction for instr in self.schedule_instructions],
                 instruction_start_times=[(instr_task.end_round-self._instruction_durations[i]+1 if instr_task.end_round != -1 else None) for i,instr_task in enumerate(self.schedule_instructions)],
                 all_patch_coords=list(self._all_patch_coords),
@@ -496,6 +500,7 @@ class DeviceManager:
                 d=self.d_t,
                 num_rounds=self.current_round,
                 completed_instructions=self._completed_instruction_count,
+                total_volume=self._total_volume,
                 instructions=None,
                 instruction_start_times=[(instr_task.end_round-self._instruction_durations[i]+1 if instr_task.end_round != -1 else None) for i,instr_task in enumerate(self.schedule_instructions)],
                 all_patch_coords=list(self._all_patch_coords),
@@ -511,6 +516,7 @@ class DeviceManager:
                 d=self.d_t,
                 num_rounds=self.current_round,
                 completed_instructions=self._completed_instruction_count,
+                total_volume=self._total_volume,
                 instructions=None,
                 instruction_start_times=None,
                 all_patch_coords=None,
