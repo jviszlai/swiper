@@ -105,7 +105,7 @@ class DecodingSimulator:
                 missed_speculation_modifier=missed_speculation_modifier,
                 max_parallel_processes=None,
                 clock_timeout=(clock_timeout/2 if clock_timeout is not None else None),
-                lightweight_setting=lightweight_setting,
+                lightweight_setting=2,
                 rng=rng,
             )
             assert prediction_success
