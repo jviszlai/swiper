@@ -378,8 +378,8 @@ class DeviceManager:
         if self.lightweight_setting == 0:
             self._instruction_count_by_round[-1] += len(self._active_patches - patches_used_this_round)
             self._syndrome_count_by_round.append(len(generated_syndrome_rounds))
-            self._total_volume += len(generated_syndrome_rounds)
             self._generated_syndrome_data.append(generated_syndrome_rounds)
+        self._total_volume += len(generated_syndrome_rounds)
 
         return generated_syndrome_rounds, completed_instructions
     

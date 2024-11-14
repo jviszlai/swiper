@@ -3,6 +3,7 @@ from typing import Callable
 import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 import datetime as dt
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper.device_manager import DeviceData, DeviceManager
@@ -87,6 +88,31 @@ class DecodingSimulator:
                     duration.
             rng: Random number generator.
         """
+        if max_parallel_processes == 'predict':
+            print('PREDICTION STEP BEGIN---------------------------------')
+            if pending_window_count_cutoff > 0 or device_rounds_cutoff > 0:
+                raise ValueError("Cannot predict max parallel processes with cutoffs")
+            prediction_simulator = DecodingSimulator()
+            prediction_success, pred_device_data, _, pred_decode_data = prediction_simulator.run(
+                schedule=schedule,
+                distance=distance,
+                scheduling_method=scheduling_method,
+                decoding_latency_fn=decoding_latency_fn,
+                speculation_mode=speculation_mode,
+                speculation_latency=speculation_latency,
+                speculation_accuracy=1.0,
+                poison_policy=poison_policy,
+                missed_speculation_modifier=missed_speculation_modifier,
+                max_parallel_processes=None,
+                clock_timeout=(clock_timeout/2 if clock_timeout is not None else None),
+                lightweight_setting=lightweight_setting,
+                rng=rng,
+            )
+            assert prediction_success
+            max_parallel_processes = pred_decode_data.max_parallel_processes + math.ceil((pred_decode_data.parallel_process_volume / pred_decode_data.num_rounds) * (1 - speculation_accuracy))
+            print(f'Predicted max parallel processes: {max_parallel_processes}')
+            print('\nPREDICTION STEP END-----------------------------------\n')
+
         start_time = dt.datetime.now()
 
         if print_interval is not None:
