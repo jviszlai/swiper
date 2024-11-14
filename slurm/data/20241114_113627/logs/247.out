@@ -1,0 +1,18 @@
+CONFIG 247
+benchmark_file: slurm/data/20241114_113627/benchmarks/toffoli.lss
+decoder_latency_or_dist_filename: slurm/data/20241114_113627/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 17
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-14 11:37:23 | Loading benchmark slurm/data/20241114_113627/benchmarks/toffoli.lss...
+2024-11-14 11:37:23 | Starting simulation
+2024-11-14 11:37:23 | Simulation update: decoder round 1, completed instructions: 0/80, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-14 11:37:24 | Finished simulation
+2024-11-14 11:37:24 | Finished saving output. Done! Total elapsed time: 0:00:00.536324

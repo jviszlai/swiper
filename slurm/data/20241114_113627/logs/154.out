@@ -1,0 +1,24 @@
+CONFIG 154
+benchmark_file: slurm/data/20241114_113627/benchmarks/regular_t_1000_0.lss
+decoder_latency_or_dist_filename: slurm/data/20241114_113627/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-14 11:36:56 | Loading benchmark slurm/data/20241114_113627/benchmarks/regular_t_1000_0.lss...
+2024-11-14 11:36:57 | Starting simulation
+2024-11-14 11:36:57 | Simulation update: decoder round 1, completed instructions: 0/4001, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-14 11:37:07 | Simulation update: decoder round 47758, completed instructions: 601/4001, actively running or decoding instructions: 4, waiting windows: 2491/5000. Max active instruction index: 604
+2024-11-14 11:37:17 | Simulation update: decoder round 95956, completed instructions: 1196/4001, actively running or decoding instructions: 2, waiting windows: 5024/10084. Max active instruction index: 1193
+2024-11-14 11:37:27 | Simulation update: decoder round 143809, completed instructions: 1768/4001, actively running or decoding instructions: 2, waiting windows: 7522/15105. Max active instruction index: 1765
+2024-11-14 11:37:37 | Simulation update: decoder round 191045, completed instructions: 2320/4001, actively running or decoding instructions: 2, waiting windows: 10088/20232. Max active instruction index: 2317
+2024-11-14 11:37:47 | Simulation update: decoder round 237553, completed instructions: 2900/4001, actively running or decoding instructions: 2, waiting windows: 12607/25299. Max active instruction index: 2897
+2024-11-14 11:37:57 | Simulation update: decoder round 284840, completed instructions: 3460/4001, actively running or decoding instructions: 2, waiting windows: 15131/30383. Max active instruction index: 3457
+2024-11-14 11:38:07 | Finished simulation
+2024-11-14 11:38:07 | Finished saving output. Done! Total elapsed time: 0:01:10.869239
