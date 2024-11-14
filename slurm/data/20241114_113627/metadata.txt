@@ -16,3 +16,10 @@ Params:
     max_parallel_processes: [None]
     rng: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     lightweight_setting: [2]
+
+Notes:
+- Running big evaluation of all benchmarks to see how much algorithm-level
+improvement we can get with speculation. Assuming fixed speculation accuracy of
+0.90 and using sampled decoder distributions.
+- Redoing with new benchmark schedules, and with multiple randomized shots for
+microbenchmarks.
