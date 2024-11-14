@@ -1,0 +1,24 @@
+CONFIG 237
+benchmark_file: slurm/data/20241114_122711/benchmarks/rz_seq_10.lss
+decoder_latency_or_dist_filename: lambda volume: volume*3.593813663804626
+distance: 21
+lightweight_setting: 1
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 7
+scheduling_method: aligned
+speculation_accuracy: 0.7000000000000001
+speculation_latency: 1
+speculation_mode: separate
+2024-11-14 12:27:40 | Loading benchmark slurm/data/20241114_122711/benchmarks/rz_seq_10.lss...
+2024-11-14 12:27:40 | Starting simulation
+2024-11-14 12:27:41 | Simulation update: decoder round 1, completed instructions: 0/5486, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 1
+2024-11-14 12:27:51 | Simulation update: decoder round 56947, completed instructions: 920/5486, actively running or decoding instructions: 2, waiting windows: 2280/5174. Max active instruction index: 916
+2024-11-14 12:28:01 | Simulation update: decoder round 113653, completed instructions: 1833/5486, actively running or decoding instructions: 2, waiting windows: 4591/10442. Max active instruction index: 1829
+2024-11-14 12:28:11 | Simulation update: decoder round 169297, completed instructions: 2721/5486, actively running or decoding instructions: 2, waiting windows: 6870/15647. Max active instruction index: 2718
+2024-11-14 12:28:21 | Simulation update: decoder round 225878, completed instructions: 3598/5486, actively running or decoding instructions: 2, waiting windows: 9169/20856. Max active instruction index: 3594
+2024-11-14 12:28:31 | Simulation update: decoder round 282947, completed instructions: 4520/5486, actively running or decoding instructions: 2, waiting windows: 11454/26078. Max active instruction index: 4516
+2024-11-14 12:28:41 | Simulation update: decoder round 338421, completed instructions: 5410/5486, actively running or decoding instructions: 3, waiting windows: 13734/31270. Max active instruction index: 5406
+2024-11-14 12:28:42 | Finished simulation
+2024-11-14 12:28:43 | Finished saving output. Done! Total elapsed time: 0:01:02.617496
