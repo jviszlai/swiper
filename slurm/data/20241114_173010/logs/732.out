@@ -1,0 +1,28 @@
+CONFIG 732
+benchmark_file: slurm/data/20241114_173010/benchmarks/adder_n18.lss
+decoder_latency_or_dist_filename: slurm/data/20241114_173010/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 12
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: None
+2024-11-14 17:31:14 | Loading benchmark slurm/data/20241114_173010/benchmarks/adder_n18.lss...
+PREDICTION STEP BEGIN---------------------------------
+Predicted max parallel processes: 114
+
+PREDICTION STEP END-----------------------------------
+
+2024-11-14 17:32:06 | Starting simulation
+2024-11-14 17:32:06 | Simulation update: decoder round 1, completed instructions: 0/2002, actively running or decoding instructions: 3, waiting windows: 0/0. Max active instruction index: 18
+2024-11-14 17:32:16 | Simulation update: decoder round 2866, completed instructions: 371/2002, actively running or decoding instructions: 11, waiting windows: 1438/2790. Max active instruction index: 541
+2024-11-14 17:32:26 | Simulation update: decoder round 5900, completed instructions: 594/2002, actively running or decoding instructions: 16, waiting windows: 2897/5781. Max active instruction index: 587
+2024-11-14 17:32:36 | Simulation update: decoder round 8541, completed instructions: 914/2002, actively running or decoding instructions: 18, waiting windows: 4156/8482. Max active instruction index: 941
+2024-11-14 17:32:46 | Simulation update: decoder round 12129, completed instructions: 1365/2002, actively running or decoding instructions: 16, waiting windows: 5474/11433. Max active instruction index: 1379
+2024-11-14 17:32:56 | Simulation update: decoder round 19656, completed instructions: 1957/2002, actively running or decoding instructions: 8, waiting windows: 6964/14886. Max active instruction index: 1949
+2024-11-14 17:32:57 | Finished simulation
+2024-11-14 17:32:57 | Finished saving output. Done! Total elapsed time: 0:01:43.305157

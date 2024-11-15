@@ -1,0 +1,28 @@
+CONFIG 633
+benchmark_file: slurm/data/20241114_173010/benchmarks/adder_n18.lss
+decoder_latency_or_dist_filename: slurm/data/20241114_173010/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 1
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: None
+2024-11-14 17:31:13 | Loading benchmark slurm/data/20241114_173010/benchmarks/adder_n18.lss...
+PREDICTION STEP BEGIN---------------------------------
+Predicted max parallel processes: 123
+
+PREDICTION STEP END-----------------------------------
+
+2024-11-14 17:32:08 | Starting simulation
+2024-11-14 17:32:08 | Simulation update: decoder round 1, completed instructions: 0/2002, actively running or decoding instructions: 3, waiting windows: 0/0. Max active instruction index: 18
+2024-11-14 17:32:18 | Simulation update: decoder round 2908, completed instructions: 370/2002, actively running or decoding instructions: 15, waiting windows: 1442/2792. Max active instruction index: 541
+2024-11-14 17:32:28 | Simulation update: decoder round 5996, completed instructions: 593/2002, actively running or decoding instructions: 17, waiting windows: 2926/5831. Max active instruction index: 587
+2024-11-14 17:32:38 | Simulation update: decoder round 8667, completed instructions: 940/2002, actively running or decoding instructions: 19, waiting windows: 4197/8571. Max active instruction index: 953
+2024-11-14 17:32:48 | Simulation update: decoder round 12260, completed instructions: 1315/2002, actively running or decoding instructions: 8, waiting windows: 5509/11526. Max active instruction index: 1317
+2024-11-14 17:32:58 | Simulation update: decoder round 19091, completed instructions: 1856/2002, actively running or decoding instructions: 9, waiting windows: 7046/14986. Max active instruction index: 1838
+2024-11-14 17:32:59 | Finished simulation
+2024-11-14 17:32:59 | Finished saving output. Done! Total elapsed time: 0:01:46.189098

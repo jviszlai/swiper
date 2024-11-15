@@ -112,6 +112,7 @@ class DecodingSimulator:
             max_parallel_processes = pred_decode_data.max_parallel_processes + math.ceil((pred_decode_data.parallel_process_volume / pred_decode_data.num_rounds) * (1 - speculation_accuracy))
             print(f'Predicted max parallel processes: {max_parallel_processes}')
             print('\nPREDICTION STEP END-----------------------------------\n')
+        assert max_parallel_processes is None or isinstance(max_parallel_processes, int)
 
         start_time = dt.datetime.now()
 
