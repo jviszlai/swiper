@@ -5,12 +5,34 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 import datetime as dt
+import inspect
+from dataclasses import dataclass, asdict
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper.device_manager import DeviceData, DeviceManager
 from swiper.decoder_manager import DecoderData, DecoderManager
 from swiper.window_manager import WindowData, SlidingWindowManager, ParallelWindowManager, TAlignedWindowManager
 from swiper.window_builder import WindowBuilder
 import swiper.plot as plotter
+
+@dataclass
+class SimulatorParams:
+    distance: int
+    scheduling_method: str
+    decoding_latency_fn: str | None
+    speculation_mode: str | None
+    speculation_latency: int
+    speculation_accuracy: float
+    poison_policy: str
+    missed_speculation_modifier: float
+    max_parallel_processes: int | None
+    pending_window_count_cutoff: int
+    device_rounds_cutoff: int
+    clock_timeout: dt.timedelta | None
+    lightweight_setting: int
+    rng: int | None
+
+    def to_dict(self):
+        return asdict(self)
 
 class DecodingSimulator:
     def __init__(
@@ -40,7 +62,7 @@ class DecodingSimulator:
             save_animation_frames: bool = False,
             lightweight_setting: int = 0,
             rng: int | np.random.Generator = np.random.default_rng(),
-        ) -> tuple[bool, DeviceData, WindowData, DecoderData]:
+        ) -> tuple[bool, SimulatorParams, DeviceData, WindowData, DecoderData]:
         """TODO
         
         Args:
@@ -93,7 +115,7 @@ class DecodingSimulator:
             if pending_window_count_cutoff > 0 or device_rounds_cutoff > 0:
                 raise ValueError("Cannot predict max parallel processes with cutoffs")
             prediction_simulator = DecodingSimulator()
-            prediction_success, pred_device_data, _, pred_decode_data = prediction_simulator.run(
+            prediction_success, _, _, _, pred_decode_data = prediction_simulator.run(
                 schedule=schedule,
                 distance=distance,
                 scheduling_method=scheduling_method,
@@ -119,6 +141,28 @@ class DecodingSimulator:
         if print_interval is not None:
             print(f'{start_time.strftime("%Y-%m-%d %H:%M:%S")} | Starting simulation')
             sys.stdout.flush()
+
+        try:
+            decoding_latency_fn_str = inspect.getsource(decoding_latency_fn)
+        except Exception as e:
+            print(f'Failed to get source of decoding_latency_fn: {e}')
+            decoding_latency_fn_str = None
+        self.simulation_params = SimulatorParams(
+            distance=distance,
+            scheduling_method=scheduling_method,
+            decoding_latency_fn=decoding_latency_fn_str,
+            speculation_mode=speculation_mode,
+            speculation_latency=speculation_latency,
+            speculation_accuracy=speculation_accuracy,
+            poison_policy=poison_policy,
+            missed_speculation_modifier=missed_speculation_modifier,
+            max_parallel_processes=max_parallel_processes,
+            pending_window_count_cutoff=pending_window_count_cutoff,
+            device_rounds_cutoff=device_rounds_cutoff,
+            clock_timeout=clock_timeout,
+            lightweight_setting=lightweight_setting,
+            rng=(rng if isinstance(rng, int) else None),
+        )
 
         self.initialize_experiment(
             schedule=schedule,
@@ -177,7 +221,7 @@ class DecodingSimulator:
             distance: int,
             scheduling_method: str,
             decoding_latency_fn: Callable[[int], int],
-            speculation_mode: str,
+            speculation_mode: str | None,
             speculation_latency: int,
             speculation_accuracy: float,
             poison_policy: str = 'successors',
@@ -249,13 +293,13 @@ class DecodingSimulator:
             raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
         return self.failed or (self._device_manager.is_done() and len(self._window_manager.all_constructed_windows) - self._decoding_manager._num_completed_windows == 0)
 
-    def get_data(self) -> tuple[bool, DeviceData, WindowData, DecoderData]:
+    def get_data(self) -> tuple[bool, SimulatorParams, DeviceData, WindowData, DecoderData]:
         if self._device_manager is None or self._window_manager is None or self._decoding_manager is None:
             raise ValueError("Experiment not initialized properly. Run initialize_experiment() first.")
         device_data = self._device_manager.get_data()
         window_data = self._window_manager.get_data()
         decoding_data = self._decoding_manager.get_data()
-        return not self.failed, device_data, window_data, decoding_data
+        return not self.failed, self.simulation_params, device_data, window_data, decoding_data
     
     def get_frame_data(self) -> list[plt.Axes]:
         return self.frame_data

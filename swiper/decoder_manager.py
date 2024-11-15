@@ -41,7 +41,7 @@ class DecoderManager:
             speculation_time: int,
             speculation_accuracy: float,
             max_parallel_processes: int | None = None,
-            speculation_mode: str = 'integrated',
+            speculation_mode: str | None = 'integrated',
             poison_policy: str = 'successors',
             missed_speculation_modifier: float = 1.4,
             lightweight_setting: int = 0,
