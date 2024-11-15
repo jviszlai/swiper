@@ -1,0 +1,23 @@
+CONFIG 68
+benchmark_file: slurm/data/20241115_143108/benchmarks/grover_ancilla_5.lss
+decoder_latency_or_dist_filename: slurm/data/20241115_143108/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-15 14:41:29 | Loading benchmark slurm/data/20241115_143108/benchmarks/grover_ancilla_5.lss...
+2024-11-15 14:41:34 | Starting simulation
+2024-11-15 14:41:41 | Simulation update: decoder round 1, completed instructions: 0/77788, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 1
+2024-11-15 14:41:51 | Simulation update: decoder round 1525, completed instructions: 59/77788, actively running or decoding instructions: 4, waiting windows: 59/139. Max active instruction index: 52
+2024-11-15 14:42:01 | Simulation update: decoder round 3067, completed instructions: 105/77788, actively running or decoding instructions: 3, waiting windows: 124/297. Max active instruction index: 98
+2024-11-15 14:42:11 | Simulation update: decoder round 4614, completed instructions: 147/77788, actively running or decoding instructions: 4, waiting windows: 161/426. Max active instruction index: 147
+2024-11-15 14:42:21 | Simulation update: decoder round 6175, completed instructions: 210/77788, actively running or decoding instructions: 3, waiting windows: 232/596. Max active instruction index: 212
+2024-11-15 14:42:31 | Simulation update: decoder round 7748, completed instructions: 258/77788, actively running or decoding instructions: 4, waiting windows: 291/755. Max active instruction index: 259
+2024-11-15 14:42:41 | Simulation update: decoder round 9339, completed instructions: 305/77788, actively running or decoding instructions: 3, waiting windows: 348/922. Max active instruction index: 297
+2024-11-15 14:42:51 | Simulation update: decoder round 10950, completed instructions: 369/77788, actively running or decoding instructions: 3, waiting windows: 417/1102. Max active instruction index: 362

@@ -1,0 +1,27 @@
+Time: 2024-11-15 14:31:08
+Job IDs:
+    submit_0.sbatch: 25974319. 4GB RAM, configs [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113]
+    submit_1.sbatch: 25975805. 8GB RAM, configs [22, 45, 68, 91, 114]
+Max clock time: 1-12:00:00
+Total num. tasks: 115
+Params:
+    benchmark_file: ['slurm/data/20241115_143108/benchmarks/fermi_hubbard_2_2.lss', 'slurm/data/20241115_143108/benchmarks/rz_1e-05.lss', 'slurm/data/20241115_143108/benchmarks/qpeexact_10.lss', 'slurm/data/20241115_143108/benchmarks/msd_15to1.lss', 'slurm/data/20241115_143108/benchmarks/rz_seq_10.lss', 'slurm/data/20241115_143108/benchmarks/rz_1e-20.lss', 'slurm/data/20241115_143108/benchmarks/qpeinexact_10.lss', 'slurm/data/20241115_143108/benchmarks/H2.lss', 'slurm/data/20241115_143108/benchmarks/carleman_2_4.lss', 'slurm/data/20241115_143108/benchmarks/qft_10.lss', 'slurm/data/20241115_143108/benchmarks/qpeinexact_5.lss', 'slurm/data/20241115_143108/benchmarks/adder_n10.lss', 'slurm/data/20241115_143108/benchmarks/rz_1e-10.lss', 'slurm/data/20241115_143108/benchmarks/adder_n18.lss', 'slurm/data/20241115_143108/benchmarks/adder_n4.lss', 'slurm/data/20241115_143108/benchmarks/rz_1e-15.lss', 'slurm/data/20241115_143108/benchmarks/fermi_hubbard_4_4.lss', 'slurm/data/20241115_143108/benchmarks/toffoli.lss', 'slurm/data/20241115_143108/benchmarks/rz_seq_100.lss', 'slurm/data/20241115_143108/benchmarks/qpeexact_5.lss', 'slurm/data/20241115_143108/benchmarks/adder_n28.lss', 'slurm/data/20241115_143108/benchmarks/qrom_15_15.lss', 'slurm/data/20241115_143108/benchmarks/grover_ancilla_5.lss']
+    distance: [21]
+    scheduling_method: ['sliding', 'parallel', 'aligned']
+    decoder_latency_or_dist_filename: ['slurm/data/20241115_143108/decoder_dists.json']
+    speculation_mode: ['separate', None]
+    speculation_latency: [1]
+    speculation_accuracy: [0.9]
+    poison_policy: ['successors']
+    missed_speculation_modifier: [1.4]
+    max_parallel_processes: [None]
+    rng: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    lightweight_setting: [2]
+
+Notes:
+- Running big evaluation of all benchmarks to see how much algorithm-level
+improvement we can get with speculation. Assuming fixed speculation accuracy of
+0.90 and using sampled decoder distributions.
+- Redoing with new benchmark schedules, and with multiple randomized shots for
+microbenchmarks.
+- This time, running without parallel process count limit (to compare)
