@@ -1,5 +1,5 @@
 import sys
-from typing import Callable
+from typing import Callable, Any
 import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,9 +27,10 @@ class SimulatorParams:
     max_parallel_processes: int | None
     pending_window_count_cutoff: int
     device_rounds_cutoff: int
-    clock_timeout: dt.timedelta | None
+    clock_timeout_seconds: int | None
     lightweight_setting: int
     rng: int | None
+    processor_prediction_results: dict[str, Any]
 
     def to_dict(self):
         return asdict(self)
@@ -110,12 +111,19 @@ class DecodingSimulator:
                     duration.
             rng: Random number generator.
         """
+        start_time = dt.datetime.now()
+
+        if print_interval is not None:
+            print(f'{start_time.strftime("%Y-%m-%d %H:%M:%S")} | Starting simulation')
+            sys.stdout.flush()
+
+        processor_prediction_results = {}
         if max_parallel_processes == 'predict':
             print('PREDICTION STEP BEGIN---------------------------------')
             if pending_window_count_cutoff > 0 or device_rounds_cutoff > 0:
                 raise ValueError("Cannot predict max parallel processes with cutoffs")
             prediction_simulator = DecodingSimulator()
-            prediction_success, _, _, _, pred_decode_data = prediction_simulator.run(
+            prediction_success, _, pred_device_data, _, pred_decode_data = prediction_simulator.run(
                 schedule=schedule,
                 distance=distance,
                 scheduling_method=scheduling_method,
@@ -132,15 +140,15 @@ class DecodingSimulator:
             )
             assert prediction_success
             max_parallel_processes = pred_decode_data.max_parallel_processes + math.ceil((pred_decode_data.parallel_process_volume / pred_decode_data.num_rounds) * (1 - speculation_accuracy))
+            processor_prediction_results['device_data:num_rounds'] = pred_device_data.num_rounds
+            processor_prediction_results['device_data:total_volume'] = pred_device_data.total_volume
+            processor_prediction_results['device_data:avg_conditioned_decode_wait_time'] = pred_device_data.avg_conditioned_decode_wait_time
+            processor_prediction_results['decode_data:num_rounds'] = pred_decode_data.num_rounds
+            processor_prediction_results['decode_data:max_parallel_processes'] = pred_decode_data.max_parallel_processes
+            processor_prediction_results['decode_data:parallel_process_volume'] = pred_decode_data.parallel_process_volume
             print(f'Predicted max parallel processes: {max_parallel_processes}')
             print('\nPREDICTION STEP END-----------------------------------\n')
         assert max_parallel_processes is None or isinstance(max_parallel_processes, int)
-
-        start_time = dt.datetime.now()
-
-        if print_interval is not None:
-            print(f'{start_time.strftime("%Y-%m-%d %H:%M:%S")} | Starting simulation')
-            sys.stdout.flush()
 
         try:
             decoding_latency_fn_str = inspect.getsource(decoding_latency_fn)
@@ -159,9 +167,10 @@ class DecodingSimulator:
             max_parallel_processes=max_parallel_processes,
             pending_window_count_cutoff=pending_window_count_cutoff,
             device_rounds_cutoff=device_rounds_cutoff,
-            clock_timeout=clock_timeout,
+            clock_timeout_seconds=(clock_timeout.total_seconds() if clock_timeout else None),
             lightweight_setting=lightweight_setting,
             rng=(rng if isinstance(rng, int) else None),
+            processor_prediction_results=processor_prediction_results,
         )
 
         self.initialize_experiment(
