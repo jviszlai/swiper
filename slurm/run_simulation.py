@@ -79,10 +79,12 @@ if __name__ == '__main__':
         rng=rng,
     )
 
+    simulator_params_dict = simulator_params.to_dict()
+    simulator_params_dict['decoding_latency_fn'] = decoder_latency_or_dist_filename
     with open(os.path.join(output_dir, f'config{config_idx}_d{distance}_{scheduling_method}_{speculation_mode}_{benchmark_file.split("/")[-1].split(".")[0]}_{rng}.json'), 'w') as f:
         json.dump({
                 'success':success,
-                'simulator_params':simulator_params.to_dict(),
+                'simulator_params':simulator_params_dict,
                 'device_data':device_data.to_dict(),
                 'window_data':window_data.to_dict(),
                 'decoding_data':decoding_data.to_dict(),
