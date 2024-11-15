@@ -12,3 +12,5 @@ speculation_accuracy: 0.9
 speculation_latency: 1
 speculation_mode: separate
 2024-11-14 17:30:25 | Loading benchmark slurm/data/20241114_173010/benchmarks/heisenberg_5.lss...
+/var/spool/slurm/d/job25865391/slurm_script: line 16: 2807810 Killed                  python slurm/run_simulation.py "slurm/data/20241114_173010/config.json" "slurm/data/20241114_173010/output" 129600
+slurmstepd: error: Detected 1 oom-kill event(s) in StepId=25865391.batch cgroup. Some of your processes may have been killed by the cgroup out-of-memory handler.
