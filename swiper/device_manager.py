@@ -124,7 +124,8 @@ class DeviceManager:
 
         self._instruction_durations: list[int] = [Duration.get_true_duration(instr.instruction.duration, self.d_t) for instr in self.schedule_instructions]
         for i,instr in enumerate(self.schedule_instructions):
-            if instr.instruction.name == 'CONDITIONAL_S' and self.rng.random() < 0.5:
+            if instr.instruction.name == 'CONDITIONAL_S' and len(instr.instruction.conditioned_on_idx) > 0 and self.rng.random() < 0.5:
+                # Conditional S fixup of T injection; 50% chance of not being needed
                 self._instruction_durations[i] = 0
 
         # Begin by starting the first instruction
@@ -346,7 +347,7 @@ class DeviceManager:
         completed_instructions = set()
         for instruction_idx in self._active_instructions.keys():
             instruction_task = self.schedule_instructions[instruction_idx]
-            assert self._active_instructions[instruction_idx] > 0
+            assert self._active_instructions[instruction_idx] > 0, (instruction_idx, self._active_instructions[instruction_idx], self.schedule_instructions[instruction_idx], self.schedule_dag.predecessors(instruction_idx), self.schedule_dag.successors(instruction_idx))
             generated_syndrome_rounds.extend([
                 SyndromeRound(coords, 
                               self.current_round, 
