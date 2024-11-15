@@ -1,0 +1,21 @@
+CONFIG 969
+benchmark_file: slurm/data/20241115_170539/benchmarks/fermi_hubbard_2_2.lss
+decoder_latency_or_dist_filename: slurm/data/20241115_170539/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 8
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-15 17:35:54 | Loading benchmark slurm/data/20241115_170539/benchmarks/fermi_hubbard_2_2.lss...
+2024-11-15 17:35:55 | Starting simulation
+PREDICTION STEP BEGIN---------------------------------
+Predicted max parallel processes: 142
+
+PREDICTION STEP END-----------------------------------
+
+2024-11-15 17:55:15 | Simulation update: decoder round 1, completed instructions: 0/14751, actively running or decoding instructions: 13, waiting windows: 0/0. Max active instruction index: 30

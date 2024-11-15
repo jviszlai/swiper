@@ -1,0 +1,28 @@
+CONFIG 984
+benchmark_file: slurm/data/20241115_170539/benchmarks/adder_n28.lss
+decoder_latency_or_dist_filename: slurm/data/20241115_170539/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 8
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-15 17:35:55 | Loading benchmark slurm/data/20241115_170539/benchmarks/adder_n28.lss...
+2024-11-15 17:35:55 | Starting simulation
+PREDICTION STEP BEGIN---------------------------------
+Predicted max parallel processes: 182
+
+PREDICTION STEP END-----------------------------------
+
+2024-11-15 17:36:51 | Simulation update: decoder round 1, completed instructions: 0/2839, actively running or decoding instructions: 7, waiting windows: 0/0. Max active instruction index: 30
+2024-11-15 17:37:01 | Simulation update: decoder round 1965, completed instructions: 311/2839, actively running or decoding instructions: 7, waiting windows: 1444/2788. Max active instruction index: 311
+2024-11-15 17:37:11 | Simulation update: decoder round 4038, completed instructions: 566/2839, actively running or decoding instructions: 17, waiting windows: 2855/5615. Max active instruction index: 600
+2024-11-15 17:37:21 | Simulation update: decoder round 6061, completed instructions: 923/2839, actively running or decoding instructions: 15, waiting windows: 4197/8580. Max active instruction index: 936
+2024-11-15 17:37:31 | Simulation update: decoder round 8674, completed instructions: 1435/2839, actively running or decoding instructions: 19, waiting windows: 5715/11893. Max active instruction index: 1441
+2024-11-15 17:37:41 | Simulation update: decoder round 11743, completed instructions: 2013/2839, actively running or decoding instructions: 12, waiting windows: 7059/15043. Max active instruction index: 1997
+2024-11-15 17:37:50 | Finished simulation
+2024-11-15 17:37:50 | Finished saving output. Done! Total elapsed time: 0:01:55.130226

@@ -1,0 +1,29 @@
+CONFIG 576
+benchmark_file: slurm/data/20241115_170539/benchmarks/adder_n28.lss
+decoder_latency_or_dist_filename: slurm/data/20241115_170539/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 6
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-15 17:06:35 | Loading benchmark slurm/data/20241115_170539/benchmarks/adder_n28.lss...
+2024-11-15 17:06:35 | Starting simulation
+PREDICTION STEP BEGIN---------------------------------
+Predicted max parallel processes: 182
+
+PREDICTION STEP END-----------------------------------
+
+2024-11-15 17:07:33 | Simulation update: decoder round 1, completed instructions: 0/2839, actively running or decoding instructions: 7, waiting windows: 0/0. Max active instruction index: 30
+2024-11-15 17:07:43 | Simulation update: decoder round 1968, completed instructions: 285/2839, actively running or decoding instructions: 9, waiting windows: 1467/2782. Max active instruction index: 281
+2024-11-15 17:07:53 | Simulation update: decoder round 4046, completed instructions: 512/2839, actively running or decoding instructions: 13, waiting windows: 2819/5571. Max active instruction index: 521
+2024-11-15 17:08:03 | Simulation update: decoder round 6079, completed instructions: 897/2839, actively running or decoding instructions: 15, waiting windows: 4207/8549. Max active instruction index: 926
+2024-11-15 17:08:13 | Simulation update: decoder round 8680, completed instructions: 1345/2839, actively running or decoding instructions: 14, waiting windows: 5719/11819. Max active instruction index: 1355
+2024-11-15 17:08:23 | Simulation update: decoder round 11601, completed instructions: 1817/2839, actively running or decoding instructions: 13, waiting windows: 7168/14959. Max active instruction index: 1819
+2024-11-15 17:08:33 | Simulation update: decoder round 15600, completed instructions: 2389/2839, actively running or decoding instructions: 13, waiting windows: 8647/18290. Max active instruction index: 2368
+2024-11-15 17:08:39 | Finished simulation
+2024-11-15 17:08:39 | Finished saving output. Done! Total elapsed time: 0:02:03.868771
