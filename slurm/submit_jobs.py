@@ -5,6 +5,7 @@ import math
 import subprocess
 import datetime as dt
 import time
+import pandas as pd
 from functools import reduce
 import numpy as np
 
@@ -41,13 +42,15 @@ if __name__ == '__main__':
     shutil.copyfile('slurm/submit_jobs.py', f'{data_dir}/submit_jobs_copy.py')
     shutil.copyfile('slurm/run_simulation.py', f'{data_dir}/run_simulation_copy.py')
 
+    benchmark_info = pd.read_csv('benchmarks/data/benchmark_info.csv', index_col=0)
+
     # Can make a chosen smaller list of these instead
     benchmark_files = []
     benchmark_names = {}
     memory_settings = None
     for file in os.listdir('benchmarks/cached_schedules/'):
         # USER SETTING: filter benchmark files if desired
-        if file.endswith('.lss') and not file.startswith('memory') and not file.startswith('regular') and not file.startswith('random'):
+        if file.endswith('.lss') and not file.startswith('memory') and not file.startswith('regular') and not file.startswith('random') and benchmark_info.loc[file.split('.')[0], 'Ideal volume'] < 80_000:
             path = os.path.join('benchmarks/cached_schedules/', file)
             newpath = os.path.join(benchmark_dir, file)
             # copy files to data dir to preserve them
@@ -75,7 +78,7 @@ if __name__ == '__main__':
         'speculation_accuracy':[0.9],
         'poison_policy':['successors'],
         'missed_speculation_modifier':[1.4],
-        'max_parallel_processes':['predict'],
+        'max_parallel_processes':[None, 'predict'],
         'rng':list(range(10)),
         'lightweight_setting':[2],
     }
@@ -85,7 +88,7 @@ if __name__ == '__main__':
     # USER SETTING: filter out some combinations of the above parameters
     microbenchmarks = [os.path.join(benchmark_dir, file) for file in ['msd_15to1.lss', 'adder_n4.lss', 'adder_n10.lss', 'adder_n18.lss', 'adder_n28.lss' 'rz_1e-05.lss', 'rz_1e-10.lss', 'rz_1e-15.lss', 'rz_1e-20.lss', 'toffoli.lss', 'qrom_15_15.lss']]
     def config_filter(cfg):
-        return (not (cfg['scheduling_method'] == 'sliding' and cfg['speculation_mode'] == None))# and (cfg['rng'] == 0 or (cfg['rng'] > 0 and cfg['benchmark_file'] in microbenchmarks))
+        return (not (cfg['scheduling_method'] == 'sliding' and cfg['speculation_mode'] == None)) and ((cfg['max_parallel_processes'] is None and cfg['speculation_mode'] is None) or (cfg['max_parallel_processes'] is not None and cfg['speculation_mode'] is not None))
 
     # Write config file (each Python job will read params from this)
     configs = []
