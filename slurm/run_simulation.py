@@ -62,7 +62,7 @@ if __name__ == '__main__':
         benchmark_schedule = LatticeSurgerySchedule.from_str(f.read(), generate_dag_incrementally=True)
 
     simulator = DecodingSimulator()
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, simulator_params, device_data, window_data, decoding_data = simulator.run(
         schedule=benchmark_schedule,
         distance=distance,
         scheduling_method=scheduling_method,
@@ -81,8 +81,8 @@ if __name__ == '__main__':
 
     with open(os.path.join(output_dir, f'config{config_idx}_d{distance}_{scheduling_method}_{speculation_mode}_{benchmark_file.split("/")[-1].split(".")[0]}_{rng}.json'), 'w') as f:
         json.dump({
-                'params':params,
                 'success':success,
+                'simulator_params':simulator_params.to_dict(),
                 'device_data':device_data.to_dict(),
                 'window_data':window_data.to_dict(),
                 'decoding_data':decoding_data.to_dict(),
