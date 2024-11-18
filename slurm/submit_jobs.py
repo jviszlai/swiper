@@ -52,7 +52,7 @@ if __name__ == '__main__':
     memory_settings = None
     for file in os.listdir('benchmarks/cached_schedules/'):
         # USER SETTING: filter benchmark files if desired
-        if file.endswith('.lss') and not file.startswith('memory') and not file.startswith('regular') and not file.startswith('random') and float(benchmark_info[file.split('.')[0]]['Ideal volume']) < 30_000:
+        if file.endswith('.lss') and not file.startswith('memory') and not file.startswith('regular') and not file.startswith('random') and float(benchmark_info[file.split('.')[0]]['Ideal volume']) >= 30_000:
             path = os.path.join('benchmarks/cached_schedules/', file)
             newpath = os.path.join(benchmark_dir, file)
             # copy files to data dir to preserve them
@@ -81,7 +81,7 @@ if __name__ == '__main__':
         'poison_policy':['successors'],
         'missed_speculation_modifier':[1.4],
         'max_parallel_processes':[None, 'predict'],
-        'rng':list(range(10)),
+        'rng':[0],
         'lightweight_setting':[2],
     }
     ordered_param_names = list(sorted(sweep_params.keys()))
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         configs_by_mem.setdefault(mem_gb, []).append(i)
 
     # USER SETTING: submission delay (if too many jobs at once)
-    submission_delay = dt.timedelta(minutes=30)
+    submission_delay = dt.timedelta(minutes=0)
     last_submit_time = None
     max_tasks_per_job = 800
     job_ids = []
