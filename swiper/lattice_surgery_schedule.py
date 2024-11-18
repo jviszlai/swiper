@@ -102,10 +102,10 @@ class LatticeSurgerySchedule:
         return len(self.instructions)
     
     def __str__(self):
-        return '\n'.join(str(instr) for instr in self.full_instructions())
+        return '\n'.join(str(instr) for instr in self.full_schedule().instructions)
     
     def __eq__(self, other):
-        return self.full_instructions() == other.full_instructions()
+        return self.full_schedule().instructions == other.full_schedule().instructions
     
     # copy
     def __copy__(self):
