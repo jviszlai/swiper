@@ -1,0 +1,15 @@
+CONFIG 354
+benchmark_file: slurm/data/20241118_210504/benchmarks/H2.lss
+decoder_latency_or_dist_filename: slurm/data/20241118_210504/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 9
+scheduling_method: sliding
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-18 21:06:51 | Loading benchmark slurm/data/20241118_210504/benchmarks/H2.lss...
+2024-11-18 21:06:54 | Starting simulation

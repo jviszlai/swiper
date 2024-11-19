@@ -1,0 +1,28 @@
+CONFIG 594
+benchmark_file: slurm/data/20241118_210504/benchmarks/adder_n28.lss
+decoder_latency_or_dist_filename: slurm/data/20241118_210504/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 5
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-18 21:08:54 | Loading benchmark slurm/data/20241118_210504/benchmarks/adder_n28.lss...
+2024-11-18 21:08:54 | Starting simulation
+PREDICTION STEP BEGIN---------------------------------
+Predicted max parallel processes: 180
+
+PREDICTION STEP END-----------------------------------
+
+2024-11-18 21:09:46 | Simulation update: decoder round 1, completed instructions: 0/2839, actively running or decoding instructions: 7, waiting windows: 0/0. Max active instruction index: 30
+2024-11-18 21:09:56 | Simulation update: decoder round 2460, completed instructions: 292/2839, actively running or decoding instructions: 9, waiting windows: 1791/3438. Max active instruction index: 296
+2024-11-18 21:10:06 | Simulation update: decoder round 5152, completed instructions: 483/2839, actively running or decoding instructions: 2, waiting windows: 3472/6931. Max active instruction index: 459
+2024-11-18 21:10:16 | Simulation update: decoder round 7741, completed instructions: 865/2839, actively running or decoding instructions: 15, waiting windows: 5289/10707. Max active instruction index: 886
+2024-11-18 21:10:26 | Simulation update: decoder round 11026, completed instructions: 1327/2839, actively running or decoding instructions: 13, waiting windows: 7198/14810. Max active instruction index: 1309
+2024-11-18 21:10:36 | Simulation update: decoder round 14907, completed instructions: 1979/2839, actively running or decoding instructions: 8, waiting windows: 8948/18781. Max active instruction index: 1979
+2024-11-18 21:10:45 | Finished simulation
+2024-11-18 21:10:45 | Finished saving output. Done! Total elapsed time: 0:01:51.272731
