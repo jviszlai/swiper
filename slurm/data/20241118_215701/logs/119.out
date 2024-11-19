@@ -1,0 +1,26 @@
+CONFIG 119
+benchmark_file: slurm/data/20241118_215701/benchmarks/random_t_1000_200_0.lss
+decoder_latency_or_dist_filename: lambda volume: volume*10.0
+distance: 21
+lightweight_setting: 1
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 0.30000000000000004
+speculation_latency: 1
+speculation_mode: separate
+2024-11-18 21:57:10 | Loading benchmark slurm/data/20241118_215701/benchmarks/random_t_1000_200_0.lss...
+2024-11-18 21:57:10 | Starting simulation
+Failed to get source of decoding_latency_fn: could not get source code
+2024-11-18 21:57:11 | Simulation update: decoder round 1, completed instructions: 0/4997, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-18 21:57:21 | Simulation update: decoder round 97311, completed instructions: 358/4997, actively running or decoding instructions: 3, waiting windows: 2642/5374. Max active instruction index: 356
+2024-11-18 21:57:31 | Simulation update: decoder round 195840, completed instructions: 718/4997, actively running or decoding instructions: 4, waiting windows: 5137/10503. Max active instruction index: 716
+2024-11-18 21:57:41 | Simulation update: decoder round 296756, completed instructions: 1098/4997, actively running or decoding instructions: 4, waiting windows: 7605/15593. Max active instruction index: 1096
+2024-11-18 21:57:51 | Simulation update: decoder round 394202, completed instructions: 1458/4997, actively running or decoding instructions: 3, waiting windows: 10143/20805. Max active instruction index: 1456
+2024-11-18 21:58:01 | Simulation update: decoder round 493418, completed instructions: 1818/4997, actively running or decoding instructions: 3, waiting windows: 12662/25972. Max active instruction index: 1816
+2024-11-18 21:58:11 | Simulation update: decoder round 592211, completed instructions: 2173/4997, actively running or decoding instructions: 4, waiting windows: 15178/31145. Max active instruction index: 2171
+2024-11-18 21:58:21 | Simulation update: decoder round 690912, completed instructions: 2543/4997, actively running or decoding instructions: 4, waiting windows: 17619/36184. Max active instruction index: 2541
+2024-11-18 21:58:31 | Simulation update: decoder round 789487, completed instructions: 2912/4997, actively running or decoding instructions: 4, waiting windows: 20222/41494. Max active instruction index: 2909
+2024-11-18 21:58:41 | Simulation update: decoder round 890333, completed instructions: 3296/4997, actively running or decoding instructions: 3, waiting windows: 22656/46548. Max active instruction index: 3294

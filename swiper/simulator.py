@@ -312,7 +312,7 @@ class DecodingSimulator:
         cur_time = dt.datetime.now()
         if print_interval is not None and cur_time - self.last_print_time >= print_interval:
             num_complete_instructions = self._device_manager._completed_instruction_count
-            print(f'{cur_time.strftime("%Y-%m-%d %H:%M:%S")} | Simulation update: decoder round {self._decoding_manager._current_round}, completed instructions: {num_complete_instructions}/{len(self._device_manager.schedule)}, actively running or decoding instructions: {len(incomplete_instructions)}, waiting windows: {pending_window_count}/{len(self._window_manager.all_windows)}. Max active instruction index: {max(incomplete_instructions)}')
+            print(f'{cur_time.strftime("%Y-%m-%d %H:%M:%S")} | Simulation update: decoder round {self._decoding_manager._current_round}, completed instructions: {num_complete_instructions}/{len(self._device_manager.schedule)}, actively running or decoding instructions: {len(incomplete_instructions)}, waiting windows: {pending_window_count}/{len(self._window_manager.all_windows)}. Max active instruction index: {max(incomplete_instructions, default=-1)}')
             sys.stdout.flush()
             self.last_print_time = cur_time
             
