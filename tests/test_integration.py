@@ -20,7 +20,7 @@ def test_sliding_memory():
     speculation_accuracy = 0
     simulator = DecodingSimulator()
 
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=MemorySchedule(d).schedule,
         distance=d,
         scheduling_method='sliding',
@@ -33,7 +33,7 @@ def test_sliding_memory():
     assert device_data.num_rounds == d
     assert decoding_data.num_rounds == d+decoding_time
 
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=MemorySchedule(2*d).schedule,
         distance=d,
         scheduling_method='sliding',
@@ -52,7 +52,7 @@ def test_sliding_memory():
     speculation_accuracy = 1
     simulator = DecodingSimulator()
 
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=MemorySchedule(2*d).schedule,
         distance=d,
         scheduling_method='sliding',
@@ -72,7 +72,7 @@ def test_sliding_regular_T():
     speculation_accuracy = 0
     simulator = DecodingSimulator()
 
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=RegularTSchedule(1, 0).schedule,
         distance=d,
         scheduling_method='sliding',
@@ -92,7 +92,7 @@ def test_sliding_regular_T():
     speculation_accuracy = 0
     simulator = DecodingSimulator()
 
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=RegularTSchedule(1, 0).schedule,
         distance=d,
         scheduling_method='sliding',
@@ -112,7 +112,7 @@ def test_sliding_regular_T():
     speculation_accuracy = 1
     simulator = DecodingSimulator()
 
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=RegularTSchedule(1, 0).schedule,
         distance=d,
         scheduling_method='sliding',
@@ -139,7 +139,7 @@ def test_poor_predictor_same_as_slow_predictor_idle():
     speculation_time = 1
     speculation_accuracy = 0
     simulator = DecodingSimulator()
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         distance=d,
         scheduling_method='sliding',
@@ -156,7 +156,7 @@ def test_poor_predictor_same_as_slow_predictor_idle():
     speculation_time = 100*d
     speculation_accuracy = 1
     simulator = DecodingSimulator()
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         distance=d,
         scheduling_method='sliding',
@@ -171,7 +171,7 @@ def test_poor_predictor_same_as_slow_predictor_idle():
 
     # No speculation
     simulator = DecodingSimulator()
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         distance=d,
         scheduling_method='sliding',
@@ -196,7 +196,7 @@ def test_poor_predictor_same_as_slow_predictor_t():
     speculation_time = 1
     speculation_accuracy = 0
     simulator = DecodingSimulator()
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         distance=d,
         scheduling_method='sliding',
@@ -213,7 +213,7 @@ def test_poor_predictor_same_as_slow_predictor_t():
     speculation_time = 100*d
     speculation_accuracy = 1
     simulator = DecodingSimulator()
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         distance=d,
         scheduling_method='sliding',
@@ -228,7 +228,7 @@ def test_poor_predictor_same_as_slow_predictor_t():
 
     # No speculation
     simulator = DecodingSimulator()
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         distance=d,
         scheduling_method='sliding',
@@ -251,7 +251,7 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
     speculation_accuracy = 0
     regular_t_schedule = RegularTSchedule(10, 2*d)
     simulator = DecodingSimulator()
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         distance=d,
         scheduling_method='sliding',
@@ -265,7 +265,7 @@ def test_integrated_and_separate_consistency_with_bad_predictions():
     num_rounds_integrated = decoding_data.num_rounds
 
     simulator = DecodingSimulator()
-    success, device_data, window_data, decoding_data = simulator.run(
+    success, _, device_data, window_data, decoding_data = simulator.run(
         schedule=regular_t_schedule.schedule,
         distance=d,
         scheduling_method='sliding',
@@ -289,7 +289,7 @@ def test_lightweight_output():
     schedule = MSD15To1Schedule().schedule
 
     for scheduling_method in ['sliding', 'parallel', 'aligned']:
-        success, device_data_0, window_data_0, decoding_data_0 = simulator.run(
+        success, _, device_data_0, window_data_0, decoding_data_0 = simulator.run(
             schedule=schedule,
             distance=d,
             scheduling_method=scheduling_method,
@@ -302,7 +302,7 @@ def test_lightweight_output():
             lightweight_setting=0,
         )
 
-        success, device_data_1, window_data_1, decoding_data_1 = simulator.run(
+        success, _, device_data_1, window_data_1, decoding_data_1 = simulator.run(
             schedule=schedule,
             distance=d,
             scheduling_method=scheduling_method,
@@ -315,7 +315,7 @@ def test_lightweight_output():
             lightweight_setting=1,
         )
 
-        success, device_data_2, window_data_2, decoding_data_2 = simulator.run(
+        success, _, device_data_2, window_data_2, decoding_data_2 = simulator.run(
             schedule=schedule,
             distance=d,
             scheduling_method=scheduling_method,

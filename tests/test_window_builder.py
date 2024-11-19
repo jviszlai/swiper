@@ -46,7 +46,7 @@ def test_spatial_adjacency():
     while not simulator.is_done():
         simulator.step_experiment()
 
-    success, device_data, window_data, decoding_data = simulator.get_data()
+    success, _, device_data, window_data, decoding_data = simulator.get_data()
 
     assert len(window_data.all_constructed_windows) == 4
     windows_by_patch: dict[tuple[int, int], DecodingWindow] = {}
@@ -90,7 +90,7 @@ def test_spatial_adjacency():
     while not simulator.is_done():
         simulator.step_experiment()
 
-    success, device_data, window_data, decoding_data = simulator.get_data()
+    success, _, device_data, window_data, decoding_data = simulator.get_data()
 
     def get_window(patch, round_start) -> DecodingWindow:
         for window_idx in window_data.all_constructed_windows:
