@@ -1,0 +1,28 @@
+CONFIG 160
+benchmark_file: slurm/data/20241118_215925/benchmarks/adder_n28.lss
+decoder_latency_or_dist_filename: slurm/data/20241118_215925/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 3
+scheduling_method: sliding
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-18 21:59:41 | Loading benchmark slurm/data/20241118_215925/benchmarks/adder_n28.lss...
+2024-11-18 21:59:41 | Starting simulation
+PREDICTION STEP BEGIN---------------------------------
+Predicted max parallel processes: 235
+
+PREDICTION STEP END-----------------------------------
+
+2024-11-18 22:00:28 | Simulation update: decoder round 1, completed instructions: 0/2839, actively running or decoding instructions: 7, waiting windows: 0/0. Max active instruction index: 30
+2024-11-18 22:00:38 | Simulation update: decoder round 2139, completed instructions: 288/2839, actively running or decoding instructions: 7, waiting windows: 187/2999. Max active instruction index: 281
+2024-11-18 22:00:48 | Simulation update: decoder round 4425, completed instructions: 566/2839, actively running or decoding instructions: 17, waiting windows: 242/6078. Max active instruction index: 600
+2024-11-18 22:00:58 | Simulation update: decoder round 6736, completed instructions: 892/2839, actively running or decoding instructions: 9, waiting windows: 199/9346. Max active instruction index: 926
+2024-11-18 22:01:08 | Simulation update: decoder round 9613, completed instructions: 1322/2839, actively running or decoding instructions: 7, waiting windows: 152/12925. Max active instruction index: 1309
+2024-11-18 22:01:18 | Simulation update: decoder round 13020, completed instructions: 1980/2839, actively running or decoding instructions: 10, waiting windows: 139/16497. Max active instruction index: 1979
+2024-11-18 22:01:27 | Finished simulation
+2024-11-18 22:01:27 | Finished saving output. Done! Total elapsed time: 0:01:46.085265

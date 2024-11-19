@@ -1,0 +1,24 @@
+CONFIG 1365
+benchmark_file: slurm/data/20241118_215925/benchmarks/rz_seq_10.lss
+decoder_latency_or_dist_filename: slurm/data/20241118_215925/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 4
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: None
+2024-11-18 22:32:08 | Loading benchmark slurm/data/20241118_215925/benchmarks/rz_seq_10.lss...
+2024-11-18 22:32:09 | Starting simulation
+2024-11-18 22:32:09 | Simulation update: decoder round 1, completed instructions: 0/5486, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 1
+2024-11-18 22:32:19 | Simulation update: decoder round 69893, completed instructions: 843/5486, actively running or decoding instructions: 4, waiting windows: 2738/6024. Max active instruction index: 839
+2024-11-18 22:32:29 | Simulation update: decoder round 141438, completed instructions: 1692/5486, actively running or decoding instructions: 3, waiting windows: 5464/12040. Max active instruction index: 1694
+2024-11-18 22:32:39 | Simulation update: decoder round 211446, completed instructions: 2541/5486, actively running or decoding instructions: 3, waiting windows: 8181/18051. Max active instruction index: 2537
+2024-11-18 22:32:49 | Simulation update: decoder round 282410, completed instructions: 3420/5486, actively running or decoding instructions: 3, waiting windows: 10901/24098. Max active instruction index: 3416
+2024-11-18 22:32:59 | Simulation update: decoder round 351871, completed instructions: 4259/5486, actively running or decoding instructions: 4, waiting windows: 13631/30136. Max active instruction index: 4255
+2024-11-18 22:33:09 | Simulation update: decoder round 422374, completed instructions: 5113/5486, actively running or decoding instructions: 3, waiting windows: 16391/36234. Max active instruction index: 5109
+2024-11-18 22:33:14 | Finished simulation
+2024-11-18 22:33:14 | Finished saving output. Done! Total elapsed time: 0:01:05.934634

@@ -37,6 +37,7 @@ class DecoderTask:
 class DecoderManager:
     def __init__(
             self,
+            instruction_idx_dag: nx.DiGraph,
             decoding_time_function: Callable[[int], int],
             speculation_time: int,
             speculation_accuracy: float,
@@ -77,6 +78,7 @@ class DecoderManager:
                 rate increases when an adjacent face has a missed speculation.
             rng: Random number generator, or integer seed.
         """
+        self.instruction_idx_dag = instruction_idx_dag
         self.decoding_time_function = decoding_time_function
         self.speculation_time = speculation_time
         self.speculation_accuracy = speculation_accuracy
@@ -104,9 +106,12 @@ class DecoderManager:
         self._active_window_progress: dict[int, int] = {} # maps each active window to rounds remaining to complete decoding
         self._pending_decode_tasks: set[int] = set()
         self._pending_speculate_tasks: set[int] = set()
-        self._finalized_frontier: set[int] = set()
         self._tasks_by_idx: list[DecoderTask | None] = []
-        self._partially_complete_instructions: set[int] = set()
+        self._instruction_tasks: dict[int, set[int]] = {} # maps each instruction to the set of tasks that cover it
+        self._instruction_unverified_task_counts: dict[int, int] = {} # maps each instruction to the number of unverified tasks that depend on it
+        self._seen_instructions: set[int] = set()
+        self._not_fully_decoded_instructions = set()
+        self._decoded_unverified_tasks: set[int] = set()
 
         self._window_idx_dag = nx.DiGraph()
 
@@ -129,7 +134,7 @@ class DecoderManager:
             task.decoding_completion_time = self._current_round
             self._active_window_progress.pop(task_idx)
             task.completed_decoding = True
-            self._partially_complete_instructions |= task.window.parent_instr_idx
+            self._decoded_unverified_tasks.add(task_idx)
 
             # Check if any speculations failed
             if self.speculation_mode:
@@ -137,25 +142,29 @@ class DecoderManager:
                     successor = self._get_task_or_none(successor_idx)
                     task = self._get_task(task_idx)
                     spec_acc_modifier = task.speculation_modifiers[successor_idx] if successor_idx in task.speculation_modifiers else 1.0
-                    if successor and successor.decoding_start_time != -1 and self.rng.random() > (1-((1-self.speculation_accuracy)*spec_acc_modifier))**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
-                        # Missed speculation
-                        assert successor.used_parent_speculations[task_idx]
-                        poisoned_speculations.append(successor_idx)
-                        # update speculation modifiers (adjacent faces have
-                        # higher failure rate)
-                        poisoned_source_crs = successor.window.get_touching_commit_regions(task.window)
-                        for other_successor_idx in self._window_idx_dag.successors(successor_idx):
-                            other_successor = self._get_task_or_none(other_successor_idx)
-                            if other_successor:
-                                for other_cr in successor.window.get_touching_commit_regions(other_successor.window):
-                                    if any(cr.shares_edge(other_cr) for cr in poisoned_source_crs):
-                                        successor.speculation_modifiers[other_successor_idx] = successor.speculation_modifiers.get(other_successor_idx, 1.0) * self.missed_speculation_modifier
-                                        # TODO: edge case where single
-                                        # window has multiple adjacent
-                                        # faces, and only some of them
-                                        # should get the extra modifier. But
-                                        # this is rare and our current
-                                        # method is good enough for now.
+                    if successor and successor.decoding_start_time != -1:
+                        if self.rng.random() > (1-((1-self.speculation_accuracy)*spec_acc_modifier))**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
+                            # Missed speculation
+                            assert successor.used_parent_speculations[task_idx]
+                            poisoned_speculations.append(successor_idx)
+                            # update speculation modifiers (adjacent faces have
+                            # higher failure rate)
+                            poisoned_source_crs = successor.window.get_touching_commit_regions(task.window)
+                            for other_successor_idx in self._window_idx_dag.successors(successor_idx):
+                                other_successor = self._get_task_or_none(other_successor_idx)
+                                if other_successor:
+                                    for other_cr in successor.window.get_touching_commit_regions(other_successor.window):
+                                        if any(cr.shares_edge(other_cr) for cr in poisoned_source_crs):
+                                            successor.speculation_modifiers[other_successor_idx] = successor.speculation_modifiers.get(other_successor_idx, 1.0) * self.missed_speculation_modifier
+                                            # TODO: edge case where single
+                                            # window has multiple adjacent
+                                            # faces, and only some of them
+                                            # should get the extra modifier. But
+                                            # this is rare and our current
+                                            # method is good enough for now.
+                        else:
+                            # Verify speculation
+                            successor.used_parent_speculations[task_idx] = False
 
         # Step speculation forward
         if self.speculation_mode:
@@ -201,7 +210,59 @@ class DecoderManager:
             self._completed_windows_by_round.append((self._completed_windows_by_round[-1] if self._current_round > 1 else 0) + len(completed_windows))
         self._max_parallel_processes_used = max(self._max_parallel_processes_used, len(self._active_window_progress))
         self._processor_spacetime_volume += len(self._active_window_progress)
+        
+        verified_tasks = set()
+        for task_idx in self._decoded_unverified_tasks:
+            task = self._get_task(task_idx)
+            if all(val == False for val in task.used_parent_speculations.values()) and all(self._is_verified_task(parent_idx) for parent_idx in self._window_idx_dag.predecessors(task_idx)):
+                verified_tasks |= self._verify_task_and_children(task_idx)
+        self._decoded_unverified_tasks -= verified_tasks
+
+        decoded_instructions = set()
+        for instr_idx in self._not_fully_decoded_instructions:
+            if all(self._is_verified_task(task_idx) for task_idx in self._instruction_tasks.get(instr_idx, set())):
+                decoded_instructions.add(instr_idx)
+        self._not_fully_decoded_instructions -= decoded_instructions
+        
         return completed_windows
+
+    def _is_verified_task(self, task_idx: int, treat_none_as_true: bool = False) -> bool:
+        task = self._get_task_or_none(task_idx)
+        if task:
+            return not (task.decoding_completion_time == -1 or task_idx in self._decoded_unverified_tasks)
+        else:
+            if treat_none_as_true:
+                return True
+            raise RuntimeError(f'Invalid task index: {task_idx}')
+
+    def _verify_task_and_children(self, task_idx: int) -> set[int]:
+        verified_tasks = set()
+        if self._is_verified_task(task_idx):
+            return verified_tasks
+        verified_tasks.add(task_idx)
+        task = self._get_task(task_idx)
+        assert all(val == False for val in task.used_parent_speculations.values())
+        for instr_idx in task.window.parent_instr_idx:
+            if instr_idx in self._instruction_unverified_task_counts:
+                self._instruction_unverified_task_counts[instr_idx] -= 1
+                if self._instruction_unverified_task_counts[instr_idx] == 0:
+                    self._instruction_unverified_task_counts.pop(instr_idx)
+        for child_idx in self._window_idx_dag.successors(task_idx):
+            child = self._get_task_or_none(child_idx)
+            if child and child.completed_decoding and all(val == False for val in child.used_parent_speculations.values()) and all(self._is_verified_task(parent_idx) for parent_idx in self._window_idx_dag.predecessors(child_idx)):
+                verified_tasks |= self._verify_task_and_children(child_idx)
+
+        return verified_tasks
+
+    def _instruction_dag_descendants(self, instr_idx: int) -> set[int]:
+        """Get descendants of an instruction in the schedule DAG, up to
+        instructions that have begun decoding."""
+        descendants = set()
+        for child_idx in self.instruction_idx_dag.successors(instr_idx):
+            if child_idx in self._seen_instructions:
+                descendants.add(child_idx)
+                descendants |= self._instruction_dag_descendants(child_idx)
+        return descendants
 
     def _topologically_sort(self, task_indices):
         """Topologically sort a subset of the window DAG."""
@@ -213,15 +274,16 @@ class DecoderManager:
         return sorted
 
     def _reset_decode_task(self, task_idx):
+        assert not self._is_verified_task(task_idx)
         task = self._get_task(task_idx)
         task.decoding_start_time = -1
         if task_idx in self._active_window_progress:
             self._active_window_progress.pop(task_idx)
         else:
-            # self._window_decoding_completion_times.pop(task_idx)
             task.decoding_completion_time = -1
             self._num_completed_windows -= 1
             task.completed_decoding = False
+            self._decoded_unverified_tasks.remove(task_idx)
         task.used_parent_speculations = {}
         self._pending_decode_tasks.add(task_idx)
         assert task_idx not in self._active_window_progress and task.decoding_start_time == -1 and task.decoding_completion_time == -1 and not task.completed_decoding
@@ -292,6 +354,12 @@ class DecoderManager:
             self._tasks_by_idx += [None] * (new_task_len - len(self._tasks_by_idx))
         for task in new_tasks:
             self._tasks_by_idx[task.window_idx] = task
+            for instr_idx in task.window.parent_instr_idx:
+                if instr_idx != -1:
+                    self._instruction_unverified_task_counts[instr_idx] = self._instruction_unverified_task_counts.get(instr_idx, 0) + 1
+                    self._not_fully_decoded_instructions.add(instr_idx)
+                    self._instruction_tasks[instr_idx] = self._instruction_tasks.get(instr_idx, set()) | {task.window_idx}
+                    self._seen_instructions.add(instr_idx)
         unprocessed_task_indices = self._pending_decode_tasks | self._pending_speculate_tasks
         while len(unprocessed_task_indices) > 0:
             task_idx = unprocessed_task_indices.pop()
@@ -329,8 +397,6 @@ class DecoderManager:
                 self._pending_decode_tasks.remove(task_idx)
                 task.decoding_start_time = self._current_round
                 self._active_window_progress[task_idx] = self.decoding_time_function(task.window.total_spacetime_volume())
-                if self.lightweight_setting == 3 and not any(ancestor_idx in self._finalized_frontier for ancestor_idx in nx.ancestors(self._window_idx_dag, task_idx)):
-                    self._finalized_frontier.add(task_idx)
                 task.used_parent_speculations = {}
                 for parent_idx in parents:
                     parent = self._get_task(parent_idx)
@@ -378,21 +444,11 @@ class DecoderManager:
         if task is None:
             return None
         return task
-
-    def get_finished_instruction_indices(self) -> set[int]:
-        """Return the set of instruction idx that have been decoded."""
-        # TODO: send unfinished instructions instead
-        decoded_instructions = self._partially_complete_instructions.copy()
-        not_ready_instructions = set(itertools.chain.from_iterable(self._get_task(idx).window.parent_instr_idx for idx in itertools.chain.from_iterable(nx.descendants(self._window_idx_dag, idx) for idx in set(self._active_window_progress.keys()) | self._pending_decode_tasks) if idx < len(self._tasks_by_idx) and self._tasks_by_idx[idx]))
-        decoded_instructions -= not_ready_instructions
-        decoded_instructions -= {-1}
-        return decoded_instructions
     
     def get_incomplete_instruction_indices(self) -> set[int]:
         """Return the set of instruction idx that have not been decoded."""
-        incomplete_task_instructions = set(itertools.chain.from_iterable(self._get_task(idx).window.parent_instr_idx for idx in set(self._active_window_progress.keys()) | self._pending_decode_tasks))
-        incomplete_descendant_instructions = set(itertools.chain.from_iterable(self._get_task(idx).window.parent_instr_idx for idx in itertools.chain.from_iterable(nx.descendants(self._window_idx_dag, task_idx) for task_idx in set(self._active_window_progress.keys()) | self._pending_decode_tasks) if idx < len(self._tasks_by_idx) and self._tasks_by_idx[idx]))
-        return incomplete_task_instructions | incomplete_descendant_instructions
+        # return set(self._instruction_unverified_task_counts.keys())
+        return set(itertools.chain.from_iterable(self._instruction_dag_descendants(instr_idx) for instr_idx in self._instruction_unverified_task_counts.keys() if instr_idx != -1)) | self._instruction_unverified_task_counts.keys()
 
     def get_data(self) -> DecoderData:
         if self.lightweight_setting == 0:

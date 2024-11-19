@@ -52,6 +52,11 @@ def do_intermediate_checks(simulator: DecodingSimulator):
    assert simulator._window_manager.window_builder._total_rounds_processed == len(all_syndrome_rounds)
    all_commit_regions = [cr for window in simulator._window_manager.all_windows if window for cr in window.commit_region]
 
+   incomplete_decode_instructions = simulator._decoding_manager.get_incomplete_instruction_indices()
+   for instr_idx,instr in enumerate(simulator._device_manager.schedule_instructions):
+      ancestors = nx.descendants(simulator._device_manager.schedule_dag, instr_idx)
+
+
    for i,syndrome_round in enumerate(all_syndrome_rounds):
       assert syndrome_round.instruction.name == 'INJECT_T' or i in simulator._window_manager.window_builder._waiting_rounds or any(cr.contains_syndrome_round(syndrome_round=syndrome_round) for cr in all_commit_regions)
 
@@ -148,7 +153,7 @@ def test_sliding_idle():
             assert window.constructed
    
    # Check final windows
-   success, device_data, window_data, decoding_data = simulator.get_data()
+   success, _, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    device_rounds_covered = np.full(device_data.num_rounds, -1, dtype=int)
    do_final_checks(device_data, window_data, decoding_data, simulator)
@@ -192,7 +197,7 @@ def test_parallel_idle():
       do_intermediate_checks(simulator)
    
    # Check final windows
-   success, device_data, window_data, decoding_data = simulator.get_data()
+   success, _, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    source_indices = simulator._window_manager.layer_indices[1]
    sink_indices = simulator._window_manager.layer_indices[2]
@@ -283,7 +288,7 @@ def test_sliding_merge():
       simulator.step_experiment()
       do_intermediate_checks(simulator)
 
-   success, device_data, window_data, decoding_data = simulator.get_data()
+   success, _, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    do_final_checks(device_data, window_data, decoding_data, simulator)
    window_dag = nx.DiGraph(window_data.window_dag_edges)
@@ -328,7 +333,7 @@ def test_parallel_merge():
       simulator.step_experiment()
       do_intermediate_checks(simulator)
 
-   success, device_data, window_data, decoding_data = simulator.get_data()
+   success, _, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    do_final_checks(device_data, window_data, decoding_data, simulator)
    window_dag = nx.DiGraph(window_data.window_dag_edges)
@@ -361,7 +366,7 @@ def test_sliding_distillation():
       simulator.step_experiment()
       do_intermediate_checks(simulator)
 
-   success, device_data, window_data, decoding_data = simulator.get_data()
+   success, _, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    do_final_checks(device_data, window_data, decoding_data, simulator)
    for i in window_data.all_constructed_windows:
@@ -391,7 +396,7 @@ def test_parallel_distillation():
       simulator.step_experiment()
       do_intermediate_checks(simulator)
 
-   success, device_data, window_data, decoding_data = simulator.get_data()
+   success, _, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    do_final_checks(device_data, window_data, decoding_data, simulator)
    window_dag = nx.DiGraph(window_data.window_dag_edges)
@@ -421,7 +426,7 @@ def test_aligned_randomT():
       simulator.step_experiment()
       do_intermediate_checks(simulator)
 
-   success, device_data, window_data, decoding_data = simulator.get_data()
+   success, _, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    do_final_checks(device_data, window_data, decoding_data, simulator)
    window_dag = nx.DiGraph(window_data.window_dag_edges)
@@ -454,7 +459,7 @@ def test_aligned_distillation():
       simulator.step_experiment()
       do_intermediate_checks(simulator)
 
-   success, device_data, window_data, decoding_data = simulator.get_data()
+   success, _, device_data, window_data, decoding_data = simulator.get_data()
    assert success
    do_final_checks(device_data, window_data, decoding_data, simulator)
    window_dag = nx.DiGraph(window_data.window_dag_edges)
