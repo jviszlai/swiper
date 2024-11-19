@@ -1,0 +1,20 @@
+CONFIG 144
+benchmark_file: slurm/data/20241118_204526/benchmarks/random_t_1000_200_0.lss
+decoder_latency_or_dist_filename: lambda volume: volume*0.774263682681127
+distance: 21
+lightweight_setting: 1
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 0.4
+speculation_latency: 1
+speculation_mode: separate
+2024-11-18 20:45:52 | Loading benchmark slurm/data/20241118_204526/benchmarks/random_t_1000_200_0.lss...
+2024-11-18 20:45:52 | Starting simulation
+Failed to get source of decoding_latency_fn: could not get source code
+2024-11-18 20:45:53 | Simulation update: decoder round 1, completed instructions: 0/4997, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-18 20:46:03 | Simulation update: decoder round 109748, completed instructions: 2513/4997, actively running or decoding instructions: 3, waiting windows: 2598/6165. Max active instruction index: 2511
+2024-11-18 20:46:12 | Finished simulation
+2024-11-18 20:46:13 | Finished saving output. Done! Total elapsed time: 0:00:20.802977
