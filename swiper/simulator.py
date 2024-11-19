@@ -25,12 +25,12 @@ class SimulatorParams:
     poison_policy: str
     missed_speculation_modifier: float
     max_parallel_processes: int | None
-    pending_window_count_cutoff: int
-    device_rounds_cutoff: int
-    clock_timeout_seconds: int | None
     lightweight_setting: int
     rng: int | None
-    processor_prediction_results: dict[str, Any]
+    pending_window_count_cutoff: int | None = None
+    device_rounds_cutoff: int | None = None
+    clock_timeout_seconds: int | None = None
+    processor_prediction_results: dict[str, Any] | None = None
 
     def to_dict(self):
         return asdict(self)
@@ -150,28 +150,24 @@ class DecodingSimulator:
             print('\nPREDICTION STEP END-----------------------------------\n')
         assert max_parallel_processes is None or isinstance(max_parallel_processes, int)
 
-        try:
-            decoding_latency_fn_str = inspect.getsource(decoding_latency_fn)
-        except Exception as e:
-            print(f'Failed to get source of decoding_latency_fn: {e}')
-            decoding_latency_fn_str = None
-        self.simulation_params = SimulatorParams(
-            distance=distance,
-            scheduling_method=scheduling_method,
-            decoding_latency_fn=decoding_latency_fn_str,
-            speculation_mode=speculation_mode,
-            speculation_latency=speculation_latency,
-            speculation_accuracy=speculation_accuracy,
-            poison_policy=poison_policy,
-            missed_speculation_modifier=missed_speculation_modifier,
-            max_parallel_processes=max_parallel_processes,
-            pending_window_count_cutoff=pending_window_count_cutoff,
-            device_rounds_cutoff=device_rounds_cutoff,
-            clock_timeout_seconds=(clock_timeout.total_seconds() if clock_timeout else None),
-            lightweight_setting=lightweight_setting,
-            rng=(rng if isinstance(rng, int) else None),
-            processor_prediction_results=processor_prediction_results,
-        )
+
+        # self.simulation_params = SimulatorParams(
+        #     distance=distance,
+        #     scheduling_method=scheduling_method,
+        #     decoding_latency_fn=decoding_latency_fn_str,
+        #     speculation_mode=speculation_mode,
+        #     speculation_latency=speculation_latency,
+        #     speculation_accuracy=speculation_accuracy,
+        #     poison_policy=poison_policy,
+        #     missed_speculation_modifier=missed_speculation_modifier,
+        #     max_parallel_processes=max_parallel_processes,
+        #     pending_window_count_cutoff=pending_window_count_cutoff,
+        #     device_rounds_cutoff=device_rounds_cutoff,
+        #     clock_timeout_seconds=(clock_timeout.total_seconds() if clock_timeout else None),
+        #     lightweight_setting=lightweight_setting,
+        #     rng=(rng if isinstance(rng, int) else None),
+        #     processor_prediction_results=processor_prediction_results,
+        # )
 
         self.initialize_experiment(
             schedule=schedule,
@@ -186,6 +182,10 @@ class DecodingSimulator:
             max_parallel_processes=max_parallel_processes,
             lightweight_setting=lightweight_setting,
             rng=rng,
+            pending_window_count_cutoff=pending_window_count_cutoff,
+            device_rounds_cutoff=device_rounds_cutoff,
+            clock_timeout_seconds=(clock_timeout.total_seconds() if clock_timeout else None),
+            processor_prediction_results=processor_prediction_results,
         )
         assert self._device_manager is not None
         assert self._window_manager is not None
@@ -238,7 +238,29 @@ class DecodingSimulator:
             max_parallel_processes: int | None = None,
             lightweight_setting: int = 0,
             rng: int | np.random.Generator = np.random.default_rng(),
+            **simulation_params,
         ) -> None:
+        try:
+            decoding_latency_fn_str = inspect.getsource(decoding_latency_fn)
+        except Exception as e:
+            print(f'Failed to get source of decoding_latency_fn: {e}')
+            decoding_latency_fn_str = None
+        self.simulation_params = SimulatorParams(
+            distance=distance,
+            scheduling_method=scheduling_method,
+            decoding_latency_fn=decoding_latency_fn_str,
+            speculation_mode=speculation_mode,
+            speculation_latency=speculation_latency,
+            speculation_accuracy=speculation_accuracy,
+            poison_policy=poison_policy,
+            missed_speculation_modifier=missed_speculation_modifier,
+            max_parallel_processes=max_parallel_processes,
+            lightweight_setting=lightweight_setting,
+            rng=(rng if isinstance(rng, int) else None),
+            **simulation_params,
+        )
+
+
         self.failed = False
         self._device_manager = DeviceManager(distance, schedule, lightweight_setting=lightweight_setting, rng=rng)
         if scheduling_method == 'sliding':
