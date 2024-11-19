@@ -272,6 +272,7 @@ class DecodingSimulator:
         else:
             raise ValueError(f"Unknown scheduling method: {scheduling_method}")
         self._decoding_manager = DecoderManager(
+            instruction_idx_dag=schedule.to_dag(),
             decoding_time_function=decoding_latency_fn,
             speculation_time=speculation_latency,
             speculation_accuracy=speculation_accuracy,

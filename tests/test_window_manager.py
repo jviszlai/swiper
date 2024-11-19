@@ -52,6 +52,11 @@ def do_intermediate_checks(simulator: DecodingSimulator):
    assert simulator._window_manager.window_builder._total_rounds_processed == len(all_syndrome_rounds)
    all_commit_regions = [cr for window in simulator._window_manager.all_windows if window for cr in window.commit_region]
 
+   incomplete_decode_instructions = simulator._decoding_manager.get_incomplete_instruction_indices()
+   for instr_idx,instr in enumerate(simulator._device_manager.schedule_instructions):
+      ancestors = nx.descendants(simulator._device_manager.schedule_dag, instr_idx)
+
+
    for i,syndrome_round in enumerate(all_syndrome_rounds):
       assert syndrome_round.instruction.name == 'INJECT_T' or i in simulator._window_manager.window_builder._waiting_rounds or any(cr.contains_syndrome_round(syndrome_round=syndrome_round) for cr in all_commit_regions)
 

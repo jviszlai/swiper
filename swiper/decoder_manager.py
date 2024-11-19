@@ -37,6 +37,7 @@ class DecoderTask:
 class DecoderManager:
     def __init__(
             self,
+            instruction_idx_dag: nx.DiGraph,
             decoding_time_function: Callable[[int], int],
             speculation_time: int,
             speculation_accuracy: float,
@@ -77,6 +78,7 @@ class DecoderManager:
                 rate increases when an adjacent face has a missed speculation.
             rng: Random number generator, or integer seed.
         """
+        self.instruction_idx_dag = instruction_idx_dag
         self.decoding_time_function = decoding_time_function
         self.speculation_time = speculation_time
         self.speculation_accuracy = speculation_accuracy
@@ -105,8 +107,10 @@ class DecoderManager:
         self._pending_decode_tasks: set[int] = set()
         self._pending_speculate_tasks: set[int] = set()
         self._tasks_by_idx: list[DecoderTask | None] = []
-        self._instruction_unverified_task_counts: dict[int, int] = {}
-        self._fully_decoded_instruction_frontier = set() # these instructions, and all their ancestors, have been fully decoded
+        self._instruction_tasks: dict[int, set[int]] = {} # maps each instruction to the set of tasks that cover it
+        self._instruction_unverified_task_counts: dict[int, int] = {} # maps each instruction to the number of unverified tasks that depend on it
+        self._seen_instructions: set[int] = set()
+        self._not_fully_decoded_instructions = set()
         self._decoded_unverified_tasks: set[int] = set()
 
         self._window_idx_dag = nx.DiGraph()
@@ -210,13 +214,19 @@ class DecoderManager:
         verified_tasks = set()
         for task_idx in self._decoded_unverified_tasks:
             task = self._get_task(task_idx)
-            if all(val == False for val in task.used_parent_speculations.values()) and all(self._is_verified(parent_idx) for parent_idx in self._window_idx_dag.predecessors(task_idx)):
+            if all(val == False for val in task.used_parent_speculations.values()) and all(self._is_verified_task(parent_idx) for parent_idx in self._window_idx_dag.predecessors(task_idx)):
                 verified_tasks |= self._verify_task_and_children(task_idx)
         self._decoded_unverified_tasks -= verified_tasks
+
+        decoded_instructions = set()
+        for instr_idx in self._not_fully_decoded_instructions:
+            if all(self._is_verified_task(task_idx) for task_idx in self._instruction_tasks.get(instr_idx, set())):
+                decoded_instructions.add(instr_idx)
+        self._not_fully_decoded_instructions -= decoded_instructions
         
         return completed_windows
 
-    def _is_verified(self, task_idx: int, treat_none_as_true: bool = False) -> bool:
+    def _is_verified_task(self, task_idx: int, treat_none_as_true: bool = False) -> bool:
         task = self._get_task_or_none(task_idx)
         if task:
             return not (task.decoding_completion_time == -1 or task_idx in self._decoded_unverified_tasks)
@@ -227,7 +237,7 @@ class DecoderManager:
 
     def _verify_task_and_children(self, task_idx: int) -> set[int]:
         verified_tasks = set()
-        if self._is_verified(task_idx):
+        if self._is_verified_task(task_idx):
             return verified_tasks
         verified_tasks.add(task_idx)
         task = self._get_task(task_idx)
@@ -239,18 +249,20 @@ class DecoderManager:
                     self._instruction_unverified_task_counts.pop(instr_idx)
         for child_idx in self._window_idx_dag.successors(task_idx):
             child = self._get_task_or_none(child_idx)
-            if child and child.completed_decoding and all(val == False for val in child.used_parent_speculations.values()) and all(self._is_verified(parent_idx) for parent_idx in self._window_idx_dag.predecessors(child_idx)):
+            if child and child.completed_decoding and all(val == False for val in child.used_parent_speculations.values()) and all(self._is_verified_task(parent_idx) for parent_idx in self._window_idx_dag.predecessors(child_idx)):
                 verified_tasks |= self._verify_task_and_children(child_idx)
 
         return verified_tasks
 
-    def update_fully_decoded_instruction_frontier(self, recently_completed_windows: set[int], incomplete_instructions: set[int]) -> None:
-        for task_idx in recently_completed_windows:
-            task = self._get_task(task_idx)
-            self._fully_decoded_instruction_frontier |= (task.window.parent_instr_idx - incomplete_instructions)
-        for task_idx in self._topologically_sort(self._fully_decoded_instruction_frontier):
-            if all(successor in self._fully_decoded_instruction_frontier for successor in self._window_idx_dag.successors(task_idx)):
-                self._fully_decoded_instruction_frontier.remove(task_idx)
+    def _instruction_dag_descendants(self, instr_idx: int) -> set[int]:
+        """Get descendants of an instruction in the schedule DAG, up to
+        instructions that have begun decoding."""
+        descendants = set()
+        for child_idx in self.instruction_idx_dag.successors(instr_idx):
+            if child_idx in self._seen_instructions:
+                descendants.add(child_idx)
+                descendants |= self._instruction_dag_descendants(child_idx)
+        return descendants
 
     def _topologically_sort(self, task_indices):
         """Topologically sort a subset of the window DAG."""
@@ -262,7 +274,7 @@ class DecoderManager:
         return sorted
 
     def _reset_decode_task(self, task_idx):
-        assert not self._is_verified(task_idx)
+        assert not self._is_verified_task(task_idx)
         task = self._get_task(task_idx)
         task.decoding_start_time = -1
         if task_idx in self._active_window_progress:
@@ -343,7 +355,11 @@ class DecoderManager:
         for task in new_tasks:
             self._tasks_by_idx[task.window_idx] = task
             for instr_idx in task.window.parent_instr_idx:
-                self._instruction_unverified_task_counts[instr_idx] = self._instruction_unverified_task_counts.get(instr_idx, 0) + 1
+                if instr_idx != -1:
+                    self._instruction_unverified_task_counts[instr_idx] = self._instruction_unverified_task_counts.get(instr_idx, 0) + 1
+                    self._not_fully_decoded_instructions.add(instr_idx)
+                    self._instruction_tasks[instr_idx] = self._instruction_tasks.get(instr_idx, set()) | {task.window_idx}
+                    self._seen_instructions.add(instr_idx)
         unprocessed_task_indices = self._pending_decode_tasks | self._pending_speculate_tasks
         while len(unprocessed_task_indices) > 0:
             task_idx = unprocessed_task_indices.pop()
@@ -432,7 +448,7 @@ class DecoderManager:
     def get_incomplete_instruction_indices(self) -> set[int]:
         """Return the set of instruction idx that have not been decoded."""
         # return set(self._instruction_unverified_task_counts.keys())
-        return set(self._instruction_unverified_task_counts.keys())
+        return set(itertools.chain.from_iterable(self._instruction_dag_descendants(instr_idx) for instr_idx in self._instruction_unverified_task_counts.keys() if instr_idx != -1)) | self._instruction_unverified_task_counts.keys()
 
     def get_data(self) -> DecoderData:
         if self.lightweight_setting == 0:
