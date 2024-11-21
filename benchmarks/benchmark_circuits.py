@@ -119,7 +119,7 @@ class CarlemanEncoding(Benchmark):
         return self.schedule
     
     def name(self) -> str:
-        return f"carleman_encoding_{self.n}_{self.K}"
+        return f"carleman_{self.n}_{self.K}"
 
 class ElectronicStructure(Benchmark):
 
