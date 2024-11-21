@@ -119,7 +119,7 @@ if __name__ == '__main__':
     submit_idx = 0
     for i,mem_gb in enumerate(sorted(configs_by_mem.keys())):
         config_indices = configs_by_mem[mem_gb]
-        num_submissions = math.ceil(len(config_indices) / max_tasks_per_job) # caslake submission limit
+        num_submissions = math.ceil(len(config_indices) / max_tasks_per_job) # !!REDACTED!! submission limit
         for j in range(num_submissions):
             if last_submit_time:
                 time.sleep(max(0, int((last_submit_time + submission_delay - dt.datetime.now()).total_seconds())))
@@ -131,8 +131,8 @@ if __name__ == '__main__':
 #SBATCH --job-name={cur_time.strftime("%Y%m%d_%H%M%S")}
 #SBATCH --output={log_dir}/%a.out
 #SBATCH --error={log_dir}/%a.out
-#SBATCH --account=pi-ftchong
-#SBATCH --partition=caslake
+#SBATCH --account=!!REDACTED!!
+#SBATCH --partition=!!REDACTED!!
 #SBATCH --array={','.join([str(x) for x in selected_config_indices])}
 #SBATCH --time={max_time_str}
 #SBATCH --ntasks=1
@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
 module load python
 eval "$(conda shell.bash hook)"
-conda activate /project/ftchong/projects/envs/pySwiper/
+conda activate /project/!!REDACTED!!/projects/envs/pySwiper/
 
 python slurm/run_simulation.py "{config_filename}" "{output_dir}" {int(max_time.total_seconds())}'''
                 )

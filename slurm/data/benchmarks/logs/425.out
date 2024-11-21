@@ -15,10 +15,10 @@ speculation_mode: separate
 2024-11-18 22:59:59 | Starting simulation
 PREDICTION STEP BEGIN---------------------------------
 Traceback (most recent call last):
-  File "/project/ftchong/projects/swiper/slurm/run_simulation.py", line 65, in <module>
+  File "/project/!!REDACTED!!/projects/swiper/slurm/run_simulation.py", line 65, in <module>
     success, simulator_params, device_data, window_data, decoding_data = simulator.run(
                                                                          ^^^^^^^^^^^^^^
-  File "/project/ftchong/projects/swiper/swiper/simulator.py", line 141, in run
+  File "/project/!!REDACTED!!/projects/swiper/swiper/simulator.py", line 141, in run
     assert prediction_success
            ^^^^^^^^^^^^^^^^^^
 AssertionError
