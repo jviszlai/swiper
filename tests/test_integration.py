@@ -5,7 +5,6 @@ import math
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from benchmarks.qrom import QROM_Schedule
 import numpy as np
 
 from swiper.simulator import DecodingSimulator

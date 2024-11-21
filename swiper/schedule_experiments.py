@@ -124,3 +124,53 @@ class RandomTSchedule:
         schedule.discard([(0,0)])
 
         self.schedule = schedule
+
+class ToffoliSchedule:
+
+    def __init__(self):
+        schedule = LatticeSurgerySchedule()
+
+        data = [(0, 0), (0, 2), (0, 4)]
+        ancilla = [(0, 1), (0, 3)]
+
+        def cx_12():
+            schedule.merge([data[1], ancilla[1]], [])
+            schedule.merge([ancilla[1], data[2]], [(1, 3), (1, 4)])
+            schedule.discard([ancilla[1]])
+        
+        def cx_02():
+            schedule.merge([data[0], ancilla[0]], [])
+            schedule.merge([ancilla[0], data[2]], [(1, 1), (1, 2), (1, 3), (1, 4)])
+            schedule.discard([ancilla[0]])
+
+        def cx_01():
+            schedule.merge([data[0], ancilla[0]], [])
+            schedule.merge([ancilla[0], data[1]], [(1, 1), (1, 2)])
+            schedule.discard([ancilla[0]])
+        
+        def t_tp(data_idx, ancilla_idx):
+            schedule.inject_T([ancilla[ancilla_idx]])
+            idx = schedule.merge([data[data_idx], ancilla[ancilla_idx]], [])
+            schedule.conditional_S(data[data_idx], idx)
+            schedule.discard([ancilla[ancilla_idx]])
+        
+        cx_12()
+        t_tp(2, 1)
+        cx_02()
+        t_tp(2, 1)
+        cx_12()
+        t_tp(2, 1)
+        cx_02()
+        t_tp(1, 0)
+        t_tp(2, 1)
+        cx_01()
+        t_tp(0, 0)
+        t_tp(1, 1)
+        cx_01()
+
+        schedule.discard(data)
+
+        self.schedule = schedule
+
+        
+
