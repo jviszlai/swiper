@@ -7,13 +7,12 @@ import datetime as dt
 import time
 from functools import reduce
 import numpy as np
-import csv
 
 if __name__ == '__main__':
     cur_time = dt.datetime.now()
 
     # USER SETTING: maximum job duration
-    max_time = dt.timedelta(hours=36)
+    max_time = dt.timedelta(hours=1)
 
     if max_time.days > 0:
         assert max_time.days == 1
@@ -34,17 +33,13 @@ if __name__ == '__main__':
     os.makedirs(benchmark_dir)
 
     # USER SETTING: decoder distribution (can also set to an integer)
-    decoder_dist_source = 'benchmarks/data/decoder_dists.json'
-    decoder_dist_filename = f'{data_dir}/{decoder_dist_source.split("/")[-1]}'
-    shutil.copyfile(decoder_dist_source, decoder_dist_filename)
+    # decoder_dist_source = 'benchmarks/data/decoder_dists.json'
+    # decoder_dist_filename = f'{data_dir}/{decoder_dist_source.split("/")[-1]}'
+    # shutil.copyfile(decoder_dist_source, decoder_dist_filename)
 
     # copy files to data dir to preserve them
     shutil.copyfile('slurm/submit_jobs.py', f'{data_dir}/submit_jobs_copy.py')
     shutil.copyfile('slurm/run_simulation.py', f'{data_dir}/run_simulation_copy.py')
-
-    with open('benchmarks/benchmark_info.csv', 'r') as f:
-        reader = csv.DictReader(f)
-        benchmark_info = {row['']:row for row in reader}
 
     # Can make a chosen smaller list of these instead
     benchmark_files = []
@@ -52,7 +47,7 @@ if __name__ == '__main__':
     memory_settings = None
     for file in os.listdir('benchmarks/cached_schedules/'):
         # USER SETTING: filter benchmark files if desired
-        if file == 'toffoli.lss':
+        if file.endswith('.lss') and file == 'random_t_10000_200_0.lss':
             path = os.path.join('benchmarks/cached_schedules/', file)
             newpath = os.path.join(benchmark_dir, file)
             # copy files to data dir to preserve them
@@ -72,25 +67,24 @@ if __name__ == '__main__':
     # USER SETTING: change parameter sweeps for distance, spec acc, etc.
     sweep_params = {
         'benchmark_file':benchmark_files,
-        'distance':[21],
+        'distance':[13],
         'scheduling_method':['sliding', 'parallel', 'aligned'],
-        'decoder_latency_or_dist_filename':[decoder_dist_filename],
+        'decoder_latency_or_dist_filename':[f'lambda volume: volume'],
         'speculation_mode':['separate', None],
         'speculation_latency':[1],
         'speculation_accuracy':[0.9],
         'poison_policy':['successors'],
         'missed_speculation_modifier':[1.4],
-        'max_parallel_processes':[None, 'predict'],
-        'rng':list(range(10)),
-        'lightweight_setting':[2],
+        'max_parallel_processes':[None],
+        'rng':[0],
+        'lightweight_setting':[1],
     }
     ordered_param_names = list(sorted(sweep_params.keys()))
     total_num_configs = reduce(lambda x,y: x*y, [len(params) for params in sweep_params.values()])
 
     # USER SETTING: filter out some combinations of the above parameters
-    microbenchmarks = [os.path.join(benchmark_dir, file) for file in ['msd_15to1.lss', 'adder_n4.lss', 'adder_n10.lss', 'adder_n18.lss', 'adder_n28.lss' 'rz_1e-05.lss', 'rz_1e-10.lss', 'rz_1e-15.lss', 'rz_1e-20.lss', 'toffoli.lss', 'qrom_15_15.lss']]
     def config_filter(cfg):
-        return (not (cfg['scheduling_method'] == 'sliding' and cfg['speculation_mode'] == None)) and (not (cfg['max_parallel_processes'] == 'predict' and cfg['speculation_mode'] == None)) and (cfg['rng'] == 0 or float(benchmark_info[cfg['benchmark_file'].split('/')[-1].split('.')[0]]['Ideal volume']) < 30_000)
+        return not (cfg['scheduling_method'] == 'sliding' and cfg['speculation_mode'] == None)
 
     # Write config file (each Python job will read params from this)
     configs = []
@@ -118,7 +112,7 @@ if __name__ == '__main__':
         configs_by_mem.setdefault(mem_gb, []).append(i)
 
     # USER SETTING: submission delay (if too many jobs at once)
-    submission_delay = dt.timedelta(minutes=30)
+    submission_delay = dt.timedelta(minutes=10)
     last_submit_time = None
     max_tasks_per_job = 800
     job_ids = []

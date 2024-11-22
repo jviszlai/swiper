@@ -1,0 +1,34 @@
+CONFIG 2
+benchmark_file: slurm/data/20241121_200739/benchmarks/random_t_10000_200_0.lss
+decoder_latency_or_dist_filename: lambda volume: volume
+distance: 13
+lightweight_setting: 1
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-11-21 20:07:58 | Loading benchmark slurm/data/20241121_200739/benchmarks/random_t_10000_200_0.lss...
+2024-11-21 20:08:02 | Starting simulation
+Failed to get source of decoding_latency_fn: could not get source code
+2024-11-21 20:08:08 | Simulation update: decoder round 1, completed instructions: 0/49943, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-11-21 20:08:18 | Simulation update: decoder round 107618, completed instructions: 3131/49943, actively running or decoding instructions: 3, waiting windows: 4072/9336. Max active instruction index: 3129
+2024-11-21 20:08:28 | Simulation update: decoder round 207095, completed instructions: 6095/49943, actively running or decoding instructions: 3, waiting windows: 7806/17942. Max active instruction index: 6093
+2024-11-21 20:08:38 | Simulation update: decoder round 314834, completed instructions: 9250/49943, actively running or decoding instructions: 1, waiting windows: 11862/27288. Max active instruction index: 9250
+2024-11-21 20:08:48 | Simulation update: decoder round 422393, completed instructions: 12457/49943, actively running or decoding instructions: 3, waiting windows: 15916/36637. Max active instruction index: 12455
+2024-11-21 20:08:58 | Simulation update: decoder round 529799, completed instructions: 15623/49943, actively running or decoding instructions: 2, waiting windows: 20023/46037. Max active instruction index: 15623
+2024-11-21 20:09:08 | Simulation update: decoder round 636931, completed instructions: 18846/49943, actively running or decoding instructions: 3, waiting windows: 24095/55407. Max active instruction index: 18844
+2024-11-21 20:09:18 | Simulation update: decoder round 744244, completed instructions: 22149/49943, actively running or decoding instructions: 3, waiting windows: 28162/64780. Max active instruction index: 22147
+2024-11-21 20:09:28 | Simulation update: decoder round 851649, completed instructions: 25364/49943, actively running or decoding instructions: 1, waiting windows: 32230/74146. Max active instruction index: 25364
+2024-11-21 20:09:38 | Simulation update: decoder round 948397, completed instructions: 28328/49943, actively running or decoding instructions: 1, waiting windows: 35893/82609. Max active instruction index: 28328
+2024-11-21 20:09:48 | Simulation update: decoder round 1056081, completed instructions: 31545/49943, actively running or decoding instructions: 3, waiting windows: 39942/91947. Max active instruction index: 31546
+2024-11-21 20:09:58 | Simulation update: decoder round 1163312, completed instructions: 34797/49943, actively running or decoding instructions: 3, waiting windows: 44034/101354. Max active instruction index: 34795
+2024-11-21 20:10:08 | Simulation update: decoder round 1270999, completed instructions: 38032/49943, actively running or decoding instructions: 2, waiting windows: 48106/110734. Max active instruction index: 38032
+2024-11-21 20:10:18 | Simulation update: decoder round 1378521, completed instructions: 41201/49943, actively running or decoding instructions: 3, waiting windows: 52134/120046. Max active instruction index: 41199
+2024-11-21 20:10:28 | Simulation update: decoder round 1486005, completed instructions: 44417/49943, actively running or decoding instructions: 2, waiting windows: 56183/129384. Max active instruction index: 44417
+2024-11-21 20:10:38 | Simulation update: decoder round 1592018, completed instructions: 47517/49943, actively running or decoding instructions: 1, waiting windows: 60171/138567. Max active instruction index: 47517
+2024-11-21 20:10:46 | Finished simulation
+2024-11-21 20:10:56 | Finished saving output. Done! Total elapsed time: 0:02:58.163638
