@@ -69,7 +69,7 @@ if __name__ == '__main__':
         'benchmark_file':benchmark_files,
         'distance':[13],
         'scheduling_method':['sliding', 'parallel', 'aligned'],
-        'decoder_latency_or_dist_filename':[f'lambda volume: volume'],
+        'decoder_latency_or_dist_filename':[f'lambda volume: ((np.random.random() - 0.5)/5 + 1) * volume'],
         'speculation_mode':['separate', None],
         'speculation_latency':[1],
         'speculation_accuracy':[0.9],

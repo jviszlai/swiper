@@ -1,0 +1,18 @@
+Time: 2024-11-21 20:24:39
+Job IDs:
+    submit_0.sbatch: 26337788. 4GB RAM, configs [0, 1, 2, 3, 4]
+Max clock time: 01:00:00
+Total num. tasks: 5
+Params:
+    benchmark_file: ['slurm/data/20241121_202439/benchmarks/random_t_10000_200_0.lss']
+    distance: [13]
+    scheduling_method: ['sliding', 'parallel', 'aligned']
+    decoder_latency_or_dist_filename: ['lambda volume: ((np.random.random() - 0.5)/5 + 1) * volume']
+    speculation_mode: ['separate', None]
+    speculation_latency: [1]
+    speculation_accuracy: [0.9]
+    poison_policy: ['successors']
+    missed_speculation_modifier: [1.4]
+    max_parallel_processes: [None]
+    rng: [0]
+    lightweight_setting: [1]
