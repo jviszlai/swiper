@@ -186,24 +186,38 @@ def cirq_to_ls(circ: cirq.Circuit, eps=1e-10) -> LatticeSurgerySchedule:
     def decomp(op: cirq.Operation) -> cirq.OP_TREE:
         return cirq.decompose(op, keep=lambda op: len(op.qubits) <= 2)
     def map_approx_rz(op: cirq.Operation) -> cirq.OP_TREE:
+        is_rot = False
+        prefix = []
+        suffix = []
         if isinstance(op.gate, cirq.ZPowGate):
-            exponent = op.gate._exponent
-            op = cirq.Rz(rads=exponent * np.pi).on(op.qubits[0])
+            is_rot = True
+            op = cirq.Rz(rads=op.gate._exponent * np.pi).on(op.qubits[0])
         if isinstance(op.gate, cirq.XPowGate):
-            exponent = op.gate._exponent
-            op = cirq.Rz(rads=exponent * np.pi).on(op.qubits[0])
-            return [cirq.H.on(op.qubits[0]), _get_gridsynth_sequence(op, op.gate._rads, precision=eps), cirq.H.on(op.qubits[0])]
+            is_rot = True
+            op = cirq.Rz(rads=op.gate._exponent * np.pi).on(op.qubits[0])
+            prefix = [cirq.H.on(op.qubits[0])]
+            suffix = [cirq.H.on(op.qubits[0])]
         if isinstance(op.gate, cirq.YPowGate):
-            exponent = op.gate._exponent
-            op = cirq.Rz(rads=exponent * np.pi).on(op.qubits[0])
-            return [cirq.S.on(op.qubits[0]), cirq.H.on(op.qubits[0]), _get_gridsynth_sequence(op, op.gate._rads, precision=eps), cirq.H.on(op.qubits[0]), cirq.S.on(op.qubits[0])]
-        if isinstance(op.gate, cirq.Rz):
-            return _get_gridsynth_sequence(op, op.gate._rads, precision=eps)
-        return op
+            is_rot = True
+            op = cirq.Rz(rads=op.gate._exponent * np.pi).on(op.qubits[0])
+            prefix = [cirq.S.on(op.qubits[0]), cirq.H.on(op.qubits[0])]
+            suffix = [cirq.H.on(op.qubits[0]), cirq.S.on(op.qubits[0])]
+        if isinstance(op.gate, cirq.HPowGate) and op.gate._exponent == -1.0:
+            # Manual handling of Gate: H**-1.0
+            # ry(pi*0.25)
+            # rx(pi*-1.0)
+            # ry(pi*-0.25)
+            is_rot = True
+            return [cirq.S.on(op.qubits[0]), cirq.H.on(op.qubits[0]), cirq.T.on(op.qubits[0]), cirq.H.on(op.qubits[0]), cirq.S.on(op.qubits[0]),
+                    cirq.H.on(op.qubits[0]), cirq.Z.on(op.qubits[0]), cirq.H.on(op.qubits[0]),
+                    cirq.S.on(op.qubits[0]), cirq.H.on(op.qubits[0]), cirq.T.on(op.qubits[0]), cirq.H.on(op.qubits[0]), cirq.S.on(op.qubits[0])]
+        if not is_rot:
+            return [op]
+        return prefix + [_get_gridsynth_sequence(op, op.gate._rads, precision=eps)] + suffix
     def make_qasm_compat(op: cirq.Operation) -> cirq.OP_TREE:
         return op.without_classical_controls()
 
-    circ = circ.map_operations(decomp).map_operations(map_approx_rz).map_operations(make_qasm_compat)
+    circ = circ.map_operations(decomp).map_operations(make_qasm_compat).map_operations(map_approx_rz)
 
     qbit_mapping = {q: f'q_{i}' for i, q in enumerate(circ.all_qubits())}
     bad_ops = []
@@ -275,11 +289,11 @@ def cirq_to_ls(circ: cirq.Circuit, eps=1e-10) -> LatticeSurgerySchedule:
                             elif inject_type == 'Y':
                                 if other_cell in pending_t_inject and pending_t_inject[other_cell][0]:
                                     # Conditional S after T injection
-                                    schedule.conditional_S(other_cell, pending_t_inject[other_cell][1])
+                                    schedule.S(other_cell, inject_cell, pending_t_inject[other_cell][1])
                                     pending_t_inject[other_cell] = (False, None)
                                 else:
                                     # Non-conditional S gate
-                                    schedule.conditional_S(other_cell)
+                                    schedule.S(other_cell, inject_cell)
                         else:
                             schedule.merge(data, routing, merge_faces)
                             for data_coords in data:
