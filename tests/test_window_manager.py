@@ -434,7 +434,7 @@ def test_aligned_randomT():
    
    for i in window_data.all_constructed_windows:
       window = window_data.get_window(i)
-      if window.merge_instr:
+      if window.merge_instr and any(instr.conditional_dependencies for instr in window.merge_instr):
          assert simulator._window_manager._get_layer_idx(i) in [2,3]
       assert simulator._window_manager._all_regions_touching(list(window.commit_region))
       assert len(window.commit_region) <= 3

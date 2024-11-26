@@ -41,7 +41,7 @@ class MSD15To1Schedule:
 
         idx_2 = len(schedule)
         for i,patch in enumerate([(0,0), (0,1), (0,2), (0,3), (0,4), (0,5), (0,6), (2,0), (2,1), (2,2), (2,3), (2,4), (2,5), (2,6), (2,7)]):
-            schedule.conditional_S(patch, idx_1 + i)
+            schedule.Y_meas(patch, idx_1 + i)
         idx_3 = len(schedule)
 
         schedule.discard([(0,0), (0,1), (0,2), (0,3), (0,4), (0,5), (0,6), (2,0), (2,1), (2,2), (2,3), (2,4), (2,5), (2,6), (2,7)])
@@ -87,7 +87,7 @@ class RegularTSchedule:
             idx = len(schedule)
             schedule.merge([(0,0), injection_patch], [])
             schedule.discard([injection_patch])
-            schedule.conditional_S((0,0), idx)
+            schedule.S((0,0), injection_patch, idx)
             
         schedule.discard([(0,0)])
 
@@ -119,7 +119,7 @@ class RandomTSchedule:
             idx = len(schedule)
             schedule.merge([(0,0), injection_patch], [])
             schedule.discard([injection_patch])
-            schedule.conditional_S((0,0), idx)
+            schedule.S((0,0), injection_patch, idx)
 
         schedule.discard([(0,0)])
 

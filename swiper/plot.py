@@ -17,14 +17,14 @@ def plot_device_schedule_trace(
         color_dict: dict[str, str] = {
             'MERGE': 'gray',
             'INJECT_T': 'green',
-            'CONDITIONAL_S': 'gold',
+            'Y_MEAS': 'gold',
             'IDLE': 'white',
             'DECODE_IDLE': 'firebrick',
         },
         edgecolor_dict: dict[str, str] = {
             'MERGE': 'dimgray',
             'INJECT_T': 'darkgreen',
-            'CONDITIONAL_S': 'orange',
+            'Y_MEAS': 'orange',
             'IDLE': 'lightgray',
             'DECODE_IDLE': 'maroon',
         },
