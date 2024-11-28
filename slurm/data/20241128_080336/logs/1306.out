@@ -1,0 +1,18 @@
+CONFIG 1306
+benchmark_file: slurm/data/20241128_080336/benchmarks/adder_n4.lss
+decoder_latency_or_dist_filename: slurm/data/20241128_080336/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 5
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: None
+2024-11-28 09:04:15 | Loading benchmark slurm/data/20241128_080336/benchmarks/adder_n4.lss...
+2024-11-28 09:04:15 | Starting simulation
+2024-11-28 09:04:15 | Simulation update: decoder round 1, completed instructions: 0/136, actively running or decoding instructions: 4, waiting windows: 0/0. Max active instruction index: 29
+2024-11-28 09:04:16 | Finished simulation
+2024-11-28 09:04:16 | Finished saving output. Done! Total elapsed time: 0:00:00.815240
