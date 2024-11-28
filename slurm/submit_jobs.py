@@ -118,7 +118,7 @@ if __name__ == '__main__':
         configs_by_mem.setdefault(mem_gb, []).append(i)
 
     # USER SETTING: submission delay (if too many jobs at once)
-    submission_delay = dt.timedelta(hours=12)
+    submission_delay = dt.timedelta(hours=1)
     last_submit_time = None
     max_tasks_per_job = 800
     job_ids = []
