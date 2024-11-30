@@ -4,7 +4,6 @@ import cirq
 import qiskit
 from qiskit.qasm2 import dumps
 from qiskit.transpiler.passes import RemoveBarriers, Decompose
-import cirq
 from cirq.contrib.qasm_import import circuit_from_qasm
 import os
 from abc import ABC, abstractmethod
@@ -27,7 +26,7 @@ from pyLIQTR.utils.printing                 import openqasm
 from pyLIQTR.pest_interface.pest_python import pw_to_dpw_cutoff
 
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
-from swiper.schedule_experiments import RegularTSchedule, MSD15To1Schedule, MemorySchedule, RandomTSchedule
+from swiper.schedule_experiments import RegularTSchedule, MSD15To1Schedule, MemorySchedule, RandomTSchedule, ToffoliSchedule
 from benchmarks.cirq_to_ls import cirq_to_ls
 
 def _decompose_circuit(circuit) -> cirq.Circuit:
@@ -119,7 +118,7 @@ class CarlemanEncoding(Benchmark):
         return self.schedule
     
     def name(self) -> str:
-        return f"carleman_encoding_{self.n}_{self.K}"
+        return f"carleman_{self.n}_{self.K}"
 
 class ElectronicStructure(Benchmark):
 
@@ -253,3 +252,34 @@ class MSD15To1(Benchmark):
     
     def name(self) -> str:
         return "msd_15to1"
+    
+class Toffoli(Benchmark):
+
+    def __init__(self) -> None:
+        self.schedule = ToffoliSchedule().schedule
+    
+    def get_schedule(self) -> LatticeSurgerySchedule:
+        return self.schedule
+
+    def name(self) -> str:
+        return "toffoli"
+
+class RZ(Benchmark):
+
+    def __init__(self, precision: float, num_rz: int) -> None:
+        self.precision = precision
+        self.num_rz = num_rz
+
+        rz_circ = cirq.Circuit()
+        for _ in range(num_rz):
+            rz_circ.append(cirq.Rz(rads=1.23456789).on(cirq.LineQubit(0)))
+        self.schedule = cirq_to_ls(rz_circ, eps=precision)
+    
+    def get_schedule(self) -> LatticeSurgerySchedule:
+        return self.schedule
+    
+    def name(self) -> str:
+        if self.num_rz > 1:
+            return f"rz_seq_{self.num_rz}_{self.precision}"
+        else:
+            return f"rz_{self.precision}"

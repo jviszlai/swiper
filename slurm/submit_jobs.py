@@ -97,7 +97,7 @@ if __name__ == '__main__':
     # USER SETTING: filter out some combinations of the above parameters
     microbenchmarks = [os.path.join(benchmark_dir, file) for file in ['msd_15to1.lss', 'adder_n4.lss', 'adder_n10.lss', 'adder_n18.lss', 'adder_n28.lss' 'rz_1e-05.lss', 'rz_1e-10.lss', 'rz_1e-15.lss', 'rz_1e-20.lss', 'toffoli.lss', 'qrom_15_15.lss']]
     def config_filter(cfg):
-        return (not (cfg['scheduling_method'] == 'sliding' and cfg['speculation_mode'] == None)) and (not (cfg['max_parallel_processes'] == 'predict' and cfg['speculation_mode'] == None)) and (cfg['rng'] == 0 or float(benchmark_info[cfg['benchmark_file'].split('/')[-1].split('.')[0]]['Ideal volume']) < 30_000)
+        return (not (cfg['scheduling_method'] == 'sliding' and cfg['speculation_mode'] == None)) and (not (cfg['max_parallel_processes'] == 'predict' and cfg['speculation_mode'] == None)) and (cfg['rng'] == 0 or float(benchmark_info[cfg['benchmark_file'].split('/')[-1].split('.')[0]]['T count']) < 3500)
 
     # Write config file (each Python job will read params from this)
     configs = []
@@ -125,7 +125,7 @@ if __name__ == '__main__':
         configs_by_mem.setdefault(mem_gb, []).append(i)
 
     # USER SETTING: submission delay (if too many jobs at once)
-    submission_delay = dt.timedelta(minutes=30)
+    submission_delay = dt.timedelta(hours=1)
     last_submit_time = None
     max_tasks_per_job = 800
     job_ids = []
