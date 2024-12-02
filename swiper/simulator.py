@@ -139,13 +139,13 @@ class DecodingSimulator:
                 rng=rng,
             )
             assert prediction_success
-            max_parallel_processes = pred_decode_data.max_parallel_processes + math.ceil((pred_decode_data.parallel_process_volume / pred_decode_data.num_rounds) * (1 - speculation_accuracy))
+            max_parallel_processes = pred_decode_data.max_parallel_decoders + math.ceil((pred_decode_data.decode_process_volume / pred_decode_data.num_rounds) * (1 - speculation_accuracy))
             processor_prediction_results['device_data:num_rounds'] = pred_device_data.num_rounds
             processor_prediction_results['device_data:total_volume'] = pred_device_data.total_volume
             processor_prediction_results['device_data:avg_conditioned_decode_wait_time'] = pred_device_data.avg_conditioned_decode_wait_time
             processor_prediction_results['decode_data:num_rounds'] = pred_decode_data.num_rounds
-            processor_prediction_results['decode_data:max_parallel_processes'] = pred_decode_data.max_parallel_processes
-            processor_prediction_results['decode_data:parallel_process_volume'] = pred_decode_data.parallel_process_volume
+            processor_prediction_results['decode_data:max_parallel_processes'] = pred_decode_data.max_parallel_decoders
+            processor_prediction_results['decode_data:parallel_process_volume'] = pred_decode_data.decode_process_volume
             print(f'Predicted max parallel processes: {max_parallel_processes}')
             print('\nPREDICTION STEP END-----------------------------------\n')
         assert max_parallel_processes is None or isinstance(max_parallel_processes, int)
