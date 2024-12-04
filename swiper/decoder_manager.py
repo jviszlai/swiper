@@ -396,9 +396,6 @@ class DecoderManager:
                     task.speculation_completion_time = self._current_round
                     unprocessed_task_indices |= {w_idx for w_idx in self._window_idx_dag.successors(task.window_idx) if not (self._get_task_or_none(w_idx) is None or self._get_task(w_idx).completed_decoding)}
             
-            if self.max_parallel_processes and len(self._active_window_progress) >= self.max_parallel_processes:
-                break
-
             if task_idx in self._pending_decode_tasks:
                 # window has not been processed yet
                 parents = list(self._window_idx_dag.predecessors(task.window_idx))
