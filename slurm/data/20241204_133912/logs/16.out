@@ -13,3 +13,5 @@ speculation_latency: 1
 speculation_mode: separate
 2024-12-04 13:40:45 | Loading benchmark slurm/data/20241204_133912/benchmarks/electronic_structure.lss...
 2024-12-04 13:41:34 | Starting simulation
+/var/spool/slurm/d/job26612545/slurm_script: line 16: 1385710 Killed                  python slurm/run_simulation.py "slurm/data/20241204_133912/config.json" "slurm/data/20241204_133912/output" 129600
+slurmstepd: error: Detected 1 oom-kill event(s) in StepId=26612545.batch cgroup. Some of your processes may have been killed by the cgroup out-of-memory handler.
