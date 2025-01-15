@@ -124,9 +124,10 @@ class DeviceManager:
 
         self._instruction_durations: list[int] = [Duration.get_true_duration(instr.instruction.duration, self.d_t) for instr in self.schedule_instructions]
         for i,instr in enumerate(self.schedule_instructions):
-            if instr.instruction.name == 'CONDITIONAL_S' and len(instr.instruction.conditioned_on_idx) > 0 and self.rng.random() < 0.5:
+            if instr.instruction.name == 'Y_MEAS' and len(instr.instruction.conditioned_on_idx) > 0 and self.rng.random() < 0.5:
                 # Conditional S fixup of T injection; 50% chance of not being needed
-                self._instruction_durations[i] = 0
+                for idx in instr.instruction.group_instr_indices | {instr.instruction_idx}:
+                    self._instruction_durations[idx] = 0
 
         # Begin by starting the first instruction
         first_instruction_idx = self._find_first_instruction_idx()
@@ -293,7 +294,14 @@ class DeviceManager:
                             self._completed_instructions.append(instruction_idx)
                         if instruction_task.instruction.name == 'DISCARD':
                             self._active_patches -= set(instruction_task.instruction.patches)
-                        if instruction_task.instruction.name == 'CONDITIONAL_S' and self.lightweight_setting == 0:
+                        elif instruction_task.instruction.name == 'MERGE' and instruction_task.instruction.group_name == 'CONDITIONAL_S' and self.lightweight_setting == 0:
+                            assert len(instruction_task.instruction.conditioned_on_idx) > 0
+                            idle_instr = self.schedule_instructions[instruction_task.instruction_idx+2]
+                            assert idle_instr.instruction.name == 'IDLE'
+                            assert idle_instr.instruction_idx in instruction_task.instruction.group_instr_indices
+                            assert idle_instr.instruction.conditioned_on_idx == instruction_task.instruction.conditioned_on_idx
+                            self._conditional_S_locations.append((list(idle_instr.instruction.patches)[0], self.current_round-1))
+                        elif instruction_task.instruction.name == 'Y_MEAS' and len(instruction_task.instruction.conditioned_on_idx) > 0 and len(instruction_task.instruction.group_instr_indices) == 0:
                             self._conditional_S_locations.append((list(instruction_task.instruction.patches)[0], self.current_round-1))
                         self._instruction_frontier -= set([instruction_idx])
                         new_instructions = set(self.schedule_dag.successors(instruction_idx)) - self._instruction_frontier
@@ -324,7 +332,14 @@ class DeviceManager:
                     self.schedule_instructions[instruction_idx].start_round = self.current_round
                     self._active_instructions[instruction_idx] = self._instruction_durations[instruction_idx]
                     patches_in_use.update(instruction_task.instruction.patches)
-                    if instruction_task.instruction.name == 'CONDITIONAL_S' and self.lightweight_setting == 0:
+                    if instruction_task.instruction.name == 'MERGE' and instruction_task.instruction.group_name == 'CONDITIONAL_S' and self.lightweight_setting == 0:
+                        assert len(instruction_task.instruction.conditioned_on_idx) > 0
+                        idle_instr = self.schedule_instructions[instruction_task.instruction_idx+2]
+                        assert idle_instr.instruction.name == 'IDLE'
+                        assert idle_instr.instruction_idx in instruction_task.instruction.group_instr_indices
+                        assert idle_instr.instruction.conditioned_on_idx == instruction_task.instruction.conditioned_on_idx
+                        self._conditional_S_locations.append((list(idle_instr.instruction.patches)[0], self.current_round-1))
+                    elif instruction_task.instruction.name == 'Y_MEAS' and len(instruction_task.instruction.conditioned_on_idx) > 0 and len(instruction_task.instruction.group_instr_indices) == 0:
                         self._conditional_S_locations.append((list(instruction_task.instruction.patches)[0], self.current_round-1))
                     self._instruction_frontier -= set([instruction_idx])
                     new_instructions = set(self.schedule_dag.successors(instruction_idx)) - self._instruction_frontier
@@ -478,7 +493,7 @@ class DeviceManager:
             if round_idx <= self.current_round:
                 patches_initialized_by_round[round_idx] |= self._patches_initialized_by_instr[instr]
 
-        conditional_S_count = self.schedule.count_instructions('CONDITIONAL_S')
+        conditional_S_count = sum(1 for instr in self.schedule_instructions if instr.instruction.name == 'Y_MEAS' and len(instr.instruction.conditioned_on_idx) > 0)
 
         if self.lightweight_setting == 0:
             return DeviceData(

@@ -52,6 +52,8 @@ class Instruction:
     conditioned_on_completion_idx: frozenset[int] = field(default_factory=frozenset)
     conditional_completion_dependencies: frozenset[int] = field(default_factory=frozenset)
     merge_faces: frozenset[tuple[tuple[int, int], tuple[int, int]]] = field(default_factory=frozenset)
+    group_instr_indices: frozenset[int] = field(default_factory=frozenset)
+    group_name: str = ''
 
     def rename(self, new_name) -> 'Instruction':
         return Instruction(
@@ -64,10 +66,11 @@ class Instruction:
             conditioned_on_completion_idx=self.conditioned_on_completion_idx,
             conditional_completion_dependencies=self.conditional_completion_dependencies,
             merge_faces=self.merge_faces,
+            group_instr_indices=self.group_instr_indices,
         )
     
     def __str__(self):
-        return f'{self.name} {self.idx} {str(list(self.patches)).replace(" ", "")} {self.duration} {str(list(self.conditioned_on_idx)).replace(" ", "")} {str(list(self.conditional_dependencies)).replace(" ", "")} {str(list(self.conditioned_on_completion_idx)).replace(" ", "")} {str(list(self.conditional_completion_dependencies)).replace(" ", "")} {str(list(self.merge_faces)).replace(" ", "")}'
+        return f'{self.name} {self.idx} {str(list(self.patches)).replace(" ", "")} {self.duration} {str(list(self.conditioned_on_idx)).replace(" ", "")} {str(list(self.conditional_dependencies)).replace(" ", "")} {str(list(self.conditioned_on_completion_idx)).replace(" ", "")} {str(list(self.conditional_completion_dependencies)).replace(" ", "")} {str(list(self.merge_faces)).replace(" ", "")} {str(list(self.group_instr_indices)).replace(" ", "")} {self.group_name if self.group_name else "none"}'
 
     @classmethod
     def from_str(cls, s):
@@ -82,6 +85,8 @@ class Instruction:
             conditioned_on_completion_idx=frozenset(eval(s[6])),
             conditional_completion_dependencies=frozenset(eval(s[7])),
             merge_faces=frozenset(eval(s[8])),
+            group_instr_indices=frozenset(eval(s[9])),
+            group_name=s[10] if s[10] != 'none' else '',
         )
     
     def spacetime_volume(self, distance: int) -> int:
@@ -137,12 +142,15 @@ class LatticeSurgerySchedule:
             instruction = Instruction('INJECT_T', len(self.instructions), frozenset([patch]), Duration.D)
             self._add_instruction(instruction)
 
-    def conditional_S(self, patch_coords: tuple[int, int], conditioned_on_idx: int=None):
-        if not conditioned_on_idx:
-            instruction = Instruction('CONDITIONAL_S', len(self.instructions), frozenset([patch_coords]), Duration.HALF_D_PLUS_2)
-            self._add_instruction(instruction)
-            return
-        instruction = Instruction('CONDITIONAL_S', len(self.instructions), frozenset([patch_coords]), Duration.HALF_D_PLUS_2, frozenset([conditioned_on_idx]))
+    def Y_meas(self, patch_coords: tuple[int, int], conditioned_on_idx: int=None):
+        instruction = Instruction(
+            name='Y_MEAS',
+            idx=len(self.instructions),
+            patches=frozenset([patch_coords]),
+            duration=Duration.HALF_D_PLUS_2,
+            conditioned_on_idx=frozenset([conditioned_on_idx]) if conditioned_on_idx else frozenset(),
+            group_name=('Y_MEAS' if not conditioned_on_idx else 'CONDITIONAL_S')
+        )
         self._add_instruction(instruction)
         
         update_instr = self.instructions[conditioned_on_idx]
@@ -156,7 +164,70 @@ class LatticeSurgerySchedule:
             update_instr.conditioned_on_completion_idx,
             update_instr.conditional_completion_dependencies,
             update_instr.merge_faces,
+            update_instr.group_instr_indices,
+            update_instr.group_name,
         )
+    
+    def S(self, target_patch: tuple[int, int], ancilla_patch: tuple[int, int], conditioned_on_idx: int | None = None):
+        if ancilla_patch in self._instructions_by_patch and self.instructions[self._instructions_by_patch[ancilla_patch][-1]].name != 'DISCARD':
+            raise ValueError(f'Tried to initialize ancilla patch {ancilla_patch} for S instruction {len(self.instructions)}, but it is already active. If this was intended, make sure to DISCARD the patch first.')
+        group_instr_indices = frozenset([len(self.instructions), len(self.instructions) + 1, len(self.instructions) + 2, len(self.instructions) + 3])
+        merge_instr = Instruction(
+            name='MERGE',
+            idx=len(self.instructions),
+            patches=frozenset([target_patch, ancilla_patch]),
+            duration=Duration.D,
+            merge_faces=frozenset([(target_patch, ancilla_patch)]),
+            conditioned_on_idx=frozenset([conditioned_on_idx]) if conditioned_on_idx else frozenset(),
+            group_instr_indices=group_instr_indices,
+            group_name='CONDITIONAL_S',
+        )
+        y_cube_instr = Instruction(
+            name='Y_MEAS',
+            idx=len(self.instructions) + 1,
+            patches=frozenset([ancilla_patch]),
+            duration=Duration.HALF_D_PLUS_2,
+            conditioned_on_idx=frozenset([conditioned_on_idx]) if conditioned_on_idx else frozenset(),
+            group_instr_indices=group_instr_indices,
+            group_name='CONDITIONAL_S',
+        )
+        idle = Instruction(
+            name='IDLE',
+            idx=len(self.instructions) + 2,
+            patches=frozenset([target_patch]),
+            duration=Duration.HALF_D_PLUS_2,
+            conditioned_on_idx=frozenset([conditioned_on_idx]) if conditioned_on_idx else frozenset(),
+            group_instr_indices=group_instr_indices,
+            group_name='CONDITIONAL_S',
+        )
+        discard = Instruction(
+            name='DISCARD',
+            idx=len(self.instructions) + 3,
+            patches=frozenset([ancilla_patch]),
+            duration=0,
+            conditioned_on_idx=frozenset([conditioned_on_idx]) if conditioned_on_idx else frozenset(),
+            group_instr_indices=group_instr_indices,
+            group_name='CONDITIONAL_S',
+        )
+        if conditioned_on_idx:
+            update_instr = self.instructions[conditioned_on_idx]
+            self.instructions[conditioned_on_idx] = Instruction(
+                update_instr.name,
+                update_instr.idx,
+                update_instr.patches,
+                update_instr.duration,
+                update_instr.conditioned_on_idx,
+                update_instr.conditional_dependencies | group_instr_indices,
+                update_instr.conditioned_on_completion_idx,
+                update_instr.conditional_completion_dependencies,
+                update_instr.merge_faces,
+                update_instr.group_instr_indices,
+                update_instr.group_name,
+            )
+        self._add_instruction(merge_instr)
+        self._add_instruction(y_cube_instr)
+        self._add_instruction(idle)
+        self._add_instruction(discard)
                                                             
     def merge(
             self,
@@ -243,6 +314,8 @@ class LatticeSurgerySchedule:
                     update_instr.conditioned_on_completion_idx,
                     update_instr.conditional_completion_dependencies  | frozenset([len(self.instructions) - 1]),
                     update_instr.merge_faces,
+                    update_instr.group_instr_indices,
+                    update_instr.group_name,
                 )
 
     def idle(self, patches: list[tuple[int, int]], num_rounds: Duration | int = Duration.D):

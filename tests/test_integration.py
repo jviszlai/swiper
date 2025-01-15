@@ -82,8 +82,8 @@ def test_sliding_regular_T():
         max_parallel_processes=None,
         rng=0,
     )
-    assert device_data.num_rounds == 2*d + 2*decoding_time + d//2+2
-    assert decoding_data.num_rounds == 2*d + 2*decoding_time + math.ceil((2*decoding_time + d//2+2) / d) * decoding_time
+    assert device_data.num_rounds == 2*d + 2*decoding_time + d+d//2+2
+    assert decoding_data.num_rounds == 2*d + 2*decoding_time + math.ceil((2*decoding_time + d+d//2+2) / d) * decoding_time
 
     d=7
     decoding_time = 14
@@ -102,8 +102,8 @@ def test_sliding_regular_T():
         max_parallel_processes=None,
         rng=0,
     )
-    assert device_data.num_rounds == 2*d + 2*decoding_time + d//2+2
-    assert decoding_data.num_rounds == 2*d + 2*decoding_time + math.ceil((2*decoding_time + d//2+2) / d) * decoding_time
+    assert device_data.num_rounds == 2*d + 2*decoding_time + d+d//2+2
+    assert decoding_data.num_rounds == 2*d + 2*decoding_time + math.ceil((2*decoding_time + d+d//2+2) / d) * decoding_time
 
     d=7
     decoding_time = 14
@@ -122,7 +122,7 @@ def test_sliding_regular_T():
         max_parallel_processes=None,
         rng=0,
     )
-    assert device_data.num_rounds == 2*d + d + decoding_time + d//2+2
+    assert device_data.num_rounds == 2*d + d + decoding_time + d+d//2+2
     assert decoding_data.num_rounds == device_data.num_rounds + decoding_time
 
 
@@ -340,6 +340,45 @@ def test_lightweight_output():
         assert device_data_0.avg_conditioned_decode_wait_time > 0
         assert np.isclose(np.mean(list(device_data_0.conditioned_decode_wait_times.values())), np.mean(list(device_data_1.conditioned_decode_wait_times.values()))), (np.mean(list(device_data_0.conditioned_decode_wait_times.values())), np.mean(list(device_data_1.conditioned_decode_wait_times.values())))
         assert np.isclose(np.mean(list(device_data_0.conditioned_decode_wait_times.values())), device_data_2.avg_conditioned_decode_wait_time)
+
+
+def test_predict_parallel_processes():
+    d=7
+    decoding_time = 14
+    speculation_latency = 1
+    speculation_accuracy = 0.5
+    simulator = DecodingSimulator()
+    schedule = MSD15To1Schedule().schedule
+
+    success, _, device_data_0, window_data_0, decoding_data_0 = simulator.run(
+        schedule=schedule,
+        distance=d,
+        scheduling_method='aligned',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_latency,
+        speculation_accuracy=1.0,
+        max_parallel_processes=None,
+        rng=0,
+        lightweight_setting=0,
+    )
+    assert success
+
+    success, sim_data_1, device_data_1, window_data_1, decoding_data_1 = simulator.run(
+        schedule=schedule,
+        distance=d,
+        scheduling_method='aligned',
+        decoding_latency_fn=lambda _: decoding_time,
+        speculation_mode='separate',
+        speculation_latency=speculation_latency,
+        speculation_accuracy=speculation_accuracy,
+        max_parallel_processes='predict',
+        rng=0,
+        lightweight_setting=0,
+    )
+    assert success
+    assert sim_data_1.max_parallel_processes and sim_data_1.max_parallel_processes == decoding_data_0.max_parallel_decoders + math.ceil((decoding_data_0.decode_process_volume / decoding_data_0.num_rounds) * (1 - speculation_accuracy))
+    assert decoding_data_1.max_parallel_decoders <= sim_data_1.max_parallel_processes
 
 if __name__ == '__main__':
     import os

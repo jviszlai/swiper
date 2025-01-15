@@ -1,0 +1,27 @@
+CONFIG 64
+benchmark_file: slurm/data/20241204_133912/benchmarks/rz_seq_10_1e-10.lss
+decoder_latency_or_dist_filename: slurm/data/20241204_133912/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 3
+scheduling_method: sliding
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2024-12-04 13:39:27 | Loading benchmark slurm/data/20241204_133912/benchmarks/rz_seq_10_1e-10.lss...
+2024-12-04 13:39:28 | Starting simulation
+PREDICTION STEP BEGIN---------------------------------
+Predicted max parallel processes: 17
+
+PREDICTION STEP END-----------------------------------
+
+2024-12-04 13:40:09 | Simulation update: decoder round 1, completed instructions: 0/10045, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2024-12-04 13:40:19 | Simulation update: decoder round 64249, completed instructions: 2209/10045, actively running or decoding instructions: 4, waiting windows: 8/4647. Max active instruction index: 2212
+2024-12-04 13:40:29 | Simulation update: decoder round 127847, completed instructions: 4429/10045, actively running or decoding instructions: 4, waiting windows: 11/9385. Max active instruction index: 4429
+2024-12-04 13:40:39 | Simulation update: decoder round 190648, completed instructions: 6620/10045, actively running or decoding instructions: 5, waiting windows: 11/13901. Max active instruction index: 6617
+2024-12-04 13:40:49 | Simulation update: decoder round 254123, completed instructions: 8792/10045, actively running or decoding instructions: 2, waiting windows: 8/18642. Max active instruction index: 8789
+2024-12-04 13:40:54 | Finished simulation
+2024-12-04 13:40:55 | Finished saving output. Done! Total elapsed time: 0:01:27.767269
