@@ -10,7 +10,8 @@ from abc import ABC, abstractmethod
 from qualtran._infra.gate_with_registers import get_named_qubits
 from qualtran import Register, Signature, QAny, DecomposeTypeError, DecomposeNotImplementedError
 from qualtran.bloqs.data_loading.qrom import QROM as QROM_bloq
-from    pyLIQTR.clam.lattice_definitions                      import   CubicLattice, SquareLattice, TriangularLattice
+from pyLIQTR.clam.operator_lattice  import  OperatorUnitCell
+from    pyLIQTR.clam.lattice_definitions                      import   CubicLattice, SquareLattice, TriangularLattice, KagomeLattice
 from    pyLIQTR.BlockEncodings.getEncoding                    import   getEncoding, VALID_ENCODINGS
 from pyLIQTR.BlockEncodings.CarlemanLinearization   import Carleman_Linearization
 from pyLIQTR.ProblemInstances.NonlinearODE          import FOperators
@@ -145,10 +146,14 @@ class ElectronicStructure(Benchmark):
     
 class FermiHubbardEncoding(Benchmark):
 
-    def __init__(self, shape: tuple[int, int] = (2,2)) -> None:
+    def __init__(self, shape: tuple[int, int] = (2,2), 
+                 cell: OperatorUnitCell = SquareLattice, 
+                 cell_name: str = 'Square', 
+                 cell_subtype: str = 'default') -> None:
         # recommended shapes: (2,2), (3,3), (4,4)?
+        self.cell_name = cell_name
         self.shape = shape
-        model  =  getInstance('FermiHubbard',shape=shape, J=-1.0, U=4.0,cell=SquareLattice)
+        model  =  getInstance('FermiHubbard',shape=shape, J=-1.0, U=4.0,cell=cell,cell_subtype=cell_subtype)
         block_encoding = getEncoding(VALID_ENCODINGS.PauliLCU)(model)
 
         registers = get_named_qubits(block_encoding.signature)
@@ -159,7 +164,8 @@ class FermiHubbardEncoding(Benchmark):
         return self.schedule
     
     def name(self) -> str:
-        return f"fermi_hubbard_{self.shape[0]}_{self.shape[1]}"
+
+        return f"fermi_hubbard_{self.shape[0]}_{self.shape[1]}_{self.cell_name}"
     
 class HeisenbergEncoding(Benchmark):
 
