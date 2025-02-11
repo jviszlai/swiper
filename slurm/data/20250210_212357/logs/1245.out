@@ -1,0 +1,24 @@
+CONFIG 1245
+benchmark_file: slurm/data/20250210_212357/benchmarks/adder_n28.lss
+decoder_latency_or_dist_filename: slurm/data/20250210_212357/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 7
+scheduling_method: sliding
+speculation_accuracy: 1.0
+speculation_latency: 1
+speculation_mode: separate
+2025-02-10 22:24:11 | Loading benchmark slurm/data/20250210_212357/benchmarks/adder_n28.lss...
+2025-02-10 22:24:11 | Starting simulation
+2025-02-10 22:24:12 | Simulation update: decoder round 1, completed instructions: 0/3343, actively running or decoding instructions: 7, waiting windows: 0/0. Max active instruction index: 30
+2025-02-10 22:24:22 | Simulation update: decoder round 1732, completed instructions: 315/3343, actively running or decoding instructions: 7, waiting windows: 182/2467. Max active instruction index: 320
+2025-02-10 22:24:32 | Simulation update: decoder round 3627, completed instructions: 549/3343, actively running or decoding instructions: 7, waiting windows: 169/4990. Max active instruction index: 548
+2025-02-10 22:24:42 | Simulation update: decoder round 5560, completed instructions: 985/3343, actively running or decoding instructions: 16, waiting windows: 172/7830. Max active instruction index: 1024
+2025-02-10 22:24:52 | Simulation update: decoder round 8037, completed instructions: 1470/3343, actively running or decoding instructions: 8, waiting windows: 154/10987. Max active instruction index: 1465
+2025-02-10 22:25:02 | Simulation update: decoder round 10812, completed instructions: 2227/3343, actively running or decoding instructions: 17, waiting windows: 146/14152. Max active instruction index: 2234
+2025-02-10 22:25:12 | Simulation update: decoder round 17189, completed instructions: 3295/3343, actively running or decoding instructions: 7, waiting windows: 36/17921. Max active instruction index: 3279
+2025-02-10 22:25:12 | Finished simulation
+2025-02-10 22:25:12 | Finished saving output. Done! Total elapsed time: 0:01:00.866379

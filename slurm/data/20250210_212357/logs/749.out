@@ -1,0 +1,22 @@
+CONFIG 749
+benchmark_file: slurm/data/20250210_212357/benchmarks/adder_n18.lss
+decoder_latency_or_dist_filename: slurm/data/20250210_212357/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2025-02-10 21:24:41 | Loading benchmark slurm/data/20250210_212357/benchmarks/adder_n18.lss...
+2025-02-10 21:24:41 | Starting simulation
+2025-02-10 21:24:41 | Simulation update: decoder round 1, completed instructions: 0/2338, actively running or decoding instructions: 3, waiting windows: 0/0. Max active instruction index: 18
+2025-02-10 21:24:51 | Simulation update: decoder round 2871, completed instructions: 368/2338, actively running or decoding instructions: 14, waiting windows: 1369/2738. Max active instruction index: 386
+2025-02-10 21:25:01 | Simulation update: decoder round 6090, completed instructions: 594/2338, actively running or decoding instructions: 11, waiting windows: 2844/5812. Max active instruction index: 596
+2025-02-10 21:25:11 | Simulation update: decoder round 8965, completed instructions: 970/2338, actively running or decoding instructions: 4, waiting windows: 4119/8603. Max active instruction index: 971
+2025-02-10 21:25:21 | Simulation update: decoder round 12643, completed instructions: 1651/2338, actively running or decoding instructions: 19, waiting windows: 5528/11780. Max active instruction index: 1666
+2025-02-10 21:25:29 | Finished simulation
+2025-02-10 21:25:29 | Finished saving output. Done! Total elapsed time: 0:00:47.857102

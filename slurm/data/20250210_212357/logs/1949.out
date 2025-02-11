@@ -1,0 +1,24 @@
+CONFIG 1949
+benchmark_file: slurm/data/20250210_212357/benchmarks/rz_seq_10_1e-10.lss
+decoder_latency_or_dist_filename: slurm/data/20250210_212357/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 6
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: None
+2025-02-10 23:24:21 | Loading benchmark slurm/data/20250210_212357/benchmarks/rz_seq_10_1e-10.lss...
+2025-02-10 23:24:22 | Starting simulation
+2025-02-10 23:24:23 | Simulation update: decoder round 1, completed instructions: 0/10045, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2025-02-10 23:24:33 | Simulation update: decoder round 69609, completed instructions: 1476/10045, actively running or decoding instructions: 8, waiting windows: 1954/4663. Max active instruction index: 1473
+2025-02-10 23:24:43 | Simulation update: decoder round 139153, completed instructions: 2924/10045, actively running or decoding instructions: 5, waiting windows: 3967/9446. Max active instruction index: 2921
+2025-02-10 23:24:53 | Simulation update: decoder round 207402, completed instructions: 4348/10045, actively running or decoding instructions: 5, waiting windows: 5947/14171. Max active instruction index: 4345
+2025-02-10 23:25:03 | Simulation update: decoder round 276962, completed instructions: 5861/10045, actively running or decoding instructions: 8, waiting windows: 7947/18956. Max active instruction index: 5857
+2025-02-10 23:25:13 | Simulation update: decoder round 346371, completed instructions: 7356/10045, actively running or decoding instructions: 8, waiting windows: 9931/23705. Max active instruction index: 7353
+2025-02-10 23:25:23 | Simulation update: decoder round 416625, completed instructions: 8888/10045, actively running or decoding instructions: 7, waiting windows: 11955/28534. Max active instruction index: 8885
+2025-02-10 23:25:31 | Finished simulation
+2025-02-10 23:25:32 | Finished saving output. Done! Total elapsed time: 0:01:10.834622
