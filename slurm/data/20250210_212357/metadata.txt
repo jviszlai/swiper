@@ -19,3 +19,8 @@ Params:
     max_parallel_processes: [None, 'predict']
     rng: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     lightweight_setting: [2]
+
+- Running big evaluation of all benchmarks to see how much algorithm-level
+improvement we can get with speculation. Assuming fixed speculation accuracy of
+0.90 and using sampled decoder distributions. Also running speculation accuracy
+of 1.0 to measure the impact of speculation misses on latency.

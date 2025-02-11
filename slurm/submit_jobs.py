@@ -72,7 +72,7 @@ if __name__ == '__main__':
     # USER SETTING: change parameter sweeps for distance, spec acc, etc.
     sweep_params = {
         'benchmark_file':benchmark_files,
-        'distance':[21],
+        'distance':[31],
         'scheduling_method':['sliding', 'parallel', 'aligned'],
         'decoder_latency_or_dist_filename':[decoder_dist_filename],
         'speculation_mode':['separate', None],
