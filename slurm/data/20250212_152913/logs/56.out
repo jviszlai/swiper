@@ -1,0 +1,23 @@
+CONFIG 56
+benchmark_file: slurm/data/20250212_152913/benchmarks/grover_ancilla_5.lss
+decoder_latency_or_dist_filename: slurm/data/20250212_152913/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2025-02-12 15:29:21 | Loading benchmark slurm/data/20250212_152913/benchmarks/grover_ancilla_5.lss...
+2025-02-12 15:29:36 | Starting simulation
+2025-02-12 15:30:01 | Simulation update: decoder round 1, completed instructions: 0/141975, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2025-02-12 15:30:11 | Simulation update: decoder round 516, completed instructions: 28/141975, actively running or decoding instructions: 8, waiting windows: 26/44. Max active instruction index: 21
+2025-02-12 15:30:21 | Simulation update: decoder round 1038, completed instructions: 44/141975, actively running or decoding instructions: 5, waiting windows: 31/78. Max active instruction index: 37
+2025-02-12 15:30:31 | Simulation update: decoder round 1563, completed instructions: 76/141975, actively running or decoding instructions: 5, waiting windows: 47/121. Max active instruction index: 69
+2025-02-12 15:30:41 | Simulation update: decoder round 2086, completed instructions: 92/141975, actively running or decoding instructions: 8, waiting windows: 59/157. Max active instruction index: 85
+2025-02-12 15:30:51 | Simulation update: decoder round 2609, completed instructions: 113/141975, actively running or decoding instructions: 4, waiting windows: 70/195. Max active instruction index: 113
+2025-02-12 15:31:01 | Simulation update: decoder round 3131, completed instructions: 132/141975, actively running or decoding instructions: 3, waiting windows: 82/235. Max active instruction index: 125
+2025-02-12 15:31:11 | Simulation update: decoder round 3651, completed instructions: 144/141975, actively running or decoding instructions: 3, waiting windows: 92/270. Max active instruction index: 148

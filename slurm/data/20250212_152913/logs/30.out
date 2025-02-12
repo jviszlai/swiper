@@ -1,0 +1,21 @@
+CONFIG 30
+benchmark_file: slurm/data/20250212_152913/benchmarks/qpeexact_10.lss
+decoder_latency_or_dist_filename: slurm/data/20250212_152913/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2025-02-12 15:29:21 | Loading benchmark slurm/data/20250212_152913/benchmarks/qpeexact_10.lss...
+2025-02-12 15:29:35 | Starting simulation
+2025-02-12 15:30:00 | Simulation update: decoder round 1, completed instructions: 0/139984, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2025-02-12 15:30:10 | Simulation update: decoder round 57, completed instructions: 8/139984, actively running or decoding instructions: 5, waiting windows: 7/7. Max active instruction index: 5
+2025-02-12 15:30:20 | Simulation update: decoder round 113, completed instructions: 8/139984, actively running or decoding instructions: 5, waiting windows: 9/9. Max active instruction index: 5
+2025-02-12 15:30:30 | Simulation update: decoder round 169, completed instructions: 8/139984, actively running or decoding instructions: 5, waiting windows: 9/12. Max active instruction index: 5
+2025-02-12 15:30:40 | Simulation update: decoder round 225, completed instructions: 8/139984, actively running or decoding instructions: 3, waiting windows: 10/15. Max active instruction index: 5
+2025-02-12 15:30:50 | Simulation update: decoder round 281, completed instructions: 8/139984, actively running or decoding instructions: 3, waiting windows: 12/17. Max active instruction index: 5

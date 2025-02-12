@@ -1,0 +1,22 @@
+CONFIG 1
+benchmark_file: slurm/data/20250212_152913/benchmarks/heisenberg_3.lss
+decoder_latency_or_dist_filename: slurm/data/20250212_152913/decoder_dists.json
+distance: 15
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: sliding
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2025-02-12 15:29:21 | Loading benchmark slurm/data/20250212_152913/benchmarks/heisenberg_3.lss...
+2025-02-12 15:29:39 | Starting simulation
+2025-02-12 15:30:06 | Simulation update: decoder round 1, completed instructions: 0/167857, actively running or decoding instructions: 15, waiting windows: 0/0. Max active instruction index: 36
+2025-02-12 15:30:16 | Simulation update: decoder round 54, completed instructions: 40/167857, actively running or decoding instructions: 16, waiting windows: 55/60. Max active instruction index: 37
+2025-02-12 15:30:26 | Simulation update: decoder round 107, completed instructions: 48/167857, actively running or decoding instructions: 4, waiting windows: 64/120. Max active instruction index: 40
+2025-02-12 15:30:36 | Simulation update: decoder round 162, completed instructions: 66/167857, actively running or decoding instructions: 8, waiting windows: 65/176. Max active instruction index: 61
+2025-02-12 15:30:46 | Simulation update: decoder round 217, completed instructions: 66/167857, actively running or decoding instructions: 5, waiting windows: 58/235. Max active instruction index: 58
+2025-02-12 15:30:56 | Simulation update: decoder round 271, completed instructions: 75/167857, actively running or decoding instructions: 8, waiting windows: 67/299. Max active instruction index: 75
+2025-02-12 15:31:06 | Simulation update: decoder round 325, completed instructions: 80/167857, actively running or decoding instructions: 2, waiting windows: 53/349. Max active instruction index: 75

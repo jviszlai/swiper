@@ -1,0 +1,22 @@
+CONFIG 125
+benchmark_file: slurm/data/20250212_152913/benchmarks/fermi_hubbard_4_4_Square.lss
+decoder_latency_or_dist_filename: slurm/data/20250212_152913/decoder_dists.json
+distance: 27
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: None
+2025-02-12 15:29:48 | Loading benchmark slurm/data/20250212_152913/benchmarks/fermi_hubbard_4_4_Square.lss...
+2025-02-12 15:29:55 | Starting simulation
+2025-02-12 15:30:06 | Simulation update: decoder round 1, completed instructions: 0/80662, actively running or decoding instructions: 40, waiting windows: 0/0. Max active instruction index: 90
+2025-02-12 15:30:17 | Simulation update: decoder round 118, completed instructions: 98/80662, actively running or decoding instructions: 44, waiting windows: 202/202. Max active instruction index: 124
+2025-02-12 15:30:27 | Simulation update: decoder round 235, completed instructions: 98/80662, actively running or decoding instructions: 44, waiting windows: 362/362. Max active instruction index: 124
+2025-02-12 15:30:37 | Simulation update: decoder round 337, completed instructions: 98/80662, actively running or decoding instructions: 44, waiting windows: 505/522. Max active instruction index: 124
+2025-02-12 15:30:47 | Simulation update: decoder round 454, completed instructions: 98/80662, actively running or decoding instructions: 44, waiting windows: 659/682. Max active instruction index: 124
+2025-02-12 15:30:57 | Simulation update: decoder round 571, completed instructions: 98/80662, actively running or decoding instructions: 34, waiting windows: 827/882. Max active instruction index: 124
+2025-02-12 15:31:07 | Simulation update: decoder round 688, completed instructions: 98/80662, actively running or decoding instructions: 27, waiting windows: 926/1042. Max active instruction index: 124

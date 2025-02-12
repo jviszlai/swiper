@@ -1,0 +1,21 @@
+CONFIG 26
+benchmark_file: slurm/data/20250212_152913/benchmarks/grover_ancilla_5.lss
+decoder_latency_or_dist_filename: slurm/data/20250212_152913/decoder_dists.json
+distance: 15
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 0
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2025-02-12 15:29:21 | Loading benchmark slurm/data/20250212_152913/benchmarks/grover_ancilla_5.lss...
+2025-02-12 15:29:35 | Starting simulation
+2025-02-12 15:30:00 | Simulation update: decoder round 1, completed instructions: 0/141975, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2025-02-12 15:30:10 | Simulation update: decoder round 522, completed instructions: 60/141975, actively running or decoding instructions: 3, waiting windows: 27/71. Max active instruction index: 53
+2025-02-12 15:30:20 | Simulation update: decoder round 1048, completed instructions: 108/141975, actively running or decoding instructions: 3, waiting windows: 49/139. Max active instruction index: 101
+2025-02-12 15:30:30 | Simulation update: decoder round 1573, completed instructions: 144/141975, actively running or decoding instructions: 5, waiting windows: 74/200. Max active instruction index: 137
+2025-02-12 15:30:40 | Simulation update: decoder round 2102, completed instructions: 188/141975, actively running or decoding instructions: 2, waiting windows: 89/266. Max active instruction index: 188
+2025-02-12 15:30:50 | Simulation update: decoder round 2633, completed instructions: 248/141975, actively running or decoding instructions: 5, waiting windows: 123/346. Max active instruction index: 241
