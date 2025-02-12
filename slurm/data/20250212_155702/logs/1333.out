@@ -1,0 +1,21 @@
+CONFIG 1333
+benchmark_file: slurm/data/20250212_155702/benchmarks/rz_1e-20.lss
+decoder_latency_or_dist_filename: slurm/data/20250212_155702/decoder_dists.json
+distance: 27
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 7
+scheduling_method: aligned
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: None
+2025-02-12 16:33:32 | Loading benchmark slurm/data/20250212_155702/benchmarks/rz_1e-20.lss...
+2025-02-12 16:33:32 | Starting simulation
+2025-02-12 16:33:32 | Simulation update: decoder round 1, completed instructions: 0/2033, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2025-02-12 16:33:42 | Simulation update: decoder round 71435, completed instructions: 636/2033, actively running or decoding instructions: 5, waiting windows: 1533/3369. Max active instruction index: 633
+2025-02-12 16:33:52 | Simulation update: decoder round 141416, completed instructions: 1252/2033, actively running or decoding instructions: 5, waiting windows: 3075/6781. Max active instruction index: 1249
+2025-02-12 16:34:02 | Simulation update: decoder round 210504, completed instructions: 1848/2033, actively running or decoding instructions: 8, waiting windows: 4695/10335. Max active instruction index: 1845
+2025-02-12 16:34:05 | Finished simulation
+2025-02-12 16:34:06 | Finished saving output. Done! Total elapsed time: 0:00:33.664641
