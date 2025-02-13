@@ -1,0 +1,43 @@
+CONFIG 34
+benchmark_file: slurm/data/20250212_155702/benchmarks/carleman_2_4.lss
+decoder_latency_or_dist_filename: slurm/data/20250212_155702/decoder_dists.json
+distance: 15
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 1
+scheduling_method: sliding
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2025-02-12 16:01:55 | Loading benchmark slurm/data/20250212_155702/benchmarks/carleman_2_4.lss...
+2025-02-12 16:01:56 | Starting simulation
+2025-02-12 16:01:58 | Simulation update: decoder round 1, completed instructions: 0/13345, actively running or decoding instructions: 23, waiting windows: 0/0. Max active instruction index: 222
+2025-02-12 16:02:08 | Simulation update: decoder round 449, completed instructions: 621/13345, actively running or decoding instructions: 16, waiting windows: 145/1298. Max active instruction index: 620
+2025-02-12 16:02:18 | Simulation update: decoder round 840, completed instructions: 872/13345, actively running or decoding instructions: 9, waiting windows: 109/2319. Max active instruction index: 930
+2025-02-12 16:02:28 | Simulation update: decoder round 1239, completed instructions: 1141/13345, actively running or decoding instructions: 12, waiting windows: 142/3386. Max active instruction index: 1140
+2025-02-12 16:02:38 | Simulation update: decoder round 1635, completed instructions: 1532/13345, actively running or decoding instructions: 21, waiting windows: 171/4568. Max active instruction index: 1561
+2025-02-12 16:02:48 | Simulation update: decoder round 2052, completed instructions: 1867/13345, actively running or decoding instructions: 28, waiting windows: 175/5789. Max active instruction index: 2022
+2025-02-12 16:02:58 | Simulation update: decoder round 2474, completed instructions: 2362/13345, actively running or decoding instructions: 27, waiting windows: 185/7163. Max active instruction index: 2451
+2025-02-12 16:03:08 | Simulation update: decoder round 2916, completed instructions: 2842/13345, actively running or decoding instructions: 20, waiting windows: 181/8561. Max active instruction index: 2976
+2025-02-12 16:03:18 | Simulation update: decoder round 3368, completed instructions: 3276/13345, actively running or decoding instructions: 12, waiting windows: 157/9944. Max active instruction index: 3319
+2025-02-12 16:03:28 | Simulation update: decoder round 3848, completed instructions: 3759/13345, actively running or decoding instructions: 26, waiting windows: 166/11457. Max active instruction index: 3769
+2025-02-12 16:03:38 | Simulation update: decoder round 4358, completed instructions: 3924/13345, actively running or decoding instructions: 5, waiting windows: 131/12778. Max active instruction index: 3895
+2025-02-12 16:03:48 | Simulation update: decoder round 4873, completed instructions: 4289/13345, actively running or decoding instructions: 16, waiting windows: 133/14254. Max active instruction index: 4314
+2025-02-12 16:03:58 | Simulation update: decoder round 5399, completed instructions: 4722/13345, actively running or decoding instructions: 24, waiting windows: 180/15759. Max active instruction index: 4780
+2025-02-12 16:04:08 | Simulation update: decoder round 5958, completed instructions: 5164/13345, actively running or decoding instructions: 8, waiting windows: 129/17364. Max active instruction index: 5177
+2025-02-12 16:04:18 | Simulation update: decoder round 6543, completed instructions: 5629/13345, actively running or decoding instructions: 30, waiting windows: 177/19036. Max active instruction index: 5710
+2025-02-12 16:04:28 | Simulation update: decoder round 7172, completed instructions: 5944/13345, actively running or decoding instructions: 11, waiting windows: 131/20612. Max active instruction index: 5919
+2025-02-12 16:04:38 | Simulation update: decoder round 7829, completed instructions: 6180/13345, actively running or decoding instructions: 9, waiting windows: 116/22120. Max active instruction index: 6167
+2025-02-12 16:04:48 | Simulation update: decoder round 8511, completed instructions: 6437/13345, actively running or decoding instructions: 9, waiting windows: 120/23679. Max active instruction index: 6435
+2025-02-12 16:04:59 | Simulation update: decoder round 9213, completed instructions: 6784/13345, actively running or decoding instructions: 6, waiting windows: 116/25399. Max active instruction index: 6774
+2025-02-12 16:05:09 | Simulation update: decoder round 9952, completed instructions: 7162/13345, actively running or decoding instructions: 10, waiting windows: 132/27257. Max active instruction index: 7192
+2025-02-12 16:05:19 | Simulation update: decoder round 10731, completed instructions: 7604/13345, actively running or decoding instructions: 7, waiting windows: 132/29244. Max active instruction index: 7601
+2025-02-12 16:05:29 | Simulation update: decoder round 11551, completed instructions: 8209/13345, actively running or decoding instructions: 19, waiting windows: 142/31380. Max active instruction index: 8306
+2025-02-12 16:05:39 | Simulation update: decoder round 12490, completed instructions: 8768/13345, actively running or decoding instructions: 9, waiting windows: 120/33712. Max active instruction index: 8712
+2025-02-12 16:05:49 | Simulation update: decoder round 13537, completed instructions: 9673/13345, actively running or decoding instructions: 11, waiting windows: 129/36394. Max active instruction index: 9673
+2025-02-12 16:05:59 | Simulation update: decoder round 14753, completed instructions: 10400/13345, actively running or decoding instructions: 17, waiting windows: 143/39149. Max active instruction index: 10479
+2025-02-12 16:06:09 | Simulation update: decoder round 16381, completed instructions: 11701/13345, actively running or decoding instructions: 15, waiting windows: 100/42663. Max active instruction index: 11761
+2025-02-12 16:06:18 | Finished simulation
+2025-02-12 16:06:18 | Finished saving output. Done! Total elapsed time: 0:04:22.598923

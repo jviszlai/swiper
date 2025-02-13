@@ -71,7 +71,7 @@ if __name__ == '__main__':
     # USER SETTING: change parameter sweeps for distance, spec acc, etc.
     sweep_params = {
         'benchmark_file':benchmark_files,
-        'distance':[15, 21, 27],
+        'distance':[15, 27],
         'scheduling_method':['sliding', 'parallel', 'aligned'],
         'decoder_latency_or_dist_filename':[decoder_dist_filename],
         'speculation_mode':['separate', None],
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         configs_by_mem.setdefault(mem_gb, []).append(i)
 
     # USER SETTING: submission delay (if too many jobs at once)
-    submission_delay = dt.timedelta(minutes=0)
+    submission_delay = dt.timedelta(minutes=20)
     last_submit_time = None
     max_tasks_per_job = 500
     job_ids = []
@@ -135,6 +135,7 @@ if __name__ == '__main__':
             if last_submit_time:
                 time.sleep(max(0, int((last_submit_time + submission_delay - dt.datetime.now()).total_seconds())))
             selected_config_indices = config_indices[j*max_tasks_per_job:(j+1)*max_tasks_per_job]
+            print(f'\tSubmitting {len(selected_config_indices)} / {len(configs)} jobs...')
             print(f'\tSubmitting {len(selected_config_indices)} / {len(configs)} jobs...')
             sbatch_filename = os.path.join(sbatch_dir, f'submit_{submit_idx}.sbatch')
             submit_idx += 1

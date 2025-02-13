@@ -1,0 +1,34 @@
+CONFIG 158
+benchmark_file: slurm/data/20250212_155702/benchmarks/rz_seq_10_1e-10.lss
+decoder_latency_or_dist_filename: slurm/data/20250212_155702/decoder_dists.json
+distance: 27
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 5
+scheduling_method: sliding
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2025-02-12 16:07:49 | Loading benchmark slurm/data/20250212_155702/benchmarks/rz_seq_10_1e-10.lss...
+2025-02-12 16:07:50 | Starting simulation
+2025-02-12 16:07:52 | Simulation update: decoder round 1, completed instructions: 0/10045, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2025-02-12 16:08:02 | Simulation update: decoder round 60536, completed instructions: 860/10045, actively running or decoding instructions: 5, waiting windows: 16/3037. Max active instruction index: 857
+2025-02-12 16:08:12 | Simulation update: decoder round 94792, completed instructions: 1136/10045, actively running or decoding instructions: 5, waiting windows: 13/4704. Max active instruction index: 1133
+2025-02-12 16:08:22 | Simulation update: decoder round 146701, completed instructions: 1828/10045, actively running or decoding instructions: 2, waiting windows: 11/7398. Max active instruction index: 1825
+2025-02-12 16:08:32 | Simulation update: decoder round 188202, completed instructions: 2252/10045, actively running or decoding instructions: 2, waiting windows: 13/9359. Max active instruction index: 2249
+2025-02-12 16:08:42 | Simulation update: decoder round 230317, completed instructions: 2565/10045, actively running or decoding instructions: 5, waiting windows: 28/11330. Max active instruction index: 2561
+2025-02-12 16:08:52 | Simulation update: decoder round 287182, completed instructions: 3264/10045, actively running or decoding instructions: 2, waiting windows: 23/14415. Max active instruction index: 3261
+2025-02-12 16:09:02 | Simulation update: decoder round 348980, completed instructions: 4164/10045, actively running or decoding instructions: 5, waiting windows: 17/17566. Max active instruction index: 4161
+2025-02-12 16:09:12 | Simulation update: decoder round 381739, completed instructions: 4449/10045, actively running or decoding instructions: 5, waiting windows: 18/19528. Max active instruction index: 4445
+2025-02-12 16:09:22 | Simulation update: decoder round 438033, completed instructions: 5188/10045, actively running or decoding instructions: 2, waiting windows: 16/22495. Max active instruction index: 5185
+2025-02-12 16:09:32 | Simulation update: decoder round 494968, completed instructions: 5940/10045, actively running or decoding instructions: 5, waiting windows: 13/25398. Max active instruction index: 5937
+2025-02-12 16:09:42 | Simulation update: decoder round 555555, completed instructions: 6772/10045, actively running or decoding instructions: 2, waiting windows: 19/28552. Max active instruction index: 6769
+2025-02-12 16:09:52 | Simulation update: decoder round 614093, completed instructions: 7612/10045, actively running or decoding instructions: 2, waiting windows: 14/31772. Max active instruction index: 7609
+2025-02-12 16:10:02 | Simulation update: decoder round 652160, completed instructions: 7952/10045, actively running or decoding instructions: 2, waiting windows: 12/33808. Max active instruction index: 7949
+2025-02-12 16:10:12 | Simulation update: decoder round 694430, completed instructions: 8389/10045, actively running or decoding instructions: 2, waiting windows: 30/35871. Max active instruction index: 8385
+2025-02-12 16:10:22 | Simulation update: decoder round 742574, completed instructions: 8940/10045, actively running or decoding instructions: 5, waiting windows: 13/38316. Max active instruction index: 8937
+2025-02-12 16:10:32 | Simulation update: decoder round 779129, completed instructions: 9296/10045, actively running or decoding instructions: 5, waiting windows: 14/39977. Max active instruction index: 9293
+2025-02-12 16:10:40 | Finished simulation
+2025-02-12 16:10:42 | Finished saving output. Done! Total elapsed time: 0:02:52.655331
