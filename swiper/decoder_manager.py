@@ -21,6 +21,10 @@ class DecoderData:
     window_decoding_start_times: dict[int, int]
     window_decoding_completion_times: dict[int, int]
     missed_speculation_events: list[tuple[int, list[int]]] # list of (round, list of poisoned window indices) tuples
+    num_failed_speculations: int
+    num_discarded_decodes: int
+    wasted_decode_volume: int # cycles * decoder
+    num_successful_speculations: int
 
     def to_dict(self):
         return asdict(self)
@@ -120,6 +124,10 @@ class DecoderManager:
         self._seen_instructions: set[int] = set()
         self._not_fully_decoded_instructions = set()
         self._decoded_unverified_tasks: set[int] = set()
+        self._num_failed_speculations: int = 0
+        self._num_discarded_decodes: int = 0
+        self._wasted_decode_volume: int = 0
+        self._num_successful_speculations: int = 0
 
         self._window_idx_dag = nx.DiGraph()
 
@@ -153,6 +161,7 @@ class DecoderManager:
                     if successor and successor.decoding_start_time != -1:
                         if self.rng.random() > (1-((1-self.speculation_accuracy)*spec_acc_modifier))**self._get_task(successor_idx).window.count_touching_faces(self._get_task(task_idx).window):
                             # Missed speculation
+                            self._num_failed_speculations += 1
                             assert successor.used_parent_speculations[task_idx]
                             poisoned_speculations.append(successor_idx)
                             # update speculation modifiers (adjacent faces have
@@ -173,6 +182,7 @@ class DecoderManager:
                         else:
                             # Verify speculation
                             successor.used_parent_speculations[task_idx] = False
+                            self._num_successful_speculations += 1
 
         # Step speculation forward
         if self.speculation_mode:
@@ -288,6 +298,10 @@ class DecoderManager:
     def _reset_decode_task(self, task_idx):
         assert not self._is_verified_task(task_idx)
         task = self._get_task(task_idx)
+
+        self._wasted_decode_volume += self._current_round - task.decoding_start_time
+        self._num_discarded_decodes += 1
+
         task.decoding_start_time = -1
         if task_idx in self._active_window_progress:
             self._active_window_progress.pop(task_idx)
@@ -476,6 +490,10 @@ class DecoderManager:
                 window_decoding_start_times={task_idx:task.decoding_start_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
                 window_decoding_completion_times={task_idx:task.decoding_completion_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
                 missed_speculation_events=self._missed_speculation_events,
+                num_failed_speculations=self._num_failed_speculations,
+                num_discarded_decodes=self._num_discarded_decodes,
+                wasted_decode_volume=self._wasted_decode_volume,
+                num_successful_speculations=self._num_successful_speculations,
             )
         elif self.lightweight_setting == 1:
             return DecoderData(
@@ -493,6 +511,10 @@ class DecoderManager:
                 window_decoding_start_times={task_idx:task.decoding_start_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
                 window_decoding_completion_times={task_idx:task.decoding_completion_time for task_idx,task in enumerate(self._tasks_by_idx) if task},
                 missed_speculation_events=self._missed_speculation_events,
+                num_failed_speculations=self._num_failed_speculations,
+                num_discarded_decodes=self._num_discarded_decodes,
+                wasted_decode_volume=self._wasted_decode_volume,
+                num_successful_speculations=self._num_successful_speculations,
             )
         elif self.lightweight_setting == 2 or self.lightweight_setting == 3:
             return DecoderData(
@@ -510,6 +532,10 @@ class DecoderManager:
                 window_decoding_start_times=None,
                 window_decoding_completion_times=None,
                 missed_speculation_events=None,
+                num_failed_speculations=self._num_failed_speculations,
+                num_discarded_decodes=self._num_discarded_decodes,
+                wasted_decode_volume=self._wasted_decode_volume,
+                num_successful_speculations=self._num_successful_speculations,
             )
         else:
             raise RuntimeError('Invalid lightweight setting')
