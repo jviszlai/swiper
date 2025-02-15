@@ -13,10 +13,11 @@ if __name__ == '__main__':
     cur_time = dt.datetime.now()
 
     # USER SETTING: maximum job duration
-    max_time = dt.timedelta(hours=24*7)
+    max_time = dt.timedelta(hours=36)
 
     if max_time.days > 0:
-        max_time_str = f'{max_time.days}-{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
+        assert max_time.days == 1
+        max_time_str = f'1-{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
     else:
         max_time_str = f'{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
 
@@ -71,7 +72,7 @@ if __name__ == '__main__':
     # USER SETTING: change parameter sweeps for distance, spec acc, etc.
     sweep_params = {
         'benchmark_file':benchmark_files,
-        'distance':[15, 21, 27],
+        'distance':[15, 21, 21, 27],
         'scheduling_method':['sliding', 'parallel', 'aligned'],
         'decoder_latency_or_dist_filename':[decoder_dist_filename],
         'speculation_mode':['separate', None],
@@ -80,7 +81,7 @@ if __name__ == '__main__':
         'poison_policy':['successors'],
         'missed_speculation_modifier':[1.4],
         'max_parallel_processes':[None, 'predict'],
-        'rng':[0],
+        'rng':list(range(10)),
         'lightweight_setting':[2],
     }
     ordered_param_names = list(sorted(sweep_params.keys()))
@@ -94,7 +95,7 @@ if __name__ == '__main__':
             (cfg['distance'] == 21 or (cfg['speculation_accuracy'] == 0.9 and cfg['max_parallel_processes'] == None)) # distance 15 and 27 runs require less data
             and (not (cfg['speculation_accuracy'] == 1.0 and (cfg['speculation_mode'] == None or cfg['max_parallel_processes'] == 'predict')))
             and (not (cfg['speculation_mode'] == None and (cfg['scheduling_method'] == 'sliding' or cfg['max_parallel_processes'] == 'predict'))) # don't want to turn off swiper for sliding window, or for predicting computational cost
-            and (float(benchmark_info[cfg['benchmark_file'].split('/')[-1].split('.')[0]]['T count']) > 3500) # only large benchmarks
+            and (float(benchmark_info[cfg['benchmark_file'].split('/')[-1].split('.')[0]]['T count']) < 3500) # only small benchmarks
         )
 
     # Write config file (each Python job will read params from this)
@@ -123,9 +124,9 @@ if __name__ == '__main__':
         configs_by_mem.setdefault(mem_gb, []).append(i)
 
     # USER SETTING: submission delay (if too many jobs at once)
-    submission_delay = dt.timedelta(minutes=0)
+    submission_delay = dt.timedelta(minutes=120)
     last_submit_time = None
-    max_tasks_per_job = 500
+    max_tasks_per_job = 600
     job_ids = []
     submit_idx = 0
     for i,mem_gb in enumerate(sorted(configs_by_mem.keys())):
@@ -143,17 +144,18 @@ if __name__ == '__main__':
 #SBATCH --job-name={cur_time.strftime("%Y%m%d_%H%M%S")}
 #SBATCH --output={log_dir}/%a.out
 #SBATCH --error={log_dir}/%a.out
-#SBATCH --partition=fast-long
+#SBATCH --account=pi-ftchong
+#SBATCH --partition=caslake
 #SBATCH --array={','.join([str(x) for x in selected_config_indices])}
 #SBATCH --time={max_time_str}
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu={mem_gb*1000}
 
+module load python
 eval "$(conda shell.bash hook)"
-conda activate /home/jchadwick/envs/pySwiper
-cd /scratch/viszlai/swiper
+conda activate /project/ftchong/projects/envs/pySwiper/
 
-python -m slurm.run_simulation "{config_filename}" "{output_dir}" {int(max_time.total_seconds())}'''
+python slurm/run_simulation.py "{config_filename}" "{output_dir}" {int(max_time.total_seconds())}'''
                 )
 
             p = subprocess.Popen(f'sbatch {sbatch_filename}', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

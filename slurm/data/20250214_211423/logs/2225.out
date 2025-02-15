@@ -1,0 +1,22 @@
+CONFIG 2225
+benchmark_file: slurm/data/20250214_211423/benchmarks/qrom_15_15.lss
+decoder_latency_or_dist_filename: slurm/data/20250214_211423/decoder_dists.json
+distance: 27
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 2
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: None
+2025-02-15 03:14:59 | Loading benchmark slurm/data/20250214_211423/benchmarks/qrom_15_15.lss...
+2025-02-15 03:15:00 | Starting simulation
+2025-02-15 03:15:00 | Simulation update: decoder round 1, completed instructions: 0/1693, actively running or decoding instructions: 10, waiting windows: 0/0. Max active instruction index: 84
+2025-02-15 03:15:10 | Simulation update: decoder round 3252, completed instructions: 240/1693, actively running or decoding instructions: 15, waiting windows: 1191/2004. Max active instruction index: 240
+2025-02-15 03:15:20 | Simulation update: decoder round 6452, completed instructions: 359/1693, actively running or decoding instructions: 12, waiting windows: 2197/4091. Max active instruction index: 353
+2025-02-15 03:15:30 | Simulation update: decoder round 9999, completed instructions: 824/1693, actively running or decoding instructions: 40, waiting windows: 3287/6581. Max active instruction index: 818
+2025-02-15 03:15:40 | Simulation update: decoder round 15502, completed instructions: 1202/1693, actively running or decoding instructions: 41, waiting windows: 4653/9410. Max active instruction index: 1241
+2025-02-15 03:15:46 | Finished simulation
+2025-02-15 03:15:46 | Finished saving output. Done! Total elapsed time: 0:00:46.766839
