@@ -5,7 +5,7 @@ in **SWIPER: Minimizing Fault-Tolerant Quantum Program Latency via Speculative
 Window Decoding**.
 
 ## Installing Python dependencies
-This repository requires Python 3.10-3.12. You can install the required dependencies
+This repository requires Python 3.10-3.11. You can install the required dependencies
 using `pip` with the `requirements.txt` file, or using `poetry` with the
 `pyproject.toml` file.
 
