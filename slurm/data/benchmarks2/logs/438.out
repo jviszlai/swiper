@@ -1,0 +1,28 @@
+CONFIG 438
+benchmark_file: slurm/data/20250214_211423/benchmarks/rz_seq_10_1e-10.lss
+decoder_latency_or_dist_filename: slurm/data/20250214_211423/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: predict
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 7
+scheduling_method: sliding
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: separate
+2025-02-14 21:15:10 | Loading benchmark slurm/data/20250214_211423/benchmarks/rz_seq_10_1e-10.lss...
+2025-02-14 21:15:11 | Starting simulation
+PREDICTION STEP BEGIN---------------------------------
+Predicted max parallel processes: 17
+
+PREDICTION STEP END-----------------------------------
+
+2025-02-14 21:16:01 | Simulation update: decoder round 1, completed instructions: 0/10045, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2025-02-14 21:16:11 | Simulation update: decoder round 57190, completed instructions: 2000/10045, actively running or decoding instructions: 5, waiting windows: 11/4199. Max active instruction index: 1997
+2025-02-14 21:16:21 | Simulation update: decoder round 114776, completed instructions: 3956/10045, actively running or decoding instructions: 5, waiting windows: 9/8339. Max active instruction index: 3953
+2025-02-14 21:16:31 | Simulation update: decoder round 170255, completed instructions: 5853/10045, actively running or decoding instructions: 4, waiting windows: 8/12395. Max active instruction index: 5856
+2025-02-14 21:16:41 | Simulation update: decoder round 230296, completed instructions: 7932/10045, actively running or decoding instructions: 2, waiting windows: 9/16827. Max active instruction index: 7929
+2025-02-14 21:16:51 | Simulation update: decoder round 289252, completed instructions: 9949/10045, actively running or decoding instructions: 2, waiting windows: 14/21197. Max active instruction index: 9949
+2025-02-14 21:16:51 | Finished simulation
+2025-02-14 21:16:52 | Finished saving output. Done! Total elapsed time: 0:01:42.025693

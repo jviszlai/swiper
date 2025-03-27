@@ -13,10 +13,10 @@ if __name__ == '__main__':
     cur_time = dt.datetime.now()
 
     # USER SETTING: maximum job duration
-    max_time = dt.timedelta(hours=24*4)
+    max_time = dt.timedelta(hours=36)
 
     if max_time.days > 0:
-        assert max_time.days <= 7
+        assert max_time.days == 1
         max_time_str = f'1-{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
     else:
         max_time_str = f'{max_time.seconds // 3600:02d}:{(max_time.seconds % 3600) // 60:02d}:{max_time.seconds % 60:02d}'
@@ -47,19 +47,12 @@ if __name__ == '__main__':
         benchmark_info = {row['']:row for row in reader}
 
     # Can make a chosen smaller list of these instead
-    keep_files = ['qft_30', 'grover_ancilla_9', 'electronic_structure', 'heisenberg_5', 'qpeexact_20', 'qft_20', 'heisenberg_3']
     benchmark_files = []
     benchmark_names = {}
     memory_settings = None
     for file in os.listdir('benchmarks/cached_schedules/'):
         # USER SETTING: filter benchmark files if desired
-        if file.endswith('.lss'):
-            keep = False
-            for keep_f in keep_files:
-                if keep_f in file:
-                    keep = True
-            if not keep:
-                continue
+        if file.endswith('.lss') and not file.startswith('memory') and not file.startswith('regular') and not file.startswith('random'):
             path = os.path.join('benchmarks/cached_schedules/', file)
             newpath = os.path.join(benchmark_dir, file)
             # copy files to data dir to preserve them
@@ -79,12 +72,12 @@ if __name__ == '__main__':
     # USER SETTING: change parameter sweeps for distance, spec acc, etc.
     sweep_params = {
         'benchmark_file':benchmark_files,
-        'distance':[21],
+        'distance':[15, 21, 27],
         'scheduling_method':['sliding', 'parallel', 'aligned'],
         'decoder_latency_or_dist_filename':[decoder_dist_filename],
         'speculation_mode':['separate', None],
         'speculation_latency':[1],
-        'speculation_accuracy':[0.9],
+        'speculation_accuracy':[0.9, 1.0],
         'poison_policy':['successors'],
         'missed_speculation_modifier':[1.4],
         'max_parallel_processes':[None, 'predict'],
@@ -97,7 +90,13 @@ if __name__ == '__main__':
     # USER SETTING: filter out some combinations of the above parameters
     microbenchmarks = [os.path.join(benchmark_dir, file) for file in ['msd_15to1.lss', 'adder_n4.lss', 'adder_n10.lss', 'adder_n18.lss', 'adder_n28.lss' 'rz_1e-05.lss', 'rz_1e-10.lss', 'rz_1e-15.lss', 'rz_1e-20.lss', 'toffoli.lss', 'qrom_15_15.lss']]
     def config_filter(cfg):
-        return (not (cfg['scheduling_method'] == 'sliding' and cfg['speculation_mode'] == None)) and (not (cfg['max_parallel_processes'] == 'predict' and cfg['speculation_mode'] == None)) and (cfg['rng'] == 0 or float(benchmark_info[cfg['benchmark_file'].split('/')[-1].split('.')[0]]['T count']) < 3500)
+        # TODO: make the logic here more clear...
+        return (
+            (cfg['distance'] == 21 or (cfg['speculation_accuracy'] == 0.9 and cfg['max_parallel_processes'] == None)) # distance 15 and 27 runs require less data
+            and (not (cfg['speculation_accuracy'] == 1.0 and (cfg['speculation_mode'] == None or cfg['max_parallel_processes'] == 'predict')))
+            and (not (cfg['speculation_mode'] == None and (cfg['scheduling_method'] == 'sliding' or cfg['max_parallel_processes'] == 'predict'))) # don't want to turn off swiper for sliding window, or for predicting computational cost
+            and (float(benchmark_info[cfg['benchmark_file'].split('/')[-1].split('.')[0]]['T count']) < 3500) # only small benchmarks
+        )
 
     # Write config file (each Python job will read params from this)
     configs = []
@@ -125,9 +124,9 @@ if __name__ == '__main__':
         configs_by_mem.setdefault(mem_gb, []).append(i)
 
     # USER SETTING: submission delay (if too many jobs at once)
-    submission_delay = dt.timedelta(hours=1)
+    submission_delay = dt.timedelta(minutes=120)
     last_submit_time = None
-    max_tasks_per_job = 800
+    max_tasks_per_job = 600
     job_ids = []
     submit_idx = 0
     for i,mem_gb in enumerate(sorted(configs_by_mem.keys())):
@@ -137,6 +136,7 @@ if __name__ == '__main__':
             if last_submit_time:
                 time.sleep(max(0, int((last_submit_time + submission_delay - dt.datetime.now()).total_seconds())))
             selected_config_indices = config_indices[j*max_tasks_per_job:(j+1)*max_tasks_per_job]
+            print(f'\tSubmitting {len(selected_config_indices)} / {len(configs)} jobs...')
             sbatch_filename = os.path.join(sbatch_dir, f'submit_{submit_idx}.sbatch')
             submit_idx += 1
             with open(sbatch_filename, 'w') as f:
@@ -144,17 +144,16 @@ if __name__ == '__main__':
 #SBATCH --job-name={cur_time.strftime("%Y%m%d_%H%M%S")}
 #SBATCH --output={log_dir}/%a.out
 #SBATCH --error={log_dir}/%a.out
-#SBATCH --partition=fast-long
+#SBATCH --account=pi-ftchong
+#SBATCH --partition=caslake
 #SBATCH --array={','.join([str(x) for x in selected_config_indices])}
 #SBATCH --time={max_time_str}
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu={mem_gb*1000}
 
+module load python
 eval "$(conda shell.bash hook)"
-conda activate /home/viszlai/anaconda3/envs/pySwiper/
-
-cd /home/viszlai/slurm/swiper
-
+conda activate /project/ftchong/projects/envs/pySwiper/
 
 python slurm/run_simulation.py "{config_filename}" "{output_dir}" {int(max_time.total_seconds())}'''
                 )

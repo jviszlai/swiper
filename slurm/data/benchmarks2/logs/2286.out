@@ -1,0 +1,24 @@
+CONFIG 2286
+benchmark_file: slurm/data/20250214_211423/benchmarks/rz_seq_10_1e-10.lss
+decoder_latency_or_dist_filename: slurm/data/20250214_211423/decoder_dists.json
+distance: 21
+lightweight_setting: 2
+max_parallel_processes: None
+missed_speculation_modifier: 1.4
+poison_policy: successors
+rng: 4
+scheduling_method: parallel
+speculation_accuracy: 0.9
+speculation_latency: 1
+speculation_mode: None
+2025-02-15 03:15:01 | Loading benchmark slurm/data/20250214_211423/benchmarks/rz_seq_10_1e-10.lss...
+2025-02-15 03:15:02 | Starting simulation
+2025-02-15 03:15:03 | Simulation update: decoder round 1, completed instructions: 0/10045, actively running or decoding instructions: 1, waiting windows: 0/0. Max active instruction index: 0
+2025-02-15 03:15:13 | Simulation update: decoder round 71194, completed instructions: 1484/10045, actively running or decoding instructions: 5, waiting windows: 2057/4697. Max active instruction index: 1481
+2025-02-15 03:15:23 | Simulation update: decoder round 142541, completed instructions: 2888/10045, actively running or decoding instructions: 2, waiting windows: 4146/9456. Max active instruction index: 2885
+2025-02-15 03:15:33 | Simulation update: decoder round 214040, completed instructions: 4340/10045, actively running or decoding instructions: 3, waiting windows: 6224/14194. Max active instruction index: 4344
+2025-02-15 03:15:43 | Simulation update: decoder round 282687, completed instructions: 5729/10045, actively running or decoding instructions: 4, waiting windows: 8350/19021. Max active instruction index: 5732
+2025-02-15 03:15:53 | Simulation update: decoder round 354044, completed instructions: 7221/10045, actively running or decoding instructions: 5, waiting windows: 10421/23751. Max active instruction index: 7217
+2025-02-15 03:16:03 | Simulation update: decoder round 425380, completed instructions: 8613/10045, actively running or decoding instructions: 2, waiting windows: 12542/28567. Max active instruction index: 8609
+2025-02-15 03:16:13 | Finished simulation
+2025-02-15 03:16:14 | Finished saving output. Done! Total elapsed time: 0:01:12.777016

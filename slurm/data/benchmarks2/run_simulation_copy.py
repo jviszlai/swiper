@@ -24,7 +24,7 @@ if __name__ == '__main__':
     for key,val in params.items():
         print(f'{key}: {val}')
 
-    assert len(params) == 12, 'Params list changed. Update this file!'
+    assert len(params) == 12, 'Pa54rams list changed. Update this file!'
     benchmark_file = params['benchmark_file']
     distance = params['distance']
     scheduling_method = params['scheduling_method']
