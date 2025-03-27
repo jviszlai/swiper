@@ -4,10 +4,14 @@ This directory contains the necessary scripts and data to generate the figures
 in **SWIPER: Minimizing Fault-Tolerant Quantum Program Latency via Speculative
 Window Decoding**.
 
-## Installing Python dependencies
-This repository requires Python 3.10-3.12. You can install the required dependencies
-using `pip` with the `requirements.txt` file, or using `poetry` with the
-`pyproject.toml` file.
+## Installing dependencies
+Prerequisites:
+- git
+- Python 3.10 or 3.11
+
+Clone the repository, then install the required dependencies
+using `pip` (with the `requirements.txt`) file or using `poetry` (with the
+`pyproject.toml` file).
 
 ## Generating plots
 Plots can be generated using either the provided data or re-generated data by
