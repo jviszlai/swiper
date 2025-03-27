@@ -887,7 +887,7 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
     ax.grid(axis='both', linestyle=':', alpha=0.5, zorder=-10, which='both')
     ax.set_title('SWIPER-SIM runtime', fontsize=10)
     ax.tick_params(direction='in', which='both')
-    plt.savefig('notebooks/figures/10_inset.png', bbox_inches='tight')
+    plt.savefig('artifact/figures/10_inset.png', bbox_inches='tight')
     print('generated 10_inset')
     plt.close()
 
