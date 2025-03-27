@@ -46,7 +46,7 @@ path_to_python_env = 'CHANGE_ME' # argument to `conda activate` in sbatch script
 path_to_swiper = 'CHANGE_ME' # path to the root of this repository
 
 # Optional configuration
-submission_delay = dt.timedelta(minutes=0)
+submission_delay = dt.timedelta(minutes=30)
 max_tasks_per_job = 500
 min_circuit_t_count = None
 max_circuit_t_count = None

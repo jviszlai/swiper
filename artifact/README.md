@@ -5,9 +5,17 @@ in **SWIPER: Minimizing Fault-Tolerant Quantum Program Latency via Speculative
 Window Decoding**.
 
 ## Installing Python dependencies
-This repository assumes Python 3.10-3.12. You can install the required dependencies
-using `pip` and the `requirements.txt` file, or using `poetry` and the
+This repository requires Python 3.10-3.12. You can install the required dependencies
+using `pip` with the `requirements.txt` file, or using `poetry` with the
 `pyproject.toml` file.
+
+## Generating plots
+Plots can be generated using either the provided data or re-generated data by
+running `python artifact/run_analysis.py`. This will generate all data-related
+figures that appear in the paper. This involves reading pre-generated data from
+`artifact/data`, as well as performing some simpler simulations/calculations
+within the script. This script is a combination of
+plotting code from multiple notebooks in the `notebooks/` directory.
 
 ## Re-generating data
 Some of the figures in the paper rely on data that is computationally expensive
@@ -32,12 +40,3 @@ The following scripts will re-generate various datasets:
 - `analysis/run_reaction_time_evals.py`: runs ~300 SWIPER-SIM slurm jobs to
   evaluate SWIPER on a simple "random-T" schedule with different decoder
   latencies. Relevant for Fig. 12.
-
-## Generating plots
-Plots can be generated using either the provided data or re-generated data by
-running `python artifact/run_analysis.py`. This will generate all data-related
-figures that appear in the paper. This involves reading pre-generated data from
-`artifact/data`, as well as performing some simpler simulations/calculations
-within the script. This script is a combination of
-plotting code from multiple notebooks in the `notebooks/` directory.
-
