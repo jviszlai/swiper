@@ -30,8 +30,6 @@ slurm-enabled compute cluster.
 
 The following scripts will re-generate various datasets:
 
-- `analysis/run_benchmark_evals.py`: runs ~3000 SWIPER-SIM slurm jobs to evaluate
-  SWIPER on various application benchmarks. Relevant for Figs. 14 and 15.
 - `analysis/run_predictor_accuracy.py`: simulates 1-, 2-, and 3-step predictor
   accuracy for different code distances. Relevant for Fig. 4.
 - `analysis/run_pymatching_latencies.py`: evaluates latency of Pymatching on
@@ -40,3 +38,5 @@ The following scripts will re-generate various datasets:
 - `analysis/run_reaction_time_evals.py`: runs ~300 SWIPER-SIM slurm jobs to
   evaluate SWIPER on a simple "random-T" schedule with different decoder
   latencies. Relevant for Fig. 12.
+- `analysis/run_benchmark_evals.py`: runs ~3000 SWIPER-SIM slurm jobs to evaluate
+  SWIPER on various application benchmarks. Relevant for Figs. 14 and 15.
