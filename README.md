@@ -16,6 +16,11 @@ Clone the repository with git and install Python dependencies using either pip
 ```
 .
 +-- artifact/               # ISCA 2025 publication data and plots
+|   +-- data/               # pre-generated data from publication
+|   +-- figures/            # figures from publication
+|   +-- README.md
+|   +-- run_*.py            # scripts to generate simulation data
+...
 +-- benchmarks/
 |   +-- cached_schedules    # Compiled benchmark programs
 |   ...
