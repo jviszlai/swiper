@@ -20,7 +20,7 @@ Clone the repository with git and install Python dependencies using either pip
 |   +-- figures/            # figures from publication
 |   +-- README.md
 |   +-- run_*.py            # scripts to generate simulation data
-...
+|   ...
 +-- benchmarks/
 |   +-- cached_schedules    # Compiled benchmark programs
 |   ...
@@ -29,4 +29,7 @@ Clone the repository with git and install Python dependencies using either pip
 +-- swiper/                 # SWIPER-SIM codebase
 +-- tests/                  # Unit tests, run via pytest
 ...
++-- pyproject.toml          # Use to install dependencies via poetry
++-- requirements.txt        # Use to install dependencies via pip
++-- README.md               # This file
 ```
