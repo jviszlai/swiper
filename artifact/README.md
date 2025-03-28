@@ -14,6 +14,9 @@ using `pip` (with the `requirements.txt`) file or using `poetry` (with the
 `pyproject.toml` file).
 
 ## Generating plots
+*Note: run all scripts from the base directory of the repository, not from within
+`artifacts/`.*
+
 Plots can be generated using either the provided data or re-generated data by
 running `python artifact/run_analysis.py`. This will generate all data-related
 figures that appear in the paper. This involves reading pre-generated data from
@@ -22,6 +25,9 @@ within the script. This script is a combination of
 plotting code from multiple notebooks in the `notebooks/` directory.
 
 ## Re-generating data
+*Note: run all scripts from the base directory of the repository, not from within
+`artifacts/`.*
+
 Some of the figures in the paper rely on data that is computationally expensive
 to generate. For these datasets, we have provided our data (in `artifact/data/`)
 along with scripts to re-generate this data if desired. The figures can all be
@@ -34,11 +40,13 @@ slurm-enabled compute cluster.
 
 The following scripts will re-generate various datasets:
 
-- `analysis/run_predictor_accuracy.py`: simulates 1-, 2-, and 3-step predictor
-  accuracy for different code distances. Relevant for Fig. 4.
 - `analysis/run_pymatching_latencies.py`: evaluates latency of Pymatching on
   random decoding problems for different code distances and decoding volumes.
   Relevant for Fig. 3, and as an input to SWIPER-SIM.
+- `analysis/run_predictor_accuracy.py`: simulates 1-, 2-, and 3-step predictor
+  accuracy for different code distances. Relevant for Fig. 4.
+- `analysis/run_mispredict_strategy.py`: simulates different strategies for
+  recovering from mispredictions. Relevant for Fig. 8.
 - `analysis/run_reaction_time_evals.py`: runs ~300 SWIPER-SIM slurm jobs to
   evaluate SWIPER on a simple "random-T" schedule with different decoder
   latencies. Relevant for Fig. 12.
