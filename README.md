@@ -1,5 +1,5 @@
 # SWIPER
-Speculative windowed decoding.
+Speculative Window Decoding for Fault-Tolerant Quantum Programs.
 
 ## ISCA 2025 artifact evaluation
 - See `artifact/` directory (and `artifact/README.md`) for information on
