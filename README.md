@@ -34,3 +34,6 @@ Clone the repository with git and install Python dependencies using either pip
 +-- requirements.txt        # Use to install dependencies via pip
 +-- README.md               # This file
 ```
+
+## Getting Started
+See [getting_started.ipynb](doc/getting_started.ipynb) to try out the simulator!
