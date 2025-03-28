@@ -38,7 +38,8 @@ benchmark evaluations require significant computational resources (>3000
 single-core jobs, some of which take multiple days to complete) and a
 slurm-enabled compute cluster.
 
-The following scripts will re-generate various datasets:
+The following scripts will re-generate various datasets (note that the last two
+require a slurm cluster):
 
 - `analysis/run_pymatching_latencies.py`: evaluates latency of Pymatching on
   random decoding problems for different code distances and decoding volumes.

@@ -19,7 +19,7 @@ import scipy
 import pandas as pd
 import stim
 import networkx as nx
-
+from matplotlib.colors import LinearSegmentedColormap
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper.schedule_experiments import RegularTSchedule, MSD15To1Schedule
 from swiper.simulator import DecodingSimulator
@@ -255,23 +255,26 @@ def plot_8b(mispredict_data_filename):
     fig, axes = plt.subplots(3, 1, figsize=(3.2, 6))
     plt.subplots_adjust(hspace=0.3)
 
+    def interpolate(color1, color2, alpha):
+        return LinearSegmentedColormap.from_list('_', [color1, color2])(alpha)
+
     for i, decode_time in enumerate(decode_times[::-1]):
         ax1 = axes[i]
         ax2 = ax1.twinx()
         real = decode_time * num_nodes
 
         ax1.bar(0.5, np.mean(pes_procs[decode_time]), color=color_list[0], width=0.2, edgecolor='black')
-        ax2.bar(0.7, np.mean(pes_classicals[decode_time]) - real, bottom=real, color=color_list[5], 
-            edgecolor='black', width=0.2, hatch='//', alpha=0.4, label='Wasted Compute' if i == 0 else None)
+        ax2.bar(0.7, np.mean(pes_classicals[decode_time]) - real, bottom=real, color=interpolate('w', color_list[5], 0.5), 
+            edgecolor='black', width=0.2, hatch='//', label='Wasted Compute' if i == 0 else None)
         ax2.bar(0.7, real, color=color_list[5], width=0.2, edgecolor='black', label='Valid Compute' if i == 0 else None)
 
         ax1.bar(1.1, np.mean(adj_procs[decode_time]), color=color_list[0], width=0.2, edgecolor='black')
         ax2.bar(1.3, real, color=color_list[5], width=0.2, edgecolor='black')
-        ax2.bar(1.3, np.mean(adj_classicals[decode_time]) - real, bottom=real, color=color_list[5], edgecolor='black', width=0.2, hatch='//', alpha=0.4)
+        ax2.bar(1.3, np.mean(adj_classicals[decode_time]) - real, bottom=real, color=interpolate('w', color_list[5], 0.5), edgecolor='black', width=0.2, hatch='//')
 
         ax1.bar(1.7, np.mean(opt_procs[decode_time]), color=color_list[0], width=0.2, edgecolor='black')
         ax2.bar(1.9, real, color=color_list[5], width=0.2, edgecolor='black')
-        ax2.bar(1.9, np.mean(opt_classicals[decode_time]) - real, bottom=real, color=color_list[5], edgecolor='black', width=0.2, hatch='//', alpha=0.4)
+        ax2.bar(1.9, np.mean(opt_classicals[decode_time]) - real, bottom=real, color=interpolate('w', color_list[5], 0.5), edgecolor='black', width=0.2, hatch='//')
 
         ax1.tick_params(axis='y', labelcolor=color_list[0])
         ax2.tick_params(axis='y', labelcolor=color_list[5])
