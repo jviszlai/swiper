@@ -20,7 +20,6 @@ Clone the repository with git and install Python dependencies using either pip
 |   +-- figures/            # figures from publication
 |   +-- README.md
 |   +-- run_*.py            # scripts to generate simulation data
-|   ...
 +-- benchmarks/
 |   +-- cached_schedules    # Compiled benchmark programs
 |   ...
