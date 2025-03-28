@@ -1,6 +1,11 @@
 """This script generates all data-related plots that appear in the paper. The
-data directory name(s) provided in main() can be configured to point to
-newly-generated data if desired."""
+data directory names provided in main() can be configured to point to
+newly-generated data if desired.
+
+The code is largely a combination of various parts of the notebooks found in
+`notebooks/`, although the heavier data generation has been separated out into
+the `artifact/run_*` scripts. The plots are generated using matplotlib and saved
+to the `artifact/figures/` directory."""
 
 import os
 import json
@@ -18,40 +23,58 @@ import networkx as nx
 from swiper.lattice_surgery_schedule import LatticeSurgerySchedule
 from swiper.schedule_experiments import RegularTSchedule, MSD15To1Schedule
 from swiper.simulator import DecodingSimulator
-from swiper.predictor import strategy_sim
 import swiper.plot as plotter
 
 def main():
-    ################################################################################
+    ############################################################################
     # CONFIGURATION
-    ################################################################################
-    
+    ############################################################################
+
+    # For fig 3. Can be regenerated using `artifact/run_reaction_time_evals.py`
+    decoder_dist_filename = 'artifact/data/decoder_dists.json'
+
+    # For fig 4. Can be regenerated using `artifact/run_predictor_accuracy.py`
+    one_step_data_filename = 'artifact/data/processed_01-step-predictor-results.pkl'
+    two_step_data_filename = 'artifact/data/processed_02-step-predictor-results.pkl'
+    three_step_data_filename = 'artifact/data/processed_03-step-predictor-results.pkl'
+
+    # For fig 7.
+    fpga_data_filename = 'artifact/data/fpga_data.json'
+
+    # For fig 8b. Can be regenerated using `artifact/run_reaction_time_evals.py`
+    mispredict_data_filename = 'artifact/data/mispredict_data.json'
+
     # For figs 10, 14, 15. Can be regenerated using `artifact/run_reaction_time_evals.py`
     benchmark_directories = ['artifact/data/benchmarks1', 'artifact/data/benchmarks2']
-
-    # For fig 12. Can be regenerated using `artifact/run_reaction_time_evals.py`
-    reaction_times_directory = 'artifact/data/reaction_times'
 
     # For fig 10 (runtime of SWIPER-SIM), we only wanted runtime data from a single
     # cluster (the two benchmark datasets were run on different clusters)
     benchmark_runtime_directories = ['artifact/data/benchmarks2']
 
-    # For fig 3. Can be regenerated using `artifact/run_reaction_time_evals.py`
-    decoder_dist_filename = 'artifact/data/decoder_dists.json'
+    # For fig 12. Can be regenerated using `artifact/run_reaction_time_evals.py`
+    reaction_times_directory = 'artifact/data/reaction_times'
 
+    ############################################################################
+
+    # Generate all plots
+    print('\nRUNNING ANALYSIS\n')
     plot_3(decoder_dist_filename)
-    plot_4()
-    plot_7()
-    plot_8b()
+    plot_4(one_step_data_filename, two_step_data_filename, three_step_data_filename)
+    plot_7(fpga_data_filename)
+    plot_8b(mispredict_data_filename)
     plot_9()
     plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories)
-    plot_12ab(reaction_times_directory)
+    plot_12ab(reaction_times_directory, decoder_dist_filename)
     plot_11ab_12c()
 
 def plot_3(decoder_dist_filename):
-    """See `notebooks/06_decoder_dists.ipynb` for original plotting code."""
+    """See `notebooks/03_decoder_distribution.ipynb` for original plotting
+    code."""
+    print(f'Loading decoder distribution data from {decoder_dist_filename}...')
     with open(decoder_dist_filename, 'r') as f:
         decoder_dists = json.load(f)
+
+    print(f'Generating figure 3\n')
     fig,ax = plt.subplots(figsize=(5,3))
 
     distances = [13, 15, 17, 19, 21, 23, 25, 27, 29, 31]
@@ -87,20 +110,22 @@ def plot_3(decoder_dist_filename):
     ax.legend(title='Volume', frameon=False, ncol=1, bbox_to_anchor=(1, 1.05), loc='upper left')
 
     plt.savefig('artifact/figures/3.png', bbox_inches='tight')
-    print('generated 3')
     plt.close()
 
-def plot_4():
-    """See `notebooks/09_predictor_data.ipynb` for original plotting code."""
+def plot_4(one_step_data_filename, two_step_data_filename, three_step_data_filename):
+    """See `notebooks/04_predictor_accuracy.ipynb` for original plotting code."""
     ## Predictor Accuracy
     import pickle as pkl
     d_range = [13, 15, 17, 19, 21, 23, 25, 27, 29, 31]
     p_range = [1e-3]
 
     ### Plotting
-    one_step_data = pkl.load(open('notebooks/data/processed_01-step-predictor-results.pkl', 'rb'))
-    two_step_data = pkl.load(open('notebooks/data/processed_02-step-predictor-results.pkl', 'rb'))    
-    three_step_data = pkl.load(open('notebooks/data/processed_03-step-predictor-results.pkl', 'rb'))
+    print(f'Loading predictor data from {one_step_data_filename}, {two_step_data_filename}, {three_step_data_filename}...')
+    one_step_data = pkl.load(open(one_step_data_filename, 'rb'))
+    two_step_data = pkl.load(open(two_step_data_filename, 'rb'))    
+    three_step_data = pkl.load(open(three_step_data_filename, 'rb'))
+
+    print(f'Generating figure 4\n')
     import matplotlib.pyplot as plt
     import matplotlib as mpl
     import matplotlib.patches as mpatches
@@ -141,11 +166,10 @@ def plot_4():
     plt.xlabel('Code Distance')
     plt.title(f'Predictor Performance')
     plt.savefig('artifact/figures/4.png', bbox_inches='tight')
-    print('generated 4')
     plt.close()
 
-def plot_7():
-    """See `notebooks/12_fpga_costs.ipynb` for original plotting code."""
+def plot_7(fpga_data_filename):
+    """See `notebooks/11_fpga_costs.ipynb` for original plotting code."""
     def log1(d, c1, c0, a):
         return a * d**3 * (c1 * np.log(d) + c0)
 
@@ -161,10 +185,14 @@ def plot_7():
 
     fig,ax = plt.subplots(figsize=(3,2))
 
-    ds = [3, 5, 7, 9, 13, 17, 21, 25, 27]
-    luts = [1226, 5931, 23540, 50264, 106684, 323497, 698745, 1194324, 1534392]
-    regs = [500, 2032, 9106, 11209, 36376, 42176, 78124, 108940, 126308]
+    print(f'Loading FPGA data from {fpga_data_filename}...')
+    with open(fpga_data_filename, 'r') as f:
+        data = json.load(f)
+        ds = data['ds']
+        luts = data['luts']
+        regs = data['regs']
 
+    print('Fitting curves to FPGA data...')
     ds1 = [9, 13, 17, 21]
     helios_luts = [52111, 165718, 448314, 898715]
     helios_regs = [13754, 47211, 122028, 238939]
@@ -178,6 +206,7 @@ def plot_7():
 
     ds_fit = np.arange(9, 29, 2)
 
+    print(f'Generating figure 7\n')
     ax.plot(ds, luts, '^-', color='C0', label='3-step predictor LUTs')
     ax.plot(ds, regs, '^--', color='C0', markerfacecolor='none', label='3-step predictor registers')
     ax.plot(ds1, helios_luts, 'o-', color='C1', label='Helios LUTs')
@@ -201,50 +230,28 @@ def plot_7():
     ax.tick_params(direction='in', axis='y')
 
     plt.savefig('artifact/figures/7.png', bbox_inches='tight')
-    print('generated 7')
     plt.close()
 
-def plot_8b():
-    """See `notebooks/09_predictor_data.ipynb` for original plotting code."""
+def plot_8b(mispredict_data_filename):
+    """See `notebooks/04_predictor_accuracy.ipynb` for original plotting code."""
     plt.rcParams["font.family"] = "serif"
     color_list = ['#0072B2', '#CC79A7', '#009E73', '#E69F00', '#56B4E9', '#D55E00', '#F0E442']
     plt.rcParams['axes.prop_cycle'] = mpl.cycler(color=color_list)
-    d=13
-    num_nodes = 100
-    num_shots = 10_000
-    decode_times = [2 * 13, 5 * 13, 10 * 13]
-    test_graph = nx.DiGraph()
-    test_graph.add_nodes_from([(node, {'t': d * node}) for node in range(num_nodes)])
-    test_graph.add_edges_from([(i, i+1) for i in range(num_nodes - 1)])
-    adj_pairs = list(zip(list(test_graph.edges())[:-1], list(test_graph.edges())[1:]))
-    opt_runtimes = {decode_time: [] for decode_time in decode_times}
-    opt_classicals = {decode_time: [] for decode_time in decode_times}
-    opt_procs = {decode_time: [] for decode_time in decode_times}
-    pes_runtimes = {decode_time: [] for decode_time in decode_times}
-    pes_classicals = {decode_time: [] for decode_time in decode_times}
-    pes_procs = {decode_time: [] for decode_time in decode_times}
-    adj_runtimes = {decode_time: [] for decode_time in decode_times}
-    adj_classicals = {decode_time: [] for decode_time in decode_times}
-    adj_procs = {decode_time: [] for decode_time in decode_times}
+    
+    print(f'Loading misprediction data from {mispredict_data_filename}...')
+    with open(mispredict_data_filename, 'r') as f:
+        data = json.load(f)
+        decode_times = data['decode_times']
+        num_nodes = data['num_nodes']
+        pes_procs = {int(k):v for k,v in data['pes_procs'].items()}
+        pes_classicals = {int(k):v for k,v in data['pes_classicals'].items()}
+        adj_procs = {int(k):v for k,v in data['adj_procs'].items()}
+        adj_classicals = {int(k):v for k,v in data['adj_classicals'].items()}
+        opt_procs = {int(k):v for k,v in data['opt_procs'].items()}
+        opt_classicals = {int(k):v for k,v in data['opt_classicals'].items()}
 
-    for decode_time in decode_times:
-        for _ in range(num_shots):
-            opt_runtime, opt_classical, opt_valid, opt_proc = strategy_sim(test_graph, adj_pairs, decode_time, 1, 0.9, 0.95, 'optimistic')
-            assert opt_valid == num_nodes * decode_time
-            pes_runtime, pes_classical, pes_valid, pes_proc = strategy_sim(test_graph, adj_pairs, decode_time, 1, 0.9, 0.95, 'pessimistic')
-            assert pes_valid == num_nodes * decode_time
-            adj_runtime, adj_classical, adj_valid, adj_proc = strategy_sim(test_graph, adj_pairs, decode_time, 1, 0.9, 0.95, 'adjacent')
-            assert adj_valid == num_nodes * decode_time
-            opt_runtimes[decode_time].append(opt_runtime)
-            opt_classicals[decode_time].append(opt_classical)
-            opt_procs[decode_time].append(opt_proc)
-            pes_runtimes[decode_time].append(pes_runtime)
-            pes_classicals[decode_time].append(pes_classical)
-            pes_procs[decode_time].append(pes_proc)
-            adj_runtimes[decode_time].append(adj_runtime)
-            adj_classicals[decode_time].append(adj_classical)
-            adj_procs[decode_time].append(adj_proc)
     ### Plotting
+    print(f'Generating figure 8b\n')
     fig, axes = plt.subplots(3, 1, figsize=(3.2, 6))
     plt.subplots_adjust(hspace=0.3)
 
@@ -286,11 +293,11 @@ def plot_8b():
         ax1.set_title(f'Decode Time: {decode_time // 13} Cycles', fontsize=10)
 
     plt.savefig('artifact/figures/8_b.png', bbox_inches='tight')
-    print('generated 8_b')
     plt.close()
 
 def plot_9():
     """See `notebooks/10_bandwidth_power.ipynb` for original plotting code."""
+
     def sparse_compress(sample):
         non_zero_idx = np.where(sample)[0]
         g_addr_len = len(sample).bit_length()
@@ -372,6 +379,7 @@ def plot_9():
 
         return results
 
+    print(f'Estimating I/O power costs...')
     d = 21
     num_samples = 1_000
     L_range = 2 * np.arange(1, 51)
@@ -381,7 +389,9 @@ def plot_9():
     for d in d_range:
         for L in L_range:
             results[(d,L)] = sim(d, L, num_samples)
+    
     ### Plotting
+    print(f'Generating figure 9\n')
     import matplotlib.pyplot as plt
     plt.rcParams['font.family'] = 'serif'
     plt.rcParams['pdf.fonttype'] = 42
@@ -418,11 +428,13 @@ def plot_9():
     ax1.legend(loc='upper left')
     plt.title('4K - 300K Decoding I/O Costs')
     plt.savefig('artifact/figures/9_inset.png', bbox_inches='tight')
-    print('generated 9')
     plt.close()
 
 def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
-    """See `notebooks/05_slurm_data_benchmarks.ipynb` for original plotting code."""
+    """See `notebooks/09_slurm_data_benchmarks.ipynb` for original plotting
+    code."""
+    
+    print(f'Loading benchmark evaluation data...\n')
     # Benchmark plots
     exclude_benchmarks = [[], [], []]
     config = []
@@ -636,15 +648,20 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
         ax.tick_params(direction='in')
 
         return ax, result_means, result_stdevs, limited_proc_result_means, limited_proc_result_stdevs, sorted_benchmarks, sorted_keys, sorted_keys_2, colors_by_keys, limited_proc_val_differences, compare_result_means, relative_to_result_means
+    
+    print('Sorting benchmarks by volume...')
     benchmark_info = pd.read_csv('benchmarks/benchmark_info.csv', index_col=0)
     benchmark_info['density'] = benchmark_info['Ideal volume'] / (benchmark_info['Space footprint'] * benchmark_info['Ideal time'])
     benchmarks_sorted_by_volume = benchmark_info.sort_values('T count').index
+    
     fig,ax = plt.subplots(2,1, figsize=(10,4), sharex=True)
     d = 21
 
     microbench = ['msd_15to1', 'toffoli', 'rz_1e-10']
     # hidden_benchmarks = ['adder_n4', 'adder_n10', 'adder_n28', 'qpeinexact_5', 'qpeexact_5', 'fermi_hubbard_2_2', 'qpeinexact_10']
     hidden_benchmarks = ['adder_n4', 'adder_n10', 'adder_n28', 'fermi_hubbard_2_2_Square', 'qpeexact_5']
+
+    print('Generating figure 14a')
 
     _, result_means, result_stdevs, limited_proc_result_means, limited_proc_result_stdevs, sorted_benchmarks, sorted_keys, sorted_keys_2, colors_by_keys, limited_proc_val_differences, compare_means, relative_to_means, = plot_data(
         data_by_config=data_by_config,
@@ -709,7 +726,6 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
     ax[0].set_yscale('log')
     plt.setp(ax[0].get_yticklabels(), fontsize=9)
     plt.savefig('artifact/figures/14_a.png', bbox_inches='tight')
-    print('generated 14_a')
     plt.close()
 
     def geo_mean(iterable):
@@ -725,6 +741,8 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
         improvements_swiper_parallel.append(1 - result_means[(benchmark, 'separate', 'parallel')] / result_means[(benchmark, None, 'parallel')])
         improvements_swiper_aligned.append(1 - result_means[(benchmark, 'separate', 'aligned')] / result_means[(benchmark, None, 'parallel')])
         improvements_swiper_sliding.append(1 - result_means[(benchmark, 'separate', 'sliding')] / result_means[(benchmark, None, 'parallel')])
+
+    print('Benchmark performance improvements:')
 
     print(f'\tImprovements aligned: {min(improvements_aligned)*100:0.1f}% to {max(improvements_aligned)*100:0.1f}% (mean {np.mean(improvements_aligned)*100:0.1f}%)')
     print(f'\tImprovements SWIPER parallel: {min(improvements_swiper_parallel)*100:0.1f}% to {max(improvements_swiper_parallel)*100:0.1f}% (geometric mean {geo_mean(improvements_swiper_parallel)*100:0.1f}%)')
@@ -766,6 +784,8 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
     print(f'\tOverheads SWIPER aligned: {min(losses_swiper_aligned)*100:0.1f}% to {max(losses_swiper_aligned)*100:0.1f}% (geometric mean {geo_mean(losses_swiper_aligned)*100:0.1f}%)')
     print(f'\tOverheads SWIPER sliding: {min(losses_swiper_sliding)*100:0.1f}% to {max(losses_swiper_sliding)*100:0.1f}% (geometric mean {geo_mean(losses_swiper_sliding)*100:0.1f}%)')
     print(f'\tOverall overheads: {min(losses_swiper_parallel + losses_swiper_aligned + losses_swiper_sliding)*100:0.1f}% to {max(losses_swiper_parallel + losses_swiper_aligned + losses_swiper_sliding)*100:0.1f}% (geometric mean {geo_mean(losses_swiper_parallel + losses_swiper_aligned + losses_swiper_sliding)*100:0.1f}%)')
+    
+    print('Generating figure 14b')
     fig,ax = plt.subplots(2,1,figsize=(3,3), sharex=True)
     markers = {
         None: {
@@ -834,13 +854,13 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
     ax[1].legend([handles[idx] for idx in order],[labels[idx] for idx in order], loc='upper center', bbox_to_anchor=(0.5, -0.4), fontsize=10, frameon=False, ncol=2)
 
     plt.savefig('artifact/figures/14_b.png', bbox_inches='tight')
-    print('generated 14_b')
     plt.close()
 
     benchmark_info['t merge ratio'] = benchmark_info['T volume'] / benchmark_info['Merge volume']
 
     benchmark_info[benchmark_info.index.isin(sorted_benchmarks)].sort_values('T count')
-    config[0]
+
+    print(f'Collecting runtimes for runs in {benchmark_runtime_directories}...')
     import datetime as dt
 
     space_fps = []
@@ -877,6 +897,8 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
                         continue
                     except ValueError as e:
                         continue
+
+    print('Generating figure 10 inset')
     fig,ax = plt.subplots(figsize=(2, 1.5))
     ax.plot(np.array(space_fps) * np.array(instr_counts), runtimes, marker='o', linestyle='', markersize=2, alpha=0.5)
     ax.set_xlabel(r'# patches $\times$ instr. count', fontsize=9)
@@ -888,9 +910,9 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
     ax.set_title('SWIPER-SIM runtime', fontsize=10)
     ax.tick_params(direction='in', which='both')
     plt.savefig('artifact/figures/10_inset.png', bbox_inches='tight')
-    print('generated 10_inset')
     plt.close()
 
+    print('Collecting data on wasted computation due to missed speculations...')
     ## Looking at wasted computation due to missed speculations
     fig,ax = plt.subplots(figsize=(3,2.5))
 
@@ -925,6 +947,7 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
             xs = xs[:init_len]
             ys = [y[:init_len] for y in ys]
 
+    print('Generating figure 15a')
     # for i,benchmark in enumerate(sorted_benchmarks):
     ax.plot(xs, ys[0], marker=markers['separate']['parallel'], linestyle='none', color=colors_by_keys[('parallel','separate')], label=f'SWIPER parallel (applied limit)')
     ax.plot(xs, ys[1], marker=markers['separate']['aligned'], linestyle='none', color=colors_by_keys[('aligned','separate')], label=f'SWIPER aligned (applied limit)')
@@ -954,9 +977,9 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
     ax.legend(loc='upper left', bbox_to_anchor=(1.0, 1.05), fontsize=10, frameon=False)
     ax.tick_params(direction='in', which='both')
     plt.savefig('artifact/figures/15_a.png', bbox_inches='tight')
-    print('generated 15_a')
     plt.close()
 
+    print('Generating figure 15b\n')
     fig,ax = plt.subplots(figsize=(3, 0.7))
 
     wasted_fracs = {
@@ -989,11 +1012,12 @@ def plot_10_14abc_15ab(benchmark_directories, benchmark_runtime_directories):
     plt.yticks([])
     plt.grid(axis='y', linestyle=':', alpha=0.5, zorder=-10)
     plt.savefig('artifact/figures/15_b.png', bbox_inches='tight')
-    print('generated 15_b')
     plt.close()
 
-def plot_12ab(reaction_times_directory):
-    """See `notebooks/05_slurm_data_sensitivity.ipynb` for original plotting code."""
+def plot_12ab(reaction_times_directory, decoder_dist_filename):
+    """See `notebooks/08_slurm_data_reaction_time.ipynb` for original plotting
+    code."""
+    print(f'Loading reaction time data from {reaction_times_directory}...')
     with open(f'{reaction_times_directory}/config.json', 'r') as f:
         config = json.load(f)
     data_by_config = {}
@@ -1042,7 +1066,9 @@ def plot_12ab(reaction_times_directory):
             # TODO: should mark any whose values continually increase over
             # experiment duration as "not scalable" (use hatches to mark on graph,
             # or color gray)
-    with open(f'benchmarks/data/decoder_dists.json', 'r') as f:
+
+    print(f'Loading decoder distance data from {decoder_dist_filename}...')
+    with open(decoder_dist_filename, 'r') as f:
         decoder_dists = json.load(f)
 
     distances = [13, 15, 17, 19, 21, 23, 25, 27, 29, 31]
@@ -1052,6 +1078,7 @@ def plot_12ab(reaction_times_directory):
     def f(x, a, b):
         return a*x+b
 
+    print('Fitting relative latency factors to PyMatching data...')
     fit_rs = []
     for i,dist in enumerate(distances):
         xs = []
@@ -1068,6 +1095,7 @@ def plot_12ab(reaction_times_directory):
     from matplotlib.colors import LinearSegmentedColormap
     import matplotlib as mpl
 
+    print('Generating figure 12a')
     fig,ax = plt.subplots(figsize=(5,4))
     colors = ['C0', 'C1', 'C3']
     def interpolate(color1, color2, alpha):
@@ -1157,9 +1185,9 @@ def plot_12ab(reaction_times_directory):
     plt.tick_params(direction='in', which='both')
     plt.grid(True, which='both', linestyle=':', linewidth=0.5)
     plt.savefig('artifact/figures/12_a.png', bbox_inches='tight')
-    print('generated 12_a')
     plt.close()
 
+    print('Running decoder headroom analysis...')
     rs = sorted(all_data[('parallel', True)][0.0].keys())
     ys_baseline = [all_data[('parallel', True)][0.0][x] for x in rs]
     fit_baseline = np.polyfit(rs, ys_baseline, 1)
@@ -1209,6 +1237,7 @@ def plot_12ab(reaction_times_directory):
             plot_lines.append(lines2)
             plot_lines.append(lines3)
 
+    print('Generating figure 12b\n')
     xlim = ax.get_xlim()
     for i,spec_acc in enumerate(accuracies):
         lines, = ax.plot([-2, -1], [1, 1], label=(f'{spec_acc*100:.0f}%' if spec_acc > 0 else '0%'), color=interpolate_white('gray', alphas[i]) if spec_acc > 0 else 'gray', linestyle=linestyles[i])
@@ -1225,11 +1254,13 @@ def plot_12ab(reaction_times_directory):
     leg2 = ax.legend(legend_lines, ['90%', '100%'], title='Speculation\naccuracy', bbox_to_anchor=(0.76, 0.99), loc='upper right', frameon=False, ncol=1, fontsize=10)
     ax.add_artist(leg1)
     plt.savefig('artifact/figures/12_b.png', bbox_inches='tight')
-    print('generated 12_b')
     plt.close()
 
 def plot_11ab_12c():
     """See `notebooks/00_window_test.ipynb` for original plotting code."""
+
+    print('Simulating RegularTSchedule...')
+
     scheduling_method = 'sliding'
     schedule = LatticeSurgerySchedule(True)
     schedule.idle([(0,0)], 15)
@@ -1253,12 +1284,14 @@ def plot_11ab_12c():
         rng=0,
         lightweight_setting=0,
     )
+
+    print('Generating figure 12')
     ax = plotter.plot_device_schedule_trace(device_data, spacing=1, z_min=120)
     ax.set_axis_off()
     plt.savefig('artifact/figures/12_c.png', bbox_inches='tight', dpi=300)
-    print('generated 12_c')
     plt.close()
 
+    print('Simulating MSD15To1Schedule...')
     ## 15 - 1 Factory
     speculation_mode, scheduling_method = 'separate', 'aligned'
     simulator = DecodingSimulator()
@@ -1276,11 +1309,13 @@ def plot_11ab_12c():
         rng=0,
         lightweight_setting=0,
     )
+
+    print('Generating figure 11a')
     ax = plotter.plot_device_schedule_trace(device_data, spacing=1, z_max=106)
     plt.savefig(f'artifact/figures/11_a.png', bbox_inches='tight', dpi=300)
-    print('generated 11_a')
     plt.close()
 
+    print('Simulating MSD15To1Schedule...')
     speculation_mode, scheduling_method = None, 'parallel'
     simulator = DecodingSimulator()
     success, _, device_data, window_data, decoding_data = simulator.run(
@@ -1297,9 +1332,10 @@ def plot_11ab_12c():
         rng=0,
         lightweight_setting=0,
     )
+
+    print('Generating figure 11b\n')
     ax = plotter.plot_device_schedule_trace(device_data, spacing=1, z_max=106)
     plt.savefig(f'artifact/figures/11_b.png', bbox_inches='tight', dpi=300)
-    print('generated 11_b')
     plt.close()
 
 if __name__ == '__main__':

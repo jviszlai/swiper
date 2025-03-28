@@ -1,3 +1,21 @@
+"""This script submits slurm jobs to run benchmarking simulations used in the
+paper. The results are saved in the `artifact/data/` directory.
+
+The script generates a large number of "experiment configurations", each of
+which corresponds to one SWIPER-SIM simulation (by running
+`artifact/_simulate.py`). The script then submits one or more arrays of SLURM
+jobs to run these simulations. Each job reads one experiment configuration from
+the `config.json` file and runs the corresponding simulation.
+
+Requires a compute cluster with SLURM and a valid Python installation. Python
+environment must be configured properly first. The four variables at the start
+of this file must be configured to match the user's system. The rest of the
+script does not need to be modified to reproduce the results in the paper, but
+may require modifications if the user's system has a shorter job time limit or a
+limit on the number of jobs that can be submitted at once.
+
+This script is adapted from `slurm/run_simulation.py` and `slurm/submit_jobs.py`
+in the original repository."""
 
 import os, sys
 import shutil

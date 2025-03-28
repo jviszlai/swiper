@@ -61,8 +61,12 @@ def plot_device_schedule_trace(
     num_rounds = data.num_rounds
     if z_max:
         num_rounds = z_max
+    else:
+        z_max = num_rounds
     if z_min:
         num_rounds -= z_min
+    else:
+        z_min = 0
     x,y,z = np.meshgrid(np.cumsum([0]+[data.d, spacing]*cols), np.cumsum([0]+[data.d, spacing]*rows), np.arange((spacing+1)*num_rounds+2))
 
     volume = np.zeros((2*rows, 2*cols, (spacing+1)*num_rounds+1))
@@ -80,6 +84,7 @@ def plot_device_schedule_trace(
 
     z_offset = 0
     increased_z = False
+    largest_z_used = 0
     for round_idx, round_data in enumerate(data.generated_syndrome_data):
         if z_max and round_idx > z_max:
             continue
@@ -157,12 +162,17 @@ def plot_device_schedule_trace(
                     volume[coords[0]*2, coords[1]*2, coords[2]+z_offset-spacing:coords[2]+z_offset] = 1
                     colors[coords[0]*2, coords[1]*2, coords[2]+z_offset-spacing:coords[2]+z_offset] = color
                     edgecolors[coords[0]*2, coords[1]*2, coords[2]+z_offset-spacing:coords[2]+z_offset] = edgecolor
+            largest_z_used = max(largest_z_used, coords[2]+z_offset)
     ax.voxels(x,y,z, filled=volume, facecolors=colors, edgecolors=edgecolors, lightsource=mpl.colors.LightSource(azdeg=315, altdeg=45), alpha=alpha, linewidths=linewidth)
     
-    if z_min:
-        ax.set_zlim(bottom=z_min)
-    if z_max:
-        ax.set_zlim(top=z_max)
+    ax.set_zlim(0, largest_z_used)
+    z_ticks = ax.get_zticks()    
+    ax.set_zticks(z_ticks, [int(x + z_min) for x in z_ticks])
+
+    # if z_min:
+    #     ax.set_zlim(bottom=z_min)
+    # if z_max:
+    #     ax.set_zlim(top=z_max)
     ax.set_aspect('equal')
 
     ax.view_init(elev=15, azim=30)

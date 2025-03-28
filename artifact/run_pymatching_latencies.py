@@ -1,7 +1,14 @@
+"""This script collects PyMatching latencies for randomly generated surface code
+decoding problems of varying distance and number of rounds, then saves them to a
+file for use in the benchmark simulations.
+
+On an M1 Macbook Pro, this script takes about 1 hour to run."""
+
 import stim
 import pymatching
 import numpy as np
 import datetime
+import json
 import pickle as pkl
 
 if __name__ == '__main__':
@@ -32,3 +39,5 @@ if __name__ == '__main__':
                 decoding_dists[d][r][i] = t1
             
     pkl.dump(decoding_dists, open('artifact/data/decoder_dists.pkl', 'wb'))
+    with open('artifact/data/decoder_dists.json', 'w') as f:
+        json.dump(decoding_dists, f)
