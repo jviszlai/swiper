@@ -1,17 +1,27 @@
 # SWIPER
 Speculative windowed decoding.
 
-## Getting started
-Easiest way: install dependencies via Poetry using the pyproject.toml file.
-
-## Organization
-- `swiper/` contains all SWIPER-SIM code.
-- `tests/` contains unit tests for SWIPER-SIM, runnable via `pytest`.
-- `benchmarks/` contains code to generate benchmark lattice surgery schedules, as well as cached compiled schedules in a custom lattice surgery format (.lss).
-- `slurm/` contains scripts to run evaluations via SLURM, and contains data used to generate figures in this work.
-- `notebooks/` contains Jupyter notebooks used to analyze and plot data.
-
 ## ISCA 2025 artifact evaluation
 - See `artifact/` directory (and `artifact/README.md`) for information on
   reproducing the results presented in the publication "SWIPER: Minimizing
   Fault-Tolerant Quantum Program Latency via Speculative Window Decoding"
+
+## Installing dependencies
+Requires git and Python 3.10 or 3.11.
+
+Clone the repository with git and install Python dependencies using either pip
+(with `requirements.txt`) or poetry (with `pyproject.toml`).
+
+## Organization
+```
+.
++-- artifact/               # ISCA 2025 publication data and plots
++-- benchmarks/
+|   +-- cached_schedules    # Compiled benchmark programs
+|   ...
++-- notebooks/              # Interactive notebooks with examples and plots
++-- slurm/                  # Scripts and data from slurm jobs
++-- swiper/                 # SWIPER-SIM codebase
++-- tests/                  # Unit tests, run via pytest
+...
+```
