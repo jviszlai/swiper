@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15102955.svg)](https://doi.org/10.5281/zenodo.15102955)
+
 # SWIPER
 Speculative Window Decoding for Fault-Tolerant Quantum Programs.
 
