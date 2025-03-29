@@ -4,9 +4,9 @@ Speculative Window Decoding for Fault-Tolerant Quantum Programs.
 ## ISCA 2025 artifact evaluation
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15102955.svg)](https://doi.org/10.5281/zenodo.15102955)
 
-- See `artifact/` directory (and `artifact/README.md`) for information on
-  reproducing the results presented in the publication "SWIPER: Minimizing
-  Fault-Tolerant Quantum Program Latency via Speculative Window Decoding"
+See `artifact/` directory (and `artifact/README.md`) for information on
+reproducing the results presented in the publication "SWIPER: Minimizing
+Fault-Tolerant Quantum Program Latency via Speculative Window Decoding"
 
 ## Installing dependencies
 Requires git and Python 3.10 or 3.11.
