@@ -7,7 +7,8 @@ The code is largely a combination of various parts of the notebooks found in
 the `artifact/run_*` scripts. The plots are generated using matplotlib and saved
 to the `artifact/figures/` directory."""
 
-import os
+import os, sys
+sys.path.append('.')
 import json
 import warnings
 import numpy as np

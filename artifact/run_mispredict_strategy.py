@@ -5,6 +5,8 @@ later analysis.
 
 This script takes under five minutes to run on an M1 Macbook Pro."""
 
+import os, sys
+sys.path.append('.')
 import json
 import networkx as nx
 from swiper.predictor import strategy_sim

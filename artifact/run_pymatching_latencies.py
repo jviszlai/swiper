@@ -4,6 +4,8 @@ file for use in the benchmark simulations.
 
 On an M1 Macbook Pro, this script takes about 1 hour to run."""
 
+import os, sys
+sys.path.append('.')
 import stim
 import pymatching
 import numpy as np
