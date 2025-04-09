@@ -17,8 +17,11 @@ if __name__ == '__main__':
     decoding_dists = {d: {} for d in d_range}
     p = 1e-3
 
+    print(f"Running pymatching decoder latencies for d in {d_range} and p = {p}")
     for d in d_range:
+        print(f"Running d = {d}, r = ", end='', flush=True)
         for r in range(2, 8):
+            print(f"{r} ", end='', flush=True)
             circ = stim.Circuit.generated("surface_code:rotated_memory_z", 
                                     distance=d, rounds=r*d,
                                     after_clifford_depolarization=p, 
@@ -37,7 +40,9 @@ if __name__ == '__main__':
                 matching.decode(shot)
                 t1 = (datetime.datetime.now() - t0).total_seconds() * 1e6 # us
                 decoding_dists[d][r][i] = t1
-            
-    pkl.dump(decoding_dists, open('artifact/data/decoder_dists.pkl', 'wb'))
+        print()
+    
+    decoding_dists_listified = {d: {r: decoding_dists[d][r].tolist() for r in decoding_dists[d]} for d in decoding_dists}
+    pkl.dump(decoding_dists_listified, open('artifact/data/decoder_dists.pkl', 'wb'))
     with open('artifact/data/decoder_dists.json', 'w') as f:
-        json.dump(decoding_dists, f)
+        json.dump(decoding_dists_listified, f)

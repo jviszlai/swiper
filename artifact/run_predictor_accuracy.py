@@ -9,14 +9,17 @@ if __name__ == '__main__':
     d_range = [13, 15, 17, 19, 21, 23, 25, 27, 29, 31]
     p_range = [1e-3]
 
+    print(f"Running predictor accuracy simulation for d in {d_range} and p = {p_range}")
     for i, config in enumerate([[2,3], [3], []]):
+        print(f'Running {i+1}-Step Predictor...')
         results = {}
         for p in p_range:
+            print(f'Running p = {p}... ', end='', flush=True)
             for d in d_range:
+                print(f'd={d}, ', end='', flush=True)
                 results[(p,d)] = simulate_temporal_speculation(5_000, d, p, ignore_steps=config)
+            print()
         pkl.dump(results, open(f'artifact/data/0{i+1}-step-predictor-results.pkl', 'wb'))
-
-        print(f'{i+1}-Step Predictor Done')
 
     one_step_data = pkl.load(open('artifact/data/01-step-predictor-results.pkl', 'rb'))
     two_step_data = pkl.load(open('artifact/data/02-step-predictor-results.pkl', 'rb'))    

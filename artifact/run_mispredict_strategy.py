@@ -28,8 +28,12 @@ if __name__ == '__main__':
     adj_classicals = {decode_time: [] for decode_time in decode_times}
     adj_procs = {decode_time: [] for decode_time in decode_times}
 
+    print(f"Running misprediction strategy simulation for d = {d}, num_nodes = {num_nodes}, num_shots = {num_shots}, decode_times = {decode_times}")
     for decode_time in decode_times:
-        for _ in range(num_shots):
+        print(f"Running decode_time = {decode_time}. Progress: ", end='', flush=True)
+        for shot in range(num_shots):
+            if shot % (num_shots // 10) == 0:
+                print(f"{shot / num_shots * 100: 0.0f}% ", end='', flush=True)
             opt_runtime, opt_classical, opt_valid, opt_proc = strategy_sim(test_graph, adj_pairs, decode_time, 1, 0.9, 0.95, 'optimistic')
             assert opt_valid == num_nodes * decode_time
             pes_runtime, pes_classical, pes_valid, pes_proc = strategy_sim(test_graph, adj_pairs, decode_time, 1, 0.9, 0.95, 'pessimistic')
@@ -45,6 +49,7 @@ if __name__ == '__main__':
             adj_runtimes[decode_time].append(adj_runtime)
             adj_classicals[decode_time].append(adj_classical)
             adj_procs[decode_time].append(adj_proc)
+        print()
     
     with open('artifact/data/mispredict_data.json', 'w') as f:
         json.dump({
