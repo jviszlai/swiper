@@ -1,4 +1,5 @@
 import sys, os
+sys.path.append('.')
 import json
 import pickle
 import datetime as dt

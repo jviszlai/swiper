@@ -1,7 +1,8 @@
 """This script evaluates the accuracy of the 1-, 2-, and 3-step predictors on
 randomly generated syndrome data and saves the results to files for processing.
 """
-
+import os, sys
+sys.path.append('.')
 import pickle as pkl
 from swiper.predictor import simulate_temporal_speculation, process_failures
 

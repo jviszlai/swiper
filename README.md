@@ -1,10 +1,12 @@
 # SWIPER
-Speculative windowed decoding.
+Speculative Window Decoding for Fault-Tolerant Quantum Programs.
 
 ## ISCA 2025 artifact evaluation
-- See `artifact/` directory (and `artifact/README.md`) for information on
-  reproducing the results presented in the publication "SWIPER: Minimizing
-  Fault-Tolerant Quantum Program Latency via Speculative Window Decoding"
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15102955.svg)](https://doi.org/10.5281/zenodo.15102955)
+
+See `artifact/` directory (and `artifact/README.md`) for information on
+reproducing the results presented in the publication "SWIPER: Minimizing
+Fault-Tolerant Quantum Program Latency via Speculative Window Decoding"
 
 ## Installing dependencies
 Requires git and Python 3.10 or 3.11.
@@ -32,3 +34,6 @@ Clone the repository with git and install Python dependencies using either pip
 +-- requirements.txt        # Use to install dependencies via pip
 +-- README.md               # This file
 ```
+
+## Getting Started
+See [getting_started.ipynb](doc/getting_started.ipynb) to try out the simulator!

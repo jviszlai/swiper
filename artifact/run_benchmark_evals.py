@@ -26,6 +26,7 @@ This script is adapted from `slurm/run_simulation.py` and `slurm/submit_jobs.py`
 in the original repository."""
 
 import os, sys
+sys.path.append('.')
 import shutil
 import json
 import math
