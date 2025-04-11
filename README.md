@@ -18,13 +18,9 @@ Clone the repository, then install the required dependencies
 using `pip` (with the `requirements.txt`) file or using `poetry` (with the
 `pyproject.toml` file).
 
-### Potential issues
-
-- Some users have reported issues installing the `tweedledum` dependency with the
-following error message: `Could NOT find nlohmann_json: Found unsuitable version
-"X.X.X", but required is at least "3.9.0"`. This occurs if you already have
-`nlohmann_json` installed on your system. If you encounter this, you need to
-manually install 3.9.0+ and retry.
+If you run into issues installing the `tweedledum` package, note that this
+depends on some C++ libraries that may need to be manually reinstalled if the
+version on your PC is too old.
 
 ## Organization
 ```
