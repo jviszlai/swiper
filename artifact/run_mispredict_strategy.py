@@ -3,7 +3,7 @@
 a prior dependency was decoded incorrectly). It saves the results to a file for
 later analysis.
 
-This script takes under five minutes to run on an M1 Macbook Pro."""
+This script takes under five minutes to run on an M2 Macbook Pro."""
 
 import os, sys
 sys.path.append('.')

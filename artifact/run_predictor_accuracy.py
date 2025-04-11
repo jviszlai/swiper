@@ -1,5 +1,7 @@
 """This script evaluates the accuracy of the 1-, 2-, and 3-step predictors on
 randomly generated syndrome data and saves the results to files for processing.
+
+This script takes about an hour to run on an M2 Macbook Pro.
 """
 import os, sys
 sys.path.append('.')

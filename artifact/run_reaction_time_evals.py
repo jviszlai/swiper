@@ -15,7 +15,11 @@ may require modifications if the user's system has a shorter job time limit or a
 limit on the number of jobs that can be submitted at once.
 
 This script is adapted from `slurm/run_simulation.py` and `slurm/submit_jobs.py`
-in the original repository."""
+in the original repository.
+
+This script can take between 1 minute and an hour to submit all jobs,
+depending on configuration of `submission_delay` and `max_tasks_per_job`. The
+SLURM jobs themselves will finish in a few hours."""
 
 import os, sys
 sys.path.append('.')

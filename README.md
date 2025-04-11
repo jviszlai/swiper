@@ -9,10 +9,22 @@ reproducing the results presented in the publication "SWIPER: Minimizing
 Fault-Tolerant Quantum Program Latency via Speculative Window Decoding"
 
 ## Installing dependencies
-Requires git and Python 3.10 or 3.11.
+Prerequisites:
+- git
+- Python 3.10 or 3.11
+- CMake and gcc (needed to install Python dependencies)
 
-Clone the repository with git and install Python dependencies using either pip
-(with `requirements.txt`) or poetry (with `pyproject.toml`).
+Clone the repository, then install the required dependencies
+using `pip` (with the `requirements.txt`) file or using `poetry` (with the
+`pyproject.toml` file).
+
+### Potential issues
+
+- Some users have reported issues installing the `tweedledum` dependency with the
+following error message: `Could NOT find nlohmann_json: Found unsuitable version
+"X.X.X", but required is at least "3.9.0"`. This occurs if you already have
+`nlohmann_json` installed on your system. If you encounter this, you need to
+manually install 3.9.0+ and retry.
 
 ## Organization
 ```

@@ -23,7 +23,11 @@ and `data/benchmarks2/submit_jobs_copy.py` for the
 original job submission scripts used in the paper.
 
 This script is adapted from `slurm/run_simulation.py` and `slurm/submit_jobs.py`
-in the original repository."""
+in the original repository.
+
+This script can take between 1 minute and several hours to submit all jobs,
+depending on configuration of `submission_delay` and `max_tasks_per_job`. The
+SLURM jobs themselves will take several days to complete."""
 
 import os, sys
 sys.path.append('.')
